@@ -42,63 +42,7 @@ Tarayıcıdan oynanan, çevrimiçi ve çok oyunculu emlak ticareti oyunu
 4. Paran biterse ev sat ya da ipotek et. Kapatamazsan iflas edersin.
 5. Ayakta kalan son oyuncu **Baron** olur! 🏆
 
-## 🚀 Kurulum
 
-```bash
-npm install
-npm start
-```
-
-Ardından tarayıcıda **http://localhost:3000** adresini aç.
-
-Testleri çalıştırmak için:
-
-```bash
-npm test
-```
-
-## 🌍 Yayına Alma
-
-> ⚠️ Oyun gerçek zamanlı WebSocket kullanır; **sürekli çalışan bir Node sunucusu** gerekir.
-> Vercel / Netlify gibi yalnızca serverless platformlar uygun değildir.
-
-### Render (ücretsiz, önerilen)
-
-1. [render.com](https://render.com)'a GitHub hesabınla giriş yap.
-2. **New → Blueprint** seç ve bu depoyu seç.
-3. **Apply**'a bas. Birkaç dakika sonra oyunun linki hazır!
-
-> 💤 Ücretsiz planda sunucu 15 dk boşta kalınca uyur; ilk açılış ~30 sn sürebilir.
-
-### Docker
-
-```bash
-docker build -t baron-turkiye .
-docker run -p 3000:3000 baron-turkiye
-```
-
-Railway, Fly.io veya kendi sunucunda da çalışır; `PORT` ortam değişkeni otomatik okunur.
-
-## 📁 Proje Yapısı
-
-```
-baron-turkiye/
-├── server/
-│   ├── index.js    # HTTP + Socket.IO, odalar, eşleşme, yeniden bağlanma
-│   ├── game.js     # Oyun motoru: kurallar ve zamanlayıcılar
-│   └── board.js    # Kareler, fiyat/kira tabloları, kartlar
-├── public/         # Arayüz (HTML / CSS / JS)
-├── test/           # Simülasyon ve uçtan uca testler
-├── Dockerfile
-└── render.yaml
-```
-
-## 📝 Notlar
-
-- Odalar sunucu belleğinde tutulur; sunucu yeniden başlarsa süren oyunlar silinir.
-- Süreleri `server/game.js` içindeki `TIMING` ile, tahta ve kartları `server/board.js` üzerinden değiştirebilirsin.
-
----
 
 <div align="center">
 <sub>Bu proje Hasbro'nun Monopoly markasıyla ilişkili değildir; klasik emlak ticareti oyun mekaniklerini kullanan bağımsız bir yapımdır.</sub>
