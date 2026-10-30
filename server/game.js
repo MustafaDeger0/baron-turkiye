@@ -22,7 +22,7 @@ const shuffle = (a) => {
 };
 const die = () => crypto.randomInt(1, 7);
 const isInt = (n) => Number.isInteger(n);
-const tl = (n) => `₺${n}`;
+const tl = (n) => `B${Number(n).toLocaleString('tr-TR')}`;
 
 class Game {
   constructor(players, opts = {}) {
@@ -43,6 +43,7 @@ class Game {
     this.extraRoll = false;
     this.dice = [1, 1];
     this.rollId = 0;
+    this.moves = []; // son zar atışındaki hareketler (istemci animasyonu için)
     this.pendingBuy = null;
     this.auction = null;
     this.trades = [];
@@ -144,6 +145,7 @@ class Game {
     const a = die(), b = die(), sum = a + b, dbl = a === b;
     this.dice = [a, b];
     this.rollId++;
+    this.moves = [];
     this.addLog(`🎲 ${p.name} zar attı: ${a} + ${b} = ${sum}${dbl ? ' (çift!)' : ''}`);
     if (p.inJail) {
       if (dbl) {
@@ -191,17 +193,20 @@ class Game {
   move(p, steps) {
     const np = (p.pos + steps + 40) % 40;
     if (steps > 0 && np < p.pos) this.passGo(p);
+    this.moves.push({ pid: p.id, from: p.pos, to: np, kind: 'walk' });
     p.pos = np;
     this.land(p, { dice: steps });
   }
 
   moveTo(p, target, opts = {}) {
     if (target < p.pos) this.passGo(p);
+    this.moves.push({ pid: p.id, from: p.pos, to: target, kind: 'walk' });
     p.pos = target;
     this.land(p, opts);
   }
 
   sendToJail(p) {
+    this.moves.push({ pid: p.id, from: p.pos, to: 10, kind: 'jail' });
     p.pos = 10; p.inJail = true; p.jailTurns = 0;
     this.extraRoll = false;
     this.addLog(`🚔 ${p.name} hapse girdi.`);
@@ -269,7 +274,12 @@ class Game {
     this.addLog(`🃏 ${p.name} ${deck === 'chance' ? 'Şans' : 'Kamu Fonu'} kartı çekti: "${card.text}"`);
 
     if (card.move !== undefined) return this.moveTo(p, card.move);
-    if (card.moveRel) { p.pos = (p.pos + card.moveRel + 40) % 40; return this.land(p); }
+    if (card.moveRel) {
+      const to = (p.pos + card.moveRel + 40) % 40;
+      this.moves.push({ pid: p.id, from: p.pos, to, kind: 'back' });
+      p.pos = to;
+      return this.land(p);
+    }
     if (card.nearest) {
       let t = p.pos;
       do { t = (t + 1) % 40; } while (SQUARES[t].type !== card.nearest);
@@ -674,6 +684,7 @@ class Game {
       phase: this.phase,
       dice: this.dice,
       rollId: this.rollId,
+      moves: this.moves,
       pendingBuy: this.pendingBuy,
       auction: this.auction,
       trades: this.trades,

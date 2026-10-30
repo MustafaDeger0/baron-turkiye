@@ -245,6 +245,7 @@ io.on('connection', (socket) => {
   }));
 
   socket.on('game:act', guard((action, cb) => {
+    if (process.env.DEBUG) console.log('act', socket.id, JSON.stringify(action));
     const { room, me } = ctx();
     if (!room || !me || !room.game) return cb && cb({ error: 'Aktif oyun yok.' });
     const err = room.game.act(me.id, action);

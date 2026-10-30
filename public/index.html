@@ -2,24 +2,26 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c1f2b">
 <title>Baron Türkiye — Çevrimiçi Emlak Oyunu</title>
-<meta name="description" content="Arkadaşlarınla oda kur ya da rastgele oyuncularla eşleş: İstanbul semtlerinde emlak al, ev-otel dik, rakiplerini iflas ettir.">
+<meta name="description" content="Türkiye'nin illerini satın al, ev ve otel dik, rakiplerini iflas ettir. Arkadaşlarınla oda kur ya da rastgele oyuncularla eşleş.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧿</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎩</text></svg>">
 </head>
 <body>
 
 <!-- ============ ANA MENÜ ============ -->
 <section id="home" class="screen">
+  <div id="notesBg" class="notes-bg" aria-hidden="true"></div>
   <div class="home-wrap">
     <header class="brand">
-      <div class="nazar" aria-hidden="true"><span></span></div>
+      <div class="logo-hat" aria-hidden="true">🎩</div>
       <h1>BARON<small>TÜRKİYE</small></h1>
-      <p>İstanbul'un semtlerini kap, ev ve otel dik, rakiplerini iflas ettir. Baron sen ol! 2–6 kişi, tarayıcıdan oyna.</p>
+      <p>Türkiye'nin illerini kap, ev ve otel dik, rakiplerini iflas ettir. Baron sen ol!<br>2–6 kişi · tarayıcıdan oyna</p>
     </header>
 
     <div class="card home-card">
@@ -44,7 +46,7 @@
           <label class="field"><span>Oyuncu sayısı</span>
             <select id="maxPlayersSel"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label>
           <label class="field"><span>Başlangıç parası</span>
-            <select id="startMoneySel"><option value="1000">₺1000</option><option value="1500" selected>₺1500</option><option value="2000">₺2000</option><option value="2500">₺2500</option></select></label>
+            <select id="startMoneySel"><option value="1000">B1.000</option><option value="1500" selected>B1.500</option><option value="2000">B2.000</option><option value="2500">B2.500</option></select></label>
           <label class="field"><span>Görünürlük</span>
             <select id="publicSel"><option value="0">Özel (kodla)</option><option value="1">Herkese açık</option></select></label>
         </div>
@@ -53,10 +55,10 @@
     </div>
 
     <div class="card">
-      <div class="card-head"><h3>Açık Odalar</h3><span class="muted" id="onlineInfo"></span></div>
+      <div class="card-head"><h3>Açık Odalar</h3></div>
       <ul id="publicRooms" class="room-list"><li class="muted">Şu an açık oda yok. İlk odayı sen kur!</li></ul>
     </div>
-    <p class="foot muted">Klasik emlak ticareti oyunu kurallarıyla, hayran yapımı bağımsız bir oyundur.</p>
+    <p class="foot">Para birimi: <b>Baron Doları (B)</b> · Klasik emlak ticareti kurallarıyla bağımsız bir yapımdır.</p>
   </div>
 </section>
 
@@ -99,7 +101,7 @@
     <div class="board-holder">
       <div id="board" class="board">
         <div class="center" id="center">
-          <div class="center-brand"><div class="nazar sm"><span></span></div><div>BARON<small>TÜRKİYE</small></div></div>
+          <div class="center-brand"><span class="hat">🎩</span><div>BARON<small>TÜRKİYE</small></div></div>
           <div class="dice-row" id="diceRow"><div class="die" id="die1"></div><div class="die" id="die2"></div></div>
           <div class="turn-info" id="turnInfo"></div>
           <div class="timer"><div id="timerBar"></div></div>
@@ -107,14 +109,19 @@
           <div class="debt-box hidden" id="debtBox"></div>
           <div class="auction-box hidden" id="auctionBox"></div>
           <div class="card-pop hidden" id="cardPop"></div>
+          <div class="banner hidden" id="banner"></div>
         </div>
+        <div id="tokenLayer" class="token-layer"></div>
       </div>
     </div>
 
     <aside class="side">
       <div class="side-top">
         <div class="room-tag"><span id="gameRoomName"></span> · <b id="gameCode"></b></div>
-        <button id="leaveGameBtn" class="btn ghost sm">Çık</button>
+        <div class="side-top-btns">
+          <button id="fsBtn" class="btn ghost sm" title="Tam ekran (F)">⛶ Tam ekran</button>
+          <button id="leaveGameBtn" class="btn ghost sm">Çık</button>
+        </div>
       </div>
       <ul id="playerList" class="player-list"></ul>
       <div class="side-buttons">
@@ -145,6 +152,8 @@
 </div>
 
 <div id="overlay" class="overlay hidden"></div>
+<canvas id="confetti" class="confetti"></canvas>
+<div id="fx" class="fx-layer"></div>
 <div id="toasts" class="toasts"></div>
 <div id="conn" class="conn hidden">Bağlantı koptu, yeniden bağlanılıyor…</div>
 
