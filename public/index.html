@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Baron Türkiye — Çevrimiçi Emlak Oyunu</title>
+<meta name="description" content="Arkadaşlarınla oda kur ya da rastgele oyuncularla eşleş: İstanbul semtlerinde emlak al, ev-otel dik, rakiplerini iflas ettir.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧿</text></svg>">
+</head>
+<body>
+
+<!-- ============ ANA MENÜ ============ -->
+<section id="home" class="screen">
+  <div class="home-wrap">
+    <header class="brand">
+      <div class="nazar" aria-hidden="true"><span></span></div>
+      <h1>BARON<small>TÜRKİYE</small></h1>
+      <p>İstanbul'un semtlerini kap, ev ve otel dik, rakiplerini iflas ettir. Baron sen ol! 2–6 kişi, tarayıcıdan oyna.</p>
+    </header>
+
+    <div class="card home-card">
+      <label class="field">
+        <span>Oyuncu adın</span>
+        <input id="nameInput" maxlength="16" placeholder="Örn. Ayşe" autocomplete="nickname">
+      </label>
+
+      <button id="quickBtn" class="btn big primary">⚡ Hızlı Eşleş <small>Rastgele oyuncularla oyna</small></button>
+
+      <div class="row two">
+        <button id="showCreateBtn" class="btn big">🏠 Oda Kur</button>
+        <div class="join-box">
+          <input id="codeInput" maxlength="5" placeholder="ODA KODU" autocomplete="off">
+          <button id="joinBtn" class="btn">Katıl</button>
+        </div>
+      </div>
+
+      <form id="createForm" class="create-form hidden">
+        <label class="field"><span>Oda adı</span><input id="roomNameInput" maxlength="30" placeholder="Cuma akşamı"></label>
+        <div class="row three">
+          <label class="field"><span>Oyuncu sayısı</span>
+            <select id="maxPlayersSel"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label>
+          <label class="field"><span>Başlangıç parası</span>
+            <select id="startMoneySel"><option value="1000">₺1000</option><option value="1500" selected>₺1500</option><option value="2000">₺2000</option><option value="2500">₺2500</option></select></label>
+          <label class="field"><span>Görünürlük</span>
+            <select id="publicSel"><option value="0">Özel (kodla)</option><option value="1">Herkese açık</option></select></label>
+        </div>
+        <button class="btn primary" type="submit">Odayı Oluştur</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>Açık Odalar</h3><span class="muted" id="onlineInfo"></span></div>
+      <ul id="publicRooms" class="room-list"><li class="muted">Şu an açık oda yok. İlk odayı sen kur!</li></ul>
+    </div>
+    <p class="foot muted">Klasik emlak ticareti oyunu kurallarıyla, hayran yapımı bağımsız bir oyundur.</p>
+  </div>
+</section>
+
+<!-- ============ LOBİ ============ -->
+<section id="lobby" class="screen hidden">
+  <div class="lobby-wrap">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h2 id="lobbyName">Oda</h2>
+          <div class="muted" id="lobbyInfo"></div>
+        </div>
+        <button id="leaveLobbyBtn" class="btn ghost">Ayrıl</button>
+      </div>
+      <div class="code-box">
+        <div><span class="muted">Oda kodu</span><strong id="lobbyCode">-----</strong></div>
+        <button id="copyLinkBtn" class="btn">🔗 Davet linkini kopyala</button>
+      </div>
+      <ul id="lobbyPlayers" class="lobby-players"></ul>
+      <div class="picker">
+        <span class="muted">Piyonun:</span>
+        <div id="iconPicker" class="chips"></div>
+        <div id="colorPicker" class="chips"></div>
+      </div>
+      <div id="autoStartInfo" class="auto-start hidden"></div>
+      <button id="startBtn" class="btn big primary">Oyunu Başlat</button>
+      <p id="waitHost" class="muted center hidden">Oda sahibinin oyunu başlatması bekleniyor…</p>
+    </div>
+    <div class="card chat-card">
+      <h3>Sohbet</h3>
+      <ul id="lobbyChat" class="chat-list"></ul>
+      <form class="chat-form" data-chat><input maxlength="200" placeholder="Mesaj yaz…"><button class="btn">Gönder</button></form>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OYUN ============ -->
+<section id="game" class="screen hidden">
+  <div class="game-wrap">
+    <div class="board-holder">
+      <div id="board" class="board">
+        <div class="center" id="center">
+          <div class="center-brand"><div class="nazar sm"><span></span></div><div>BARON<small>TÜRKİYE</small></div></div>
+          <div class="dice-row" id="diceRow"><div class="die" id="die1"></div><div class="die" id="die2"></div></div>
+          <div class="turn-info" id="turnInfo"></div>
+          <div class="timer"><div id="timerBar"></div></div>
+          <div class="actions" id="actions"></div>
+          <div class="debt-box hidden" id="debtBox"></div>
+          <div class="auction-box hidden" id="auctionBox"></div>
+          <div class="card-pop hidden" id="cardPop"></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="side-top">
+        <div class="room-tag"><span id="gameRoomName"></span> · <b id="gameCode"></b></div>
+        <button id="leaveGameBtn" class="btn ghost sm">Çık</button>
+      </div>
+      <ul id="playerList" class="player-list"></ul>
+      <div class="side-buttons">
+        <button id="myPropsBtn" class="btn">📜 Mülklerim</button>
+        <button id="tradeBtn" class="btn">🤝 Takas</button>
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-tab="log">Olaylar</button>
+        <button class="tab" data-tab="chat">Sohbet <i id="chatBadge" class="badge hidden"></i></button>
+        <button class="tab" data-tab="trades">Teklifler <i id="tradeBadge" class="badge hidden"></i></button>
+      </div>
+      <div class="tab-body" data-body="log"><ul id="logList" class="log-list"></ul></div>
+      <div class="tab-body hidden" data-body="chat">
+        <ul id="gameChat" class="chat-list"></ul>
+        <form class="chat-form" data-chat><input maxlength="200" placeholder="Mesaj yaz…"><button class="btn">Gönder</button></form>
+      </div>
+      <div class="tab-body hidden" data-body="trades"><ul id="tradeList" class="trade-list"></ul></div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ MODALLAR ============ -->
+<div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <button class="modal-x" data-close aria-label="Kapat">✕</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<div id="overlay" class="overlay hidden"></div>
+<div id="toasts" class="toasts"></div>
+<div id="conn" class="conn hidden">Bağlantı koptu, yeniden bağlanılıyor…</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
