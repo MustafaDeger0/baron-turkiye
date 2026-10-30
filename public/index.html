@@ -6,9 +6,7 @@
 <meta name="theme-color" content="#0c1f2b">
 <title>Baron Türkiye — Çevrimiçi Emlak Oyunu</title>
 <meta name="description" content="Türkiye'nin illerini satın al, ev ve otel dik, rakiplerini iflas ettir. Arkadaşlarınla oda kur ya da rastgele oyuncularla eşleş.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="fonts.css">
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%231b2228' d='M7 3h10v11H7z'/><path fill='%23d7263d' d='M7 11h10v2H7z'/><ellipse fill='%231b2228' cx='12' cy='16' rx='10' ry='3'/></svg>">
 </head>
@@ -45,8 +43,8 @@
         <div class="row three">
           <label class="field"><span>Oyuncu sayısı</span>
             <select id="maxPlayersSel"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label>
-          <label class="field"><span>Başlangıç parası</span>
-            <select id="startMoneySel"><option value="1000000">B1.000.000</option><option value="1500000" selected>B1.500.000</option><option value="2000000">B2.000.000</option><option value="2500000">B2.500.000</option></select></label>
+          <div class="field"><span>Başlangıç parası</span>
+            <div class="seg" id="startMoneySeg"></div></div>
           <label class="field"><span>Görünürlük</span>
             <select id="publicSel"><option value="0">Özel (kodla)</option><option value="1">Herkese açık</option></select></label>
         </div>
@@ -101,7 +99,7 @@
     <div class="board-frame">
       <div id="board" class="board">
         <div class="center" id="center">
-          <svg class="map" id="map" viewBox="0 0 1510 660" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+          <svg class="map" id="map" viewBox="-60 -90 1630 860" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
           <div class="deck chance" id="deckChance"><div class="deck-card"><b>?</b><span>ŞANS</span></div></div>
           <div class="deck chest" id="deckChest"><div class="deck-card"><i id="deckChestIcon"></i><span>KAMU FONU</span></div></div>
           <div class="center-inner">

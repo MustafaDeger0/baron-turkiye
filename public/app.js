@@ -43,6 +43,34 @@
     gavel: svg('<g fill="currentColor"><rect x="9" y="2" width="8" height="5" rx="1" transform="rotate(45 13 4.5)"/><rect x="10.5" y="7.5" width="3" height="11" rx="1" transform="rotate(-45 12 13)"/><rect x="2" y="19" width="11" height="3" rx="1"/></g>'),
   };
 
+  // ---------- il çizimleri (her il karesine küçük bir simge) ----------
+  const A = (inner) => `<svg viewBox="0 0 32 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner}</svg>`;
+  const SEA = '<path fill="#5aa9dd" d="M0 20.5c2.7 0 2.7-1.2 5.3-1.2s2.7 1.2 5.4 1.2 2.6-1.2 5.3-1.2 2.7 1.2 5.3 1.2 2.7-1.2 5.4-1.2 2.6 1.2 5.3 1.2V24H0z"/>';
+  const ART = {
+    Sinop: A(`<path fill="#f2b632" opacity=".45" d="M18 3 31 0v6zM14 3 1 0v6z"/><path fill="#fff" stroke="#37474f" stroke-width=".7" d="M13 7h6l1.6 13h-9.2z"/><path fill="#d7263d" d="M12.6 10.5h6.8l.4 3h-7.6zM12 15.5h8l.35 2.6h-8.7z"/><path fill="#37474f" d="M12.3 5h7.4v2h-7.4z"/><path fill="#ffd54f" d="M14 2h4v3h-4z"/>${SEA}`),
+    Kastamonu: A('<path fill="#8bc34a" d="M0 21h32v3H0z"/><path fill="#2e7d32" d="M9 1.5 15 11h-3l4 7H2l4-7H3z"/><path fill="#1b5e20" d="m22.5 4 5 8h-2.5l3.5 6.5H16.5L20 12h-2.5z"/><path fill="#6d4c41" d="M8 18h2v3.5H8zm13.5 0h2v3.5h-2z"/>'),
+    Amasya: A('<circle cx="13" cy="14.5" r="7.5" fill="#c62828"/><circle cx="19" cy="14.5" r="7.5" fill="#e53935"/><path fill="#5d4037" d="M15.4 4.5h1.3v4.2h-1.3z"/><path fill="#43a047" d="M16.8 5.5c3-3 6.2-2.2 7.2-1.2-2 2.2-5 3.2-7.2 1.2z"/><ellipse cx="11.5" cy="11.5" rx="2.2" ry="1.3" fill="#fff" opacity=".45"/>'),
+    Tokat: A('<path fill="#6d4c41" d="M15.5 2h1.4v4h-1.4z"/><path fill="#558b2f" d="M17 4c3-2 7-1 8 1-3 1.5-6 1.5-8-1z"/><g fill="#7b1fa2"><circle cx="10" cy="8" r="2.6"/><circle cx="14.7" cy="8" r="2.6"/><circle cx="19.4" cy="8" r="2.6"/><circle cx="24" cy="8" r="2.4"/><circle cx="12.3" cy="12.2" r="2.6"/><circle cx="17" cy="12.2" r="2.6"/><circle cx="21.7" cy="12.2" r="2.6"/><circle cx="14.7" cy="16.4" r="2.6"/><circle cx="19.4" cy="16.4" r="2.6"/><circle cx="17" cy="20.6" r="2.6"/></g><g fill="#ce93d8" opacity=".7"><circle cx="9.3" cy="7.2" r=".8"/><circle cx="16.3" cy="11.4" r=".8"/><circle cx="14" cy="15.6" r=".8"/></g>'),
+    'Çorum': A('<path fill="none" stroke="#8d6324" stroke-width="2.2" d="M4.5 19.5a11.5 11.5 0 0 1 23 0"/><g fill="#8d6324"><circle cx="4.8" cy="15" r="1.3"/><circle cx="8" cy="10" r="1.3"/><circle cx="12.6" cy="7.6" r="1.3"/><circle cx="19.4" cy="7.6" r="1.3"/><circle cx="24" cy="10" r="1.3"/><circle cx="27.2" cy="15" r="1.3"/></g><circle cx="16" cy="15.5" r="5.5" fill="#f2b632" stroke="#8d6324" stroke-width="1.4"/><path fill="#8d6324" d="M9 19.5h14v3H9z"/>'),
+    Malatya: A('<circle cx="16" cy="14.5" r="8" fill="#fb8c00"/><path fill="none" stroke="#e65100" stroke-width="1" d="M16 7c-2.5 3-2.5 12 0 15.5"/><ellipse cx="12.5" cy="11.5" rx="2.3" ry="1.4" fill="#ffe0b2" opacity=".7"/><path fill="#5d4037" d="M15.6 3.5h1.2v4h-1.2z"/><path fill="#43a047" d="M17 5c3-2.5 6.5-1.6 7.5-.5-2.4 2.2-5.3 2.6-7.5.5z"/>'),
+    'Elazığ': A('<path fill="#a1887f" d="M0 21h32v3H0z"/><path fill="#b98a5d" d="M5 10h22v11H5z"/><path fill="#b98a5d" d="M5 7h3.4v3H5zm6 0h3.4v3H11zm6.6 0H21v3h-3.4zm5 0H27v3h-3.4z"/><path fill="#8d6748" d="M5 10h22v1.4H5z"/><path fill="#4e342e" d="M14 14.5a2 2 0 0 1 4 0V21h-4z"/><path fill="#4e342e" d="M8 13h2v2.5H8zm14 0h2v2.5h-2z"/>'),
+    'Diyarbakır': A('<path fill="#2e7d32" d="M2 7h28a14 14 0 0 1-28 0z"/><path fill="#c5e1a5" d="M4 7h24a12 12 0 0 1-24 0z"/><path fill="#e53935" d="M5.6 7h20.8a10.4 10.4 0 0 1-20.8 0z"/><g fill="#212121"><ellipse cx="11" cy="10" rx=".7" ry="1.1"/><ellipse cx="16" cy="12.5" rx=".7" ry="1.1"/><ellipse cx="21" cy="10" rx=".7" ry="1.1"/><ellipse cx="13.5" cy="15" rx=".7" ry="1.1"/><ellipse cx="18.5" cy="15" rx=".7" ry="1.1"/></g>'),
+    Hatay: A('<ellipse cx="16" cy="17.5" rx="14.5" ry="5" fill="#b0bec5"/><ellipse cx="16" cy="16.5" rx="12.5" ry="4.2" fill="#cfd8dc"/><ellipse cx="16" cy="15" rx="10.5" ry="4" fill="#d35400"/><ellipse cx="16" cy="13.8" rx="10.5" ry="3.8" fill="#f39c12"/><g fill="#7cb342"><circle cx="12" cy="13.5" r=".9"/><circle cx="16" cy="12.5" r=".9"/><circle cx="20" cy="13.8" r=".9"/><circle cx="14" cy="15.2" r=".9"/><circle cx="18" cy="15.3" r=".9"/></g>'),
+    Adana: A('<path fill="#9e9e9e" d="M1 12.4h30v1.2H1z"/><rect x="4" y="9" width="21" height="8" rx="4" fill="#8d4a26"/><path stroke="#5d2e14" stroke-width="1" d="M8 9.5v7M12 9.5v7M16 9.5v7M20 9.5v7"/><path fill="#43a047" d="M24.5 6c4 1 6 4 6 7.5-1.5-1.5-3-2.6-5.5-3z"/><path fill="#2e7d32" d="M24 5.5h1.2v2H24z"/>'),
+    Mersin: A('<ellipse cx="16" cy="14" rx="10.5" ry="7.2" fill="#fdd835" stroke="#f9a825" stroke-width="1"/><path fill="#fdd835" stroke="#f9a825" stroke-width=".8" d="M5.6 14 2 12.6v2.8zm20.8 0 3.6-1.4v2.8z"/><ellipse cx="12" cy="11" rx="3" ry="1.4" fill="#fff" opacity=".5"/><path fill="#43a047" d="M17 7c2-4 6.2-4.3 8.3-3.2-2 3-5.3 4.3-8.3 3.2z"/>'),
+    Rize: A('<path fill="#2e7d32" d="M15.5 22.5C7.5 18.5 5.5 10 9.5 2.5c6 4 8 12 6 20z"/><path fill="#43a047" d="M16.5 22.5c8-4 10-12.5 6-20-6 4-8 12-6 20z"/><path fill="none" stroke="#a5d6a7" stroke-width=".7" d="M15.5 21C12 16 10.5 10 10 4M16.5 21c3.5-5 5-11 5.5-17"/>'),
+    Trabzon: A('<path fill="#455a64" d="M2 12c5.5-5.5 15.5-5.5 22.5 0-7 5.5-17 5.5-22.5 0z"/><path fill="#b0bec5" d="M4.5 12.5c5-2.4 13.5-2.4 18.5 0-5 2.4-13.5 2.4-18.5 0z"/><path fill="#455a64" d="m23.8 12 6.4-4.6v9.2z"/><circle cx="6.5" cy="10.8" r="1.1" fill="#111"/><path fill="none" stroke="#263238" stroke-width=".6" d="M9 9.5c.8 1.6.8 3.4 0 5"/>'),
+    Samsun: A(`<path fill="#eceff1" d="M8.5 10.5h15v4.5h-15z"/><path fill="#263238" d="M3 15h26l-3.2 5.5H6.2z"/><path fill="#d7263d" d="M14 5.5h4.2v5H14z"/><path fill="#263238" d="M14 5.5h4.2v1.4H14z"/><g fill="#90a4ae" opacity=".8"><circle cx="17.5" cy="3.2" r="1.7"/><circle cx="20.8" cy="2" r="1.3"/></g><g fill="#5aa9dd"><circle cx="11" cy="12.7" r=".8"/><circle cx="21" cy="12.7" r=".8"/></g>${SEA}`),
+    'Çanakkale': A('<path fill="#5d4037" d="M3.5 18.5h19v2h-19z"/><circle cx="6.5" cy="21.5" r="1.8" fill="#3e2723"/><circle cx="19.5" cy="21.5" r="1.8" fill="#3e2723"/><path fill="#a1662f" d="M6 9.5h14v6H6zM7 15.5h2.2v3H7zm9.8 0H19v3h-2.2z"/><path fill="#a1662f" d="m18 10 3-7.5h5.5l1.4 3.2h-4.4l-2.3 4.8z"/><path fill="#6d3f17" d="m21.2 2.5 2-1.6.7 1.6zM4 10l2-1v4z"/><circle cx="24" cy="4" r=".7" fill="#111"/>'),
+    'Balıkesir': A('<path fill="none" stroke="#6d4c41" stroke-width="1.4" d="M3 21C10 16 18 10.5 29 4"/><g fill="#7cb342"><ellipse cx="9" cy="14" rx="4" ry="1.6" transform="rotate(-50 9 14)"/><ellipse cx="13" cy="18.2" rx="4" ry="1.6" transform="rotate(20 13 18.2)"/><ellipse cx="17.5" cy="9" rx="4" ry="1.6" transform="rotate(-55 17.5 9)"/><ellipse cx="22" cy="12.5" rx="4" ry="1.6" transform="rotate(15 22 12.5)"/><ellipse cx="26" cy="3.6" rx="3.5" ry="1.4" transform="rotate(-30 26 3.6)"/></g><g fill="#4a3b5c"><ellipse cx="12.5" cy="12" rx="1.7" ry="2.2"/><ellipse cx="20.5" cy="7.3" rx="1.7" ry="2.2"/></g><ellipse cx="17" cy="13.5" rx="1.7" ry="2.2" fill="#9ccc65"/>'),
+    Bursa: A('<path fill="#81c784" d="M0 20h32v4H0z"/><path fill="#5b7f95" d="M0 21 11 5.5l6 8 4.2-5.2L32 21z"/><path fill="#fff" d="m11 5.5 3.7 5-2-1-1.7 2-1.6-2-2.1 1zm10.2 2.8 3 3.8-1.5-.6-1.5 1-1.1-1-1.5.5z"/><path fill="#2e7d32" d="m4 20 2-4 2 4zm20 0 2-4 2 4z"/>'),
+    'Muğla': A(`<path fill="#ffffff" stroke="#90a4ae" stroke-width=".6" d="M15 2v13H6.5zm1.6 2L25 15h-8.4z"/><path fill="#8d5524" d="M3 15.5h26l-3 4H6z"/><path fill="#5d3a16" d="M3 15.5h26v1.2H3z"/>${SEA}`),
+    Antalya: A(`<path fill="#ffe082" d="M0 19h32v5H0z"/><circle cx="26" cy="5.5" r="3.6" fill="#fdd835"/><path fill="none" stroke="#8d6e63" stroke-width="2" d="M13 20c1-5 1-10-1.5-13.5"/><g fill="#43a047"><path d="M11.5 6.5C8 4 4.5 5 3 7.5c3-.5 5.5 0 8.5-1z"/><path d="M11.5 6.5C14 3 18 3 20 5c-3 .2-5.5.6-8.5 1.5z"/><path d="M11.5 6.5c-1-3.5 0-5.5 2-6.5 0 2.5-.6 4.5-2 6.5z"/><path d="M11.5 6.5C9 7.5 7.5 10 7.5 12.5c1.5-2.2 2.6-3.8 4-6z"/><path d="M11.5 6.5c3 .5 4.5 3 4.8 5.5-1.6-1.8-3-3.4-4.8-5.5z"/></g><path fill="#5aa9dd" d="M18 20.5h14V24H18z"/>`),
+    'İzmir': A('<path fill="#bdb0a0" d="M9 20.5h14V23H9z"/><path fill="#e8d5b5" d="M12.5 9h7v11.5h-7z"/><path fill="#d4bd96" d="M11.5 18h9v2.5h-9zM12 9h8v1.4h-8z"/><path fill="#c0392b" d="M13 9c0-2.6 1.4-5 3-6.5 1.6 1.5 3 3.9 3 6.5z"/><circle cx="16" cy="13" r="2.3" fill="#fff" stroke="#5d4037" stroke-width=".7"/><path stroke="#5d4037" stroke-width=".6" d="M16 13v-1.5M16 13h1.2"/><path fill="#5d4037" d="M15 16h2v2h-2z"/>'),
+    Ankara: A('<path fill="#c8b48e" d="M2 20h28v3H2z"/><path fill="#e3d3b0" d="M4 18.5h24V20H4zM4 7.5h24v2.2H4z"/><path fill="#d6c39b" d="M6 5.5h20v2H6z"/><g fill="#efe3c6"><path d="M5.2 9.7h2v8.8h-2zm4 0h2v8.8h-2zm4 0h2v8.8h-2zm4 0h2v8.8h-2zm4 0h2v8.8h-2zm4 0h2v8.8h-2z"/></g>'),
+    'İstanbul': A('<path fill="#78909c" d="M2 20h28v3H2z"/><path fill="#90a4ae" d="M8.5 15.5a7.5 6.5 0 0 1 15 0z"/><path fill="#b0bec5" d="M7.5 15.5h17V20h-17z"/><path fill="#90a4ae" d="M5.5 17a2.6 2.3 0 0 1 5.2 0zm16 0a2.6 2.3 0 0 1 5.2 0z"/><path fill="#cfd8dc" d="M15.7 6.6h.6v2.4h-.6z"/><path fill="#b0bec5" d="M3.4 6h1.4v14H3.4zm23.8 0h1.4v14h-1.4z"/><path fill="#78909c" d="m3.4 6 .7-4 .7 4zm23.8 0 .7-4 .7 4z"/><path fill="#5aa9dd" d="M0 23h32v1H0z"/>'),
+  };
+
   // ---------- Baron Doları banknotları ----------
   let K = 1000;
   const NOTE_DEN = () => [1000, 500, 100, 50, 20, 10, 5, 1].map((x) => x * K);
@@ -57,7 +85,7 @@
       <path d="M8 40 Q 40 22 80 40 T 152 40 M8 46 Q 40 28 80 46 T 152 46" stroke="${ink}" stroke-width="1" fill="none" opacity=".25"/>
       <circle cx="80" cy="42" r="21" fill="#fff" opacity=".6" stroke="${ink}" stroke-width="1.5"/>
       <text x="80" y="53" text-anchor="middle" font-size="31" font-weight="900" fill="${ink}" font-family="Rubik,Arial,sans-serif">B</text>
-      <rect x="77.5" y="24" width="3.4" height="34" rx="1.5" fill="${ink}"/>
+      <rect x="78" y="29" width="2.6" height="27" rx="1.2" fill="${ink}"/>
       <text x="80" y="17" text-anchor="middle" font-size="7.5" letter-spacing="2.5" fill="${ink}" font-weight="800" font-family="Rubik,Arial,sans-serif">BARON BANKASI</text>
       <text x="14" y="28" font-size="11" font-weight="900" fill="${ink}" font-family="Rubik,Arial,sans-serif">${lbl}</text>
       <text x="146" y="69" text-anchor="end" font-size="11" font-weight="900" fill="${ink}" font-family="Rubik,Arial,sans-serif">${lbl}</text>
@@ -233,6 +261,13 @@
   const params = new URLSearchParams(location.search);
   if (params.get('oda')) $('#codeInput').value = params.get('oda').toUpperCase();
 
+  let startMoney = 1500000;
+  function renderStartMoney() {
+    $('#startMoneySeg').innerHTML = [1000, 1500, 2000, 2500].map((x) => x * K).map((v) => `<button type="button" class="${v === startMoney ? 'sel' : ''}" data-v="${v}">${money(v)}</button>`).join('');
+    $$('#startMoneySeg button').forEach((b) => { b.onclick = () => { startMoney = +b.dataset.v; renderStartMoney(); }; });
+  }
+  renderStartMoney();
+
   $('#quickBtn').onclick = () => { store.set('baron_name', myName()); socket.emit('room:quick', { name: myName() }, handle); };
   $('#showCreateBtn').onclick = () => $('#createForm').classList.toggle('hidden');
   $('#createForm').onsubmit = (e) => {
@@ -240,7 +275,7 @@
     store.set('baron_name', myName());
     socket.emit('room:create', {
       name: myName(), roomName: $('#roomNameInput').value, maxPlayers: +$('#maxPlayersSel').value,
-      startMoney: +$('#startMoneySel').value, isPublic: $('#publicSel').value === '1',
+      startMoney, isPublic: $('#publicSel').value === '1',
     }, handle);
   };
   const join = (code) => { store.set('baron_name', myName()); socket.emit('room:join', { code, name: myName() }, handle); };
@@ -357,7 +392,7 @@
   const icon = (k, cls = '') => `<div class="icon ${cls}">${ICON[k]}</div>`;
   function squareHTML(s) {
     switch (s.type) {
-      case 'prop': return `<div class="band"></div><div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div><div class="pr">${money(s.price)}</div></div>`;
+      case 'prop': return `<div class="band"></div><div class="ct art-ct"><div class="art">${ART[s.name] || ''}</div><div class="txt"><div class="${nameCls(s.name)}">${esc(s.name)}</div><div class="pr">${money(s.price)}</div></div></div>`;
       case 'station': {
         const k = s.name.includes('Liman') ? 'ship' : s.name.includes('Havalimanı') ? 'plane' : 'train';
         return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(k)}<div class="pr">${money(s.price)}</div></div>`;
@@ -373,13 +408,30 @@
       default: return '';
     }
   }
+  const LAKES = [
+    [[42.3, 38.55], [42.6, 38.92], [43.2, 38.86], [43.6, 38.55], [43.2, 38.33], [42.8, 38.45]],
+    [[33.2, 38.95], [33.55, 38.97], [33.62, 38.6], [33.35, 38.52], [33.22, 38.7]],
+  ];
   function buildMap() {
     const pts = (arr) => arr.map((p) => PROJ(p).join(',')).join(' ');
-    let html = `<polygon class="land" points="${pts(THRACE)}"/><polygon class="land" points="${pts(ANATOLIA)}"/>`;
+    const land = `<polygon points="${pts(THRACE)}"/><polygon points="${pts(ANATOLIA)}"/>`;
+    let side = '';
+    for (let k = 22; k >= 2; k -= 2) side += `<g transform="translate(0 ${k})" fill="${k > 12 ? '#6f5228' : '#8a6a35'}">${land}</g>`;
+    let html = `<defs>
+        <linearGradient id="landTop" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#f6e7bb"/><stop offset=".55" stop-color="#e2c98c"/><stop offset="1" stop-color="#c9a764"/></linearGradient>
+        <radialGradient id="seaGlow" cx=".5" cy=".55" r=".6"><stop offset="0" stop-color="#7cc4ea" stop-opacity=".55"/><stop offset=".7" stop-color="#7cc4ea" stop-opacity=".18"/><stop offset="1" stop-color="#7cc4ea" stop-opacity="0"/></radialGradient>
+        <filter id="mapShadow" x="-10%" y="-10%" width="120%" height="140%"><feDropShadow dx="0" dy="26" stdDeviation="14" flood-color="#3b2a10" flood-opacity=".35"/></filter>
+        <filter id="pinShadow"><feGaussianBlur stdDeviation="2"/></filter>
+      </defs>
+      <ellipse cx="755" cy="330" rx="900" ry="420" fill="url(#seaGlow)"/>
+      <text class="sea" x="760" y="-62">KARADENİZ</text><text class="sea" x="520" y="735">AKDENİZ</text><text class="sea" x="-20" y="470" transform="rotate(-70 -20 470)">EGE</text>
+      <g filter="url(#mapShadow)">${side}<g class="land-top" fill="url(#landTop)" stroke="#fff7df" stroke-width="3" stroke-linejoin="round">${land}</g></g>
+      <g fill="#6db7e2" stroke="#3f8fc0" stroke-width="2">${LAKES.map((l) => `<polygon points="${pts(l)}"/>`).join('')}</g>`;
     BOARD.squares.filter((s) => s.type === 'prop' && CITY[s.name]).forEach((s) => {
       const [x, y] = PROJ(CITY[s.name]);
       const [anchor, dx, dy] = LABEL[s.name] || ['middle', 0, -18];
-      html += `<g class="city" data-city="${s.index}"><circle class="ring" cx="${x}" cy="${y}" r="17"/><circle class="dot" cx="${x}" cy="${y}" r="11" fill="${groupColor(s)}"/><text x="${+x + dx}" y="${+y + dy}" text-anchor="${anchor}">${esc(s.name)}</text></g>`;
+      const hy = +y - 26;
+      html += `<g class="city" data-city="${s.index}"><ellipse cx="${x}" cy="${y}" rx="9" ry="4" fill="#000" opacity=".3" filter="url(#pinShadow)"/><path d="M${x} ${y}V${hy}" stroke="#4a3b22" stroke-width="3.5" stroke-linecap="round"/><circle class="ring" cx="${x}" cy="${hy}" r="18"/><circle class="dot" cx="${x}" cy="${hy}" r="11" fill="${groupColor(s)}" stroke="#fff" stroke-width="3"/><circle cx="${+x - 3.5}" cy="${hy - 3.5}" r="3.5" fill="#fff" opacity=".6"/><text x="${+x + dx}" y="${hy + dy}" text-anchor="${anchor}">${esc(s.name)}</text></g>`;
     });
     $('#map').innerHTML = html;
   }
@@ -1018,7 +1070,7 @@
     const draw = () => {
       const t = playerById(target);
       el.innerHTML = `<h3>Takas Teklifi</h3>
-        <label class="field"><span>Kiminle?</span><select id="trTarget">${others.map((p) => `<option value="${p.id}" ${p.id === target ? 'selected' : ''}>${esc(p.name)} (B${num(p.cash)})</option>`).join('')}</select></label>
+        <div class="field"><span>Kiminle?</span><div class="pick-list">${others.map((p) => `<button type="button" data-tt="${p.id}" class="${p.id === target ? 'sel' : ''}">${chip(p)} ${esc(p.name)} <span class="muted">${money(p.cash)}</span></button>`).join('')}</div></div>
         <div class="trade-grid">
           <div><h4>Sen verirsin</h4><div class="check-list">${checks(m.id, 'give')}</div>
             <label class="field"><span>Baron Doları (en fazla ${money(Math.max(0, m.cash))})</span><input id="trGiveCash" type="number" min="0" step="1000" max="${Math.max(0, m.cash)}" value="0"></label>
@@ -1028,7 +1080,7 @@
             ${t.jailCards.length ? `<label class="field"><span>Hapis kartı</span><input id="trGetJail" type="number" min="0" max="${t.jailCards.length}" value="0"></label>` : ''}</div>
         </div>
         <div class="modal-actions" style="margin-top:14px"><button class="btn primary" id="trSend">Teklifi Gönder</button></div>`;
-      $('#trTarget', el).onchange = (e) => { target = e.target.value; draw(); };
+      $$('[data-tt]', el).forEach((b) => { b.onclick = () => { target = b.dataset.tt; draw(); }; });
       $('#trSend', el).onclick = () => {
         const val = (id) => parseInt(($(`#${id}`, el) || {}).value, 10) || 0;
         socket.emit('game:act', {
@@ -1066,5 +1118,5 @@
   }
 
   // ---------- başlat ----------
-  fetch('/api/board').then((r) => r.json()).then((b) => { BOARD = b; K = b.K || 1000; notesBackground(); pump(); });
+  fetch('/api/board').then((r) => r.json()).then((b) => { BOARD = b; K = b.K || 1000; startMoney = 1500 * K; renderStartMoney(); notesBackground(); pump(); });
 })();
