@@ -1,27 +1,30 @@
 // Tahta tanımı: 40 kare, renk grupları, kartlar.
 // Fiyat ve kira tabloları klasik emlak oyunu değerleridir; kareler Türkiye illeridir. Para birimi: Baron Doları (B).
 
+// Gerçekçi tutarlar: klasik tablo değerleri × K (örn. İstanbul B400.000)
+const K = 1000;
+
 const GROUPS = {
-  kahve:   { name: 'Kahverengi', color: '#8B5A2B', house: 50 },
-  acikmavi:{ name: 'Açık Mavi',  color: '#3FB8E8', house: 50 },
-  pembe:   { name: 'Pembe',      color: '#E3338C', house: 100 },
-  turuncu: { name: 'Turuncu',    color: '#FF8A1F', house: 100 },
-  kirmizi: { name: 'Kırmızı',    color: '#E53935', house: 150 },
-  sari:    { name: 'Sarı',       color: '#F7CF1D', house: 150 },
-  yesil:   { name: 'Yeşil',      color: '#24A148', house: 200 },
-  lacivert:{ name: 'Lacivert',   color: '#1E4FD8', house: 200 },
+  kahve:   { name: 'Kahverengi', color: '#8B5A2B', house: 50 * K },
+  acikmavi:{ name: 'Açık Mavi',  color: '#3FB8E8', house: 50 * K },
+  pembe:   { name: 'Pembe',      color: '#E3338C', house: 100 * K },
+  turuncu: { name: 'Turuncu',    color: '#FF8A1F', house: 100 * K },
+  kirmizi: { name: 'Kırmızı',    color: '#E53935', house: 150 * K },
+  sari:    { name: 'Sarı',       color: '#F7CF1D', house: 150 * K },
+  yesil:   { name: 'Yeşil',      color: '#24A148', house: 200 * K },
+  lacivert:{ name: 'Lacivert',   color: '#1E4FD8', house: 200 * K },
 };
 
-const P = (name, group, price, rent) => ({ type: 'prop', name, group, price, rent });
-const S = (name) => ({ type: 'station', name, price: 200 });
-const U = (name, icon) => ({ type: 'utility', name, price: 150, icon });
+const P = (name, group, price, rent) => ({ type: 'prop', name, group, price: price * K, rent: rent.map((r) => r * K) });
+const S = (name) => ({ type: 'station', name, price: 200 * K });
+const U = (name, icon) => ({ type: 'utility', name, price: 150 * K, icon });
 
 const SQUARES = [
   { type: 'go', name: 'BAŞLANGIÇ' },
   P('Sinop', 'kahve', 60, [2, 10, 30, 90, 160, 250]),
   { type: 'chest', name: 'Kamu Fonu' },
   P('Kastamonu', 'kahve', 60, [4, 20, 60, 180, 320, 450]),
-  { type: 'tax', name: 'Gelir Vergisi', amount: 200 },
+  { type: 'tax', name: 'Gelir Vergisi', amount: 200 * K, icon: 'coins' },
   S('Haydarpaşa Garı'),
   P('Amasya', 'acikmavi', 100, [6, 30, 90, 270, 400, 550]),
   { type: 'chance', name: 'Şans' },
@@ -29,7 +32,7 @@ const SQUARES = [
   P('Çorum', 'acikmavi', 120, [8, 40, 100, 300, 450, 600]),
   { type: 'jail', name: 'Hapis / Ziyaret' },
   P('Malatya', 'pembe', 140, [10, 50, 150, 450, 625, 750]),
-  U('Elektrik İdaresi', '💡'),
+  U('Elektrik İdaresi', 'bulb'),
   P('Elazığ', 'pembe', 140, [10, 50, 150, 450, 625, 750]),
   P('Diyarbakır', 'pembe', 160, [12, 60, 180, 500, 700, 900]),
   S('Ankara Garı'),
@@ -45,7 +48,7 @@ const SQUARES = [
   S('Mersin Limanı'),
   P('Çanakkale', 'sari', 260, [22, 110, 330, 800, 975, 1150]),
   P('Balıkesir', 'sari', 260, [22, 110, 330, 800, 975, 1150]),
-  U('Su İdaresi', '💧'),
+  U('Su İdaresi', 'drop'),
   P('Bursa', 'sari', 280, [24, 120, 360, 850, 1025, 1200]),
   { type: 'gotojail', name: 'Hapse Gir' },
   P('Muğla', 'yesil', 300, [26, 130, 390, 900, 1100, 1275]),
@@ -55,7 +58,7 @@ const SQUARES = [
   S('İstanbul Havalimanı'),
   { type: 'chance', name: 'Şans' },
   P('Ankara', 'lacivert', 350, [35, 175, 500, 1100, 1300, 1500]),
-  { type: 'tax', name: 'Lüks Vergisi', amount: 100 },
+  { type: 'tax', name: 'Lüks Vergisi', amount: 100 * K, icon: 'ring' },
   P('İstanbul', 'lacivert', 400, [50, 200, 600, 1400, 1700, 2000]),
 ];
 
@@ -105,4 +108,13 @@ const CHEST = [
   { text: 'Uzak bir akrabandan miras kaldı. B100 al.', money: 100 },
 ];
 
-module.exports = { SQUARES, GROUPS, GROUP_MEMBERS, CHANCE, CHEST };
+// Kart tutarlarını ölçekle ve metinlerdeki tutarları biçimlendir
+const fmt = (n) => `B${(n * K).toLocaleString('tr-TR')}`;
+for (const c of [...CHANCE, ...CHEST]) {
+  c.text = c.text.replace(/B(\d+)/g, (_, n) => fmt(+n));
+  if (c.money) c.money *= K;
+  if (c.eachPlayer) c.eachPlayer *= K;
+  if (c.repairs) c.repairs = c.repairs.map((x) => x * K);
+}
+
+module.exports = { SQUARES, GROUPS, GROUP_MEMBERS, CHANCE, CHEST, K };

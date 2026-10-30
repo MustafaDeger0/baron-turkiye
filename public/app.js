@@ -4,43 +4,93 @@
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const tl = (n) => `${n < 0 ? '−' : ''}B${Math.abs(Math.round(n)).toLocaleString('tr-TR')}`;
   const after = (ms, fn) => (ms > 0 ? setTimeout(fn, ms) : fn());
-  const ICONS = ['🚗', '🎩', '🐕', '⛵', '🧿', '☕', '🐈', '🚀'];
-  const COLORS = ['#e63946', '#1d7cf2', '#2a9d8f', '#f4a261', '#9b5de5', '#ff4fa3'];
-  const GROUP_ORDER = ['kahve', 'acikmavi', 'pembe', 'turuncu', 'kirmizi', 'sari', 'yesil', 'lacivert'];
   const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const DICE_MS = REDUCED ? 0 : 1050;
   const STEP_MS = 210;
+  const COLORS = ['#e63946', '#1d7cf2', '#2a9d8f', '#f4a261', '#9b5de5', '#ff4fa3'];
+  const GROUP_ORDER = ['kahve', 'acikmavi', 'pembe', 'turuncu', 'kirmizi', 'sari', 'yesil', 'lacivert'];
+
+  // ---------- para biçimi: çizgili B ----------
+  const CUR = '<span class="cur">B</span>';
+  const num = (n) => Math.abs(Math.round(n)).toLocaleString('tr-TR');
+  const money = (n) => `${n < 0 ? '−' : ''}${CUR}${num(n)}`;
+  const fmtText = (s) => esc(s).replace(/B(?=\d)/g, CUR);
+
+  // ---------- çizimler (emoji yerine SVG) ----------
+  const svg = (inner, vb = '0 0 24 24') => `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner}</svg>`;
+  const TOKENS = {
+    araba: svg('<path fill="currentColor" d="M3.2 13.2 5 8.6C5.4 7.6 6.3 7 7.4 7h9.2c1.1 0 2 .6 2.4 1.6l1.8 4.6c.9.3 1.7 1.2 1.7 2.3V18h-2.2a2.6 2.6 0 0 1-5.1 0H8.8a2.6 2.6 0 0 1-5.1 0H1.5v-2.5c0-1.1.7-2 1.7-2.3Zm3-.5h11.6l-1.3-3.4a.9.9 0 0 0-.9-.6H8.4a.9.9 0 0 0-.9.6Z"/><circle cx="6.2" cy="18" r="1.6" fill="#fff"/><circle cx="17.8" cy="18" r="1.6" fill="#fff"/>'),
+    sapka: svg('<path fill="currentColor" d="M7 3.5h10l-.6 10.5H7.6Z"/><path fill="#d7263d" d="M7.4 10.5h9.2l-.15 2.2H7.55Z"/><path fill="currentColor" d="M2 16c0-1.4 2.7-2.3 10-2.3s10 .9 10 2.3-3.3 3-10 3S2 17.4 2 16Z"/>'),
+    gemi: svg('<path fill="currentColor" d="M3 14.5h18l-3 5H6Z"/><path fill="currentColor" d="M11.2 3v10.4H5.5Zm1.6 2.2 5.4 8.2h-5.4Z"/><path fill="#1d5fd0" d="M1.5 21c2 0 2-1 4-1s2 1 4 1 2-1 4-1 2 1 4 1 2-1 4-1v1.6c-2 0-2 .9-4 .9s-2-.9-4-.9-2 .9-4 .9-2-.9-4-.9-2 .9-4 .9Z"/>'),
+    cay: svg('<path fill="currentColor" d="M7.5 2.5h9c0 3.2-1.8 5.2-1.8 8.3 0 2.6 1.8 3.8 1.8 6 0 1.4-2 2.4-4.5 2.4s-4.5-1-4.5-2.4c0-2.2 1.8-3.4 1.8-6 0-3.1-1.8-5.1-1.8-8.3Z"/><path fill="#c0392b" d="M8.6 9.5h6.8c-.4 1-.7 2.1-.7 3.3 0 1.9 1.4 3 1.6 4.2-.8.8-2.4 1.2-4.3 1.2s-3.5-.4-4.3-1.2c.2-1.2 1.6-2.3 1.6-4.2 0-1.2-.3-2.3-.7-3.3Z" opacity=".9"/><ellipse fill="currentColor" cx="12" cy="21.3" rx="8" ry="1.6"/>'),
+    nazar: svg('<circle cx="12" cy="12" r="10.5" fill="#1747b8"/><circle cx="12" cy="12" r="7.2" fill="#fff"/><circle cx="12" cy="12" r="5" fill="#5fa8ff"/><circle cx="12" cy="12" r="2.6" fill="#0b0f1a"/>'),
+    ucak: svg('<path fill="currentColor" d="M21.5 15.5v-2l-8-5V3.6a1.5 1.5 0 0 0-3 0v4.9l-8 5v2l8-2.5v5l-2 1.5V21l3.5-1 3.5 1v-1.5l-2-1.5v-5Z"/>'),
+    tac: svg('<path fill="currentColor" d="m2.5 7.5 5 4.2L12 4l4.5 7.7 5-4.2-2 11H4.5Z"/><path fill="currentColor" d="M4.5 19.5h15V22h-15Z"/><circle cx="12" cy="14.5" r="1.5" fill="#d7263d"/>'),
+    roket: svg('<path fill="currentColor" d="M12 1.5c3.2 2.2 4.8 5.8 4.8 10l2.2 3.2v3.8l-3.3-1.6H8.3L5 18.5v-3.8l2.2-3.2c0-4.2 1.6-7.8 4.8-10Z"/><circle cx="12" cy="9.5" r="1.9" fill="#fff"/><path fill="#f2b632" d="M9.8 17.6h4.4L12 22.5Z"/>'),
+  };
+  const ICON = {
+    train: svg('<path fill="currentColor" fill-rule="evenodd" d="M7 2.5h10a3.5 3.5 0 0 1 3.5 3.5v9a3.5 3.5 0 0 1-3 3.46l2 3.04h-2.3l-1.9-3H8.7l-1.9 3H4.5l2-3.04a3.5 3.5 0 0 1-3-3.46V6A3.5 3.5 0 0 1 7 2.5ZM6 6.2v4.3h12V6.2Zm1.8 7.3a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm8.4 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/>'),
+    ship: TOKENS.gemi, plane: TOKENS.ucak, car: TOKENS.araba, hat: TOKENS.sapka,
+    bulb: svg('<path fill="currentColor" d="M12 1.8a7.2 7.2 0 0 0-4.2 13v2.4h8.4v-2.4A7.2 7.2 0 0 0 12 1.8Z"/><path fill="#5b4a1c" d="M8.3 18.2h7.4v1.6H8.3Zm1 2.4h5.4v1.6H9.3Z"/><path fill="#fff" opacity=".55" d="M9.3 5.6a4 4 0 0 1 3-1.4v1.6a2.4 2.4 0 0 0-1.8.8Z"/>'),
+    drop: svg('<path fill="currentColor" d="M12 2s-7 8.1-7 13a7 7 0 0 0 14 0c0-4.9-7-13-7-13Z"/><path fill="#fff" opacity=".6" d="M8.7 14.5a3.4 3.4 0 0 0 2.6 4l-.3 1.4a4.8 4.8 0 0 1-3.7-5.6Z"/>'),
+    chest: svg('<path fill="currentColor" d="M3 10.5h18V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path fill="currentColor" opacity=".8" d="M3 9.5C3 6.5 5 4.5 8 4.5h8c3 0 5 2 5 5Z"/><path fill="#f2b632" d="M2.5 9.3h19v2.2h-19Zm7.8 1h3.4v4.6h-3.4Z"/><circle cx="12" cy="13" r=".8" fill="#5b3a00"/>'),
+    coins: svg('<g fill="currentColor"><ellipse cx="9" cy="17.5" rx="6.5" ry="2.5"/><path d="M2.5 14.5v3c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-3c0 1.4-2.9 2.5-6.5 2.5s-6.5-1.1-6.5-2.5Z"/><ellipse cx="9" cy="13.5" rx="6.5" ry="2.5"/><path d="M8.5 9v3c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5V9c0 1.4-2.9 2.5-6.5 2.5S8.5 10.4 8.5 9Z"/><ellipse cx="15" cy="8" rx="6.5" ry="2.5"/></g><ellipse cx="15" cy="8" rx="3.5" ry="1.2" fill="#fff" opacity=".35"/>'),
+    ring: svg('<path fill="currentColor" fill-rule="evenodd" d="M12 9.5a6.3 6.3 0 1 0 0 12.6 6.3 6.3 0 0 0 0-12.6Zm0 2.2a4.1 4.1 0 1 1 0 8.2 4.1 4.1 0 0 1 0-8.2Z"/><path fill="#5fc6ff" d="M8.6 2.5h6.8l2 3-5.4 4.6-5.4-4.6Z"/><path fill="#fff" opacity=".6" d="m9.6 3.4 1.2 2.2-2.3.1Z"/>'),
+    arrow: svg('<path fill="currentColor" d="M2 12 11 4v5h11v6H11v5Z"/>', '0 0 24 24'),
+    cuffs: svg('<g fill="currentColor"><path fill-rule="evenodd" d="M6.5 9a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Zm0 2.4a3.1 3.1 0 1 1 0 6.2 3.1 3.1 0 0 1 0-6.2Z"/><path fill-rule="evenodd" d="M17.5 9a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Zm0 2.4a3.1 3.1 0 1 1 0 6.2 3.1 3.1 0 0 1 0-6.2Z"/><path d="M5.2 6.5h2.6v3H5.2Zm11 0h2.6v3h-2.6Z"/><path d="M7.5 6.2c1-2.3 3-3.2 4.5-3.2s3.5.9 4.5 3.2l-1.4.6C14.4 5.2 13.2 4.6 12 4.6s-2.4.6-3.1 2.2Z"/></g>'),
+    dice: svg('<rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor"/><g fill="#fff"><circle cx="8" cy="8" r="1.7"/><circle cx="16" cy="16" r="1.7"/><circle cx="12" cy="12" r="1.7"/></g>'),
+    gavel: svg('<g fill="currentColor"><rect x="9" y="2" width="8" height="5" rx="1" transform="rotate(45 13 4.5)"/><rect x="10.5" y="7.5" width="3" height="11" rx="1" transform="rotate(-45 12 13)"/><rect x="2" y="19" width="11" height="3" rx="1"/></g>'),
+  };
 
   // ---------- Baron Doları banknotları ----------
-  const NOTES = [500, 100, 50, 20, 10, 5, 1];
-  const NOTE_STYLE = {
-    1: ['#f4f1ea', '#5f6368'], 5: ['#f9c9dc', '#9c2759'], 10: ['#fbe58a', '#7a5f00'], 20: ['#bfe8c8', '#1f6e3a'],
-    50: ['#c2d9f7', '#1d4f9c'], 100: ['#f6d3a8', '#93500f'], 500: ['#dccbf5', '#4b2380'],
-  };
+  let K = 1000;
+  const NOTE_DEN = () => [1000, 500, 100, 50, 20, 10, 5, 1].map((x) => x * K);
+  const NOTE_COLORS = [['#f4f1ea', '#5f6368'], ['#f9c9dc', '#9c2759'], ['#fbe58a', '#7a5f00'], ['#bfe8c8', '#1f6e3a'], ['#c2d9f7', '#1d4f9c'], ['#f6d3a8', '#93500f'], ['#dccbf5', '#4b2380'], ['#c9eef0', '#0f6a73']];
   function noteSVG(d) {
-    const [bg, ink] = NOTE_STYLE[d];
+    const idx = [1, 5, 10, 20, 50, 100, 500, 1000].indexOf(d / K);
+    const [bg, ink] = NOTE_COLORS[Math.max(0, idx)];
+    const lbl = d >= 1e6 ? `${d / 1e6} MİLYON` : `${num(d)}`;
     return `<svg class="note" viewBox="0 0 160 80" xmlns="http://www.w3.org/2000/svg">
       <rect x="1.5" y="1.5" width="157" height="77" rx="7" fill="${bg}" stroke="${ink}" stroke-width="3"/>
       <rect x="8" y="8" width="144" height="64" rx="4" fill="none" stroke="${ink}" stroke-width="1.2" stroke-dasharray="4 2" opacity=".55"/>
-      <path d="M8 40 Q 40 22 80 40 T 152 40" stroke="${ink}" stroke-width="1" fill="none" opacity=".25"/>
-      <path d="M8 46 Q 40 28 80 46 T 152 46" stroke="${ink}" stroke-width="1" fill="none" opacity=".25"/>
-      <circle cx="80" cy="42" r="21" fill="#fff" opacity=".55" stroke="${ink}" stroke-width="1.5"/>
+      <path d="M8 40 Q 40 22 80 40 T 152 40 M8 46 Q 40 28 80 46 T 152 46" stroke="${ink}" stroke-width="1" fill="none" opacity=".25"/>
+      <circle cx="80" cy="42" r="21" fill="#fff" opacity=".6" stroke="${ink}" stroke-width="1.5"/>
       <text x="80" y="53" text-anchor="middle" font-size="31" font-weight="900" fill="${ink}" font-family="Rubik,Arial,sans-serif">B</text>
-      <text x="80" y="18" text-anchor="middle" font-size="7.5" letter-spacing="2.5" fill="${ink}" font-weight="800" font-family="Rubik,Arial,sans-serif">BARON BANKASI</text>
-      <text x="80" y="73" text-anchor="middle" font-size="6" letter-spacing="2" fill="${ink}" font-weight="700" font-family="Rubik,Arial,sans-serif">BARON DOLARI</text>
-      <text x="15" y="27" font-size="15" font-weight="900" fill="${ink}" font-family="Rubik,Arial,sans-serif">${d}</text>
-      <text x="145" y="68" text-anchor="end" font-size="15" font-weight="900" fill="${ink}" font-family="Rubik,Arial,sans-serif">${d}</text>
+      <rect x="77.5" y="24" width="3.4" height="34" rx="1.5" fill="${ink}"/>
+      <text x="80" y="17" text-anchor="middle" font-size="7.5" letter-spacing="2.5" fill="${ink}" font-weight="800" font-family="Rubik,Arial,sans-serif">BARON BANKASI</text>
+      <text x="14" y="28" font-size="11" font-weight="900" fill="${ink}" font-family="Rubik,Arial,sans-serif">${lbl}</text>
+      <text x="146" y="69" text-anchor="end" font-size="11" font-weight="900" fill="${ink}" font-family="Rubik,Arial,sans-serif">${lbl}</text>
     </svg>`;
   }
-  const noteFor = (amt) => NOTES.find((n) => n <= amt) || 1;
+  const noteFor = (amt) => NOTE_DEN().find((n) => n <= amt) || NOTE_DEN().at(-1);
   function breakdown(amt) {
     const out = [];
     let r = Math.max(0, amt);
-    for (const n of NOTES) { const c = Math.floor(r / n); if (c) out.push([n, c]); r -= c * n; }
+    for (const n of NOTE_DEN()) { const c = Math.floor(r / n); if (c) out.push([n, c]); r -= c * n; }
     return out;
   }
+
+  // ---------- Türkiye haritası (yaklaşık sınırlar) ----------
+  const PROJ = ([lon, lat]) => [((lon - 25.6) * 77.7).toFixed(1), ((42.3 - lat) * 100).toFixed(1)];
+  const THRACE = [[26.03, 40.73], [26.33, 41.24], [26.6, 41.6], [26.35, 41.75], [26.6, 41.97], [27.3, 42.08], [28.0, 41.98], [28.3, 41.55], [28.8, 41.35], [29.05, 41.23], [29.0, 41.02], [28.6, 40.97], [27.9, 40.98], [27.4, 40.9], [27.0, 40.6], [26.7, 40.45], [26.2, 40.05], [26.35, 40.4], [26.75, 40.62], [26.4, 40.62]];
+  const ANATOLIA = [[29.1, 41.22], [30.3, 41.2], [31.4, 41.3], [32.3, 41.75], [33.3, 42.0], [34.5, 41.95], [35.15, 42.05], [35.5, 41.7], [36.1, 41.65], [36.6, 41.35], [37.6, 41.05], [38.5, 40.95], [39.7, 41.05], [40.5, 41.05], [41.55, 41.52], [42.5, 41.45], [43.4, 41.1], [43.7, 40.7], [43.6, 40.1], [44.8, 39.7], [44.1, 39.4], [44.4, 38.4], [44.2, 37.9], [44.8, 37.3], [44.2, 37.0], [42.4, 37.1], [41.2, 37.05], [40.2, 36.85], [38.6, 36.75], [37.4, 36.65], [36.7, 36.8], [36.6, 36.25], [36.0, 35.82], [35.9, 36.2], [36.2, 36.6], [35.8, 36.75], [35.3, 36.6], [34.7, 36.8], [34.0, 36.3], [33.3, 36.15], [32.6, 36.1], [32.0, 36.5], [31.3, 36.8], [30.6, 36.85], [30.5, 36.3], [29.7, 36.15], [29.1, 36.6], [28.3, 36.75], [27.6, 36.7], [27.4, 37.05], [27.2, 37.5], [27.3, 37.95], [26.4, 38.3], [26.8, 38.7], [26.7, 39.3], [26.1, 39.5], [26.2, 39.9], [26.45, 40.15], [26.7, 40.4], [27.5, 40.35], [28.4, 40.4], [29.0, 40.4], [29.4, 40.75], [29.9, 40.75], [29.3, 40.85], [29.05, 41.0]];
+  const CITY = {
+    Sinop: [35.15, 42.02], Kastamonu: [33.78, 41.38], Amasya: [35.83, 40.65], Tokat: [36.55, 40.31], 'Çorum': [34.95, 40.55],
+    Malatya: [38.31, 38.35], 'Elazığ': [39.22, 38.67], 'Diyarbakır': [40.23, 37.91], Hatay: [36.16, 36.2], Adana: [35.32, 37.0],
+    Mersin: [34.63, 36.8], Rize: [40.52, 41.02], Trabzon: [39.72, 41.0], Samsun: [36.33, 41.29], 'Çanakkale': [26.41, 40.15],
+    'Balıkesir': [27.88, 39.65], Bursa: [29.06, 40.18], 'Muğla': [28.36, 37.21], Antalya: [30.71, 36.89], 'İzmir': [27.14, 38.42],
+    Ankara: [32.86, 39.93], 'İstanbul': [28.98, 41.01],
+  };
+
+  // harita etiketlerinin çakışmaması için konum ayarları [hizalama, dx, dy]
+  const LABEL = {
+    Sinop: ['middle', 0, -20], Kastamonu: ['end', -16, 2], 'Çorum': ['end', -16, 22], Amasya: ['middle', 0, -20], Tokat: ['start', 16, 22],
+    Samsun: ['start', 16, -6], Trabzon: ['middle', 0, -20], Rize: ['start', 16, 8], Malatya: ['end', -16, 10], 'Elazığ': ['middle', 0, -20],
+    'Diyarbakır': ['start', 16, 10], Mersin: ['end', -16, 8], Adana: ['middle', 0, -20], Hatay: ['start', 16, 14], 'Çanakkale': ['start', 14, 28],
+    Bursa: ['start', 16, 4], 'Balıkesir': ['middle', 0, 36], 'İzmir': ['start', 16, 8], 'Muğla': ['middle', 0, 38], Antalya: ['middle', 0, 38],
+    Ankara: ['middle', 0, 36], 'İstanbul': ['middle', 0, -20],
+  };
 
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
@@ -48,9 +98,7 @@
   };
 
   let BOARD = null;
-  let room = null;              // ekrana uygulanmış durum
-  let latest = null;            // sunucudan gelen en son durum
-  let prevGame = null;
+  let room = null, latest = null, prevGame = null;
   let session = store.get('baron_session');
   let skew = 0;
   let boardBuilt = false;
@@ -58,12 +106,33 @@
   let modalRender = null;
   const queue = [];
   let busy = false;
-  const shownPos = {};          // piyonların ekrandaki konumu
-  const pawnEls = {};
-  const cashShown = {};
-  const cashTweens = {};
+  const shownPos = {}, pawnEls = {}, cashShown = {}, cashTweens = {};
 
   const socket = io({ transports: ['websocket', 'polling'] });
+  if (location.hostname === 'localhost') window.__baronDebug = (d) => socket.emit('debug:dice', d); // yalnızca yerel test
+
+  // ---------- ekrana sığdırma (kaydırma yok) ----------
+  function fitLayout() {
+    const W = window.innerWidth, H = window.innerHeight, root = document.documentElement.style;
+    root.setProperty('--vh', `${H}px`);
+    const pad = 10, gap = 12;
+    const landscape = W >= H * 1.18 && W > 700;
+    let side, sideW;
+    if (landscape) {
+      sideW = Math.round(Math.min(360, Math.max(260, W * 0.22)));
+      side = Math.min(H - pad * 2, W - sideW - gap - pad * 2);
+    } else {
+      side = Math.min(W - 12, H - 12 - Math.max(190, H * 0.3));
+      sideW = side;
+    }
+    side = Math.max(240, Math.floor(side));
+    root.setProperty('--side', `${side}px`);
+    root.setProperty('--sideW', `${sideW}px`);
+    $('#game').classList.toggle('portrait', !landscape);
+    if (boardBuilt) requestAnimationFrame(() => layoutPawns(false));
+  }
+  window.addEventListener('resize', fitLayout);
+  fitLayout();
 
   // ---------- yardımcılar ----------
   function toast(msg, kind = '') {
@@ -73,7 +142,10 @@
     $('#toasts').appendChild(t);
     setTimeout(() => t.remove(), 3200);
   }
-  function showScreen(id) { ['home', 'lobby', 'game'].forEach((s) => $(`#${s}`).classList.toggle('hidden', s !== id)); }
+  function showScreen(id) {
+    ['home', 'lobby', 'game'].forEach((s) => $(`#${s}`).classList.toggle('hidden', s !== id));
+    document.body.classList.toggle('ingame', id === 'game');
+  }
   function myName() { return $('#nameInput').value.trim(); }
   function saveSession(res) {
     session = { code: res.code, secret: res.secret, pid: res.pid };
@@ -106,6 +178,8 @@
   const playerById = (id) => game() && game().players.find((p) => p.id === id);
   const sq = (i) => BOARD.squares[i];
   const groupColor = (s) => (s.group ? BOARD.groups[s.group].color : s.type === 'station' ? '#3b4046' : '#8a8a8a');
+  const tokenSVG = (t) => TOKENS[t] || TOKENS.araba;
+  const chip = (p, extra = '') => `<span class="token-chip" style="--c:${p.color};${extra}">${tokenSVG(p.token || p.icon)}</span>`;
 
   // ---------- modal ----------
   function openModal(renderFn) {
@@ -137,22 +211,22 @@
   }
   $('#fsBtn').onclick = toggleFullscreen;
   document.addEventListener('fullscreenchange', () => {
-    $('#fsBtn').textContent = document.fullscreenElement ? '🗗 Küçült' : '⛶ Tam ekran';
-    setTimeout(() => layoutPawns(false), 120);
+    $('#fsBtn').textContent = document.fullscreenElement ? 'Küçült' : 'Tam ekran';
+    setTimeout(fitLayout, 100);
   });
 
   // ---------- ana menü ----------
-  (function notesBackground() {
-    const bg = $('#notesBg');
-    const list = [1, 5, 10, 20, 50, 100, 500, 100, 50, 20, 500, 10];
-    bg.innerHTML = list.map((d, i) => {
+  $('#logoHat').innerHTML = TOKENS.sapka;
+  $('#deckChestIcon').innerHTML = ICON.chest;
+  function notesBackground() {
+    $('#notesBg').innerHTML = [1, 5, 10, 20, 50, 100, 500, 1000, 100, 50, 20, 500].map((d, i) => {
       const left = (i * 8.3 + Math.random() * 6) % 96;
-      const dur = 16 + Math.random() * 14;
-      const delay = -Math.random() * dur;
+      const dur = 16 + Math.random() * 14, delay = -Math.random() * dur;
       const r0 = Math.round(Math.random() * 60 - 30), r1 = r0 + Math.round(Math.random() * 240 - 120);
-      return `<div class="note-float" style="left:${left}%;animation-duration:${dur}s;animation-delay:${delay}s;--r0:${r0}deg;--r1:${r1}deg">${noteSVG(d)}</div>`;
+      return `<div class="note-float" style="left:${left}%;animation-duration:${dur}s;animation-delay:${delay}s;--r0:${r0}deg;--r1:${r1}deg">${noteSVG(d * K)}</div>`;
     }).join('');
-  })();
+  }
+  notesBackground();
 
   $('#nameInput').value = store.get('baron_name') || '';
   $('#nameInput').addEventListener('change', () => store.set('baron_name', myName()));
@@ -205,7 +279,7 @@
     if (busy || !queue.length || !BOARD) return;
     const s = queue.shift();
     busy = true;
-    const fast = REDUCED || queue.length > 2;   // geride kalırsak animasyonları atla
+    const fast = REDUCED || queue.length > 2;
     const dur = applyGame(s, fast);
     setTimeout(() => { busy = false; pump(); }, dur);
   }
@@ -213,18 +287,17 @@
   // ---------- lobi ----------
   function renderLobby() {
     $('#lobbyName').textContent = room.name;
-    $('#lobbyInfo').textContent = `${room.players.length}/${room.maxPlayers} oyuncu · Başlangıç parası ${tl(room.startMoney)} · ${room.isPublic ? 'Herkese açık' : 'Özel oda'}`;
+    $('#lobbyInfo').innerHTML = `${room.players.length}/${room.maxPlayers} oyuncu · Başlangıç parası ${money(room.startMoney)} · ${room.isPublic ? 'Herkese açık' : 'Özel oda'}`;
     $('#lobbyCode').textContent = room.code;
     const mine = room.players.find((p) => p.id === session.pid);
     $('#lobbyPlayers').innerHTML = room.players.map((p) => `
-      <li class="${p.connected ? '' : 'off'}">
-        <span class="pawn-chip" style="--c:${p.color}">${p.icon}</span>
+      <li class="${p.connected ? '' : 'off'}">${chip(p)}
         <b>${esc(p.name)}</b>${p.id === session.pid ? ' <span class="muted">(sen)</span>' : ''}
-        ${p.id === room.hostId ? '<span class="crown">👑 Oda sahibi</span>' : ''}
+        ${p.id === room.hostId ? '<span class="crown">ODA SAHİBİ</span>' : ''}
       </li>`).join('') + Array.from({ length: room.maxPlayers - room.players.length }, () => '<li class="muted">Boş koltuk…</li>').join('');
     const takenI = new Set(room.players.filter((p) => p !== mine).map((p) => p.icon));
     const takenC = new Set(room.players.filter((p) => p !== mine).map((p) => p.color));
-    $('#iconPicker').innerHTML = ICONS.map((i) => `<button class="chip ${mine && mine.icon === i ? 'sel' : ''} ${takenI.has(i) ? 'taken' : ''}" data-icon="${i}">${i}</button>`).join('');
+    $('#iconPicker').innerHTML = Object.keys(TOKENS).map((i) => `<button class="chip ${mine && mine.icon === i ? 'sel' : ''} ${takenI.has(i) ? 'taken' : ''}" data-icon="${i}" title="${i}">${TOKENS[i]}</button>`).join('');
     $('#colorPicker').innerHTML = COLORS.map((c) => `<button class="chip ${mine && mine.color === c ? 'sel' : ''} ${takenC.has(c) ? 'taken' : ''}" data-color="${c}" style="background:${c}"></button>`).join('');
     $$('[data-icon]').forEach((b) => { b.onclick = () => socket.emit('lobby:token', { icon: b.dataset.icon }); });
     $$('[data-color]').forEach((b) => { b.onclick = () => socket.emit('lobby:token', { color: b.dataset.color }); });
@@ -281,26 +354,34 @@
     return { r: 1 + (i - 30), c: 11, side: 'right' };
   }
   const nameCls = (n) => (n.length > 8 ? 'nm long' : 'nm');
+  const icon = (k, cls = '') => `<div class="icon ${cls}">${ICON[k]}</div>`;
   function squareHTML(s) {
-    if (s.type === 'prop') return `<div class="band"></div><div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div><div class="pr">${tl(s.price)}</div></div>`;
-    return `<div class="ct">${squareInner(s)}</div>`;
-  }
-  function squareInner(s) {
     switch (s.type) {
+      case 'prop': return `<div class="band"></div><div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div><div class="pr">${money(s.price)}</div></div>`;
       case 'station': {
-        const ic = s.name.includes('Liman') ? '🚢' : s.name.includes('Havalimanı') ? '✈️' : '🚆';
-        return `<div class="${nameCls(s.name)}">${esc(s.name)}</div><div class="ic">${ic}</div><div class="pr">${tl(s.price)}</div>`;
+        const k = s.name.includes('Liman') ? 'ship' : s.name.includes('Havalimanı') ? 'plane' : 'train';
+        return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(k)}<div class="pr">${money(s.price)}</div></div>`;
       }
-      case 'utility': return `<div class="${nameCls(s.name)}">${esc(s.name)}</div><div class="ic">${s.icon}</div><div class="pr">${tl(s.price)}</div>`;
-      case 'chance': return '<div class="nm">ŞANS</div><div class="ic">?</div><div></div>';
-      case 'chest': return '<div class="nm">KAMU FONU</div><div class="ic">💰</div><div></div>';
-      case 'tax': return `<div class="${nameCls(s.name)}">${esc(s.name)}</div><div class="ic">💸</div><div class="pr">${tl(s.amount)}</div>`;
-      case 'go': return '<div>BAŞLANGIÇ</div><div class="big-arrow">⟵</div><div class="pr">Geçerken B200 al</div>';
-      case 'jail': return '<div class="ic">🔒</div><div>HAPİS</div><div class="pr">sadece ziyaret</div>';
-      case 'parking': return '<div class="ic">🅿️</div><div>ÜCRETSİZ<br>OTOPARK</div>';
-      case 'gotojail': return '<div class="ic">👮</div><div>HAPSE<br>GİR</div>';
+      case 'utility': return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(s.icon, s.icon)}<div class="pr">${money(s.price)}</div></div>`;
+      case 'chance': return '<div class="ct"><div class="nm">Şans</div><div class="q">?</div><div></div></div>';
+      case 'chest': return `<div class="ct"><div class="nm">Kamu Fonu</div>${icon('chest')}<div></div></div>`;
+      case 'tax': return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(s.icon)}<div class="pr">${money(s.amount)} öde</div></div>`;
+      case 'go': return `<div class="corner-in"><div class="s">Her geçişte ${money(200 * K)} al</div><div class="t">BAŞLANGIÇ</div></div><div class="go-arrow">${ICON.arrow}</div>`;
+      case 'jail': return '<div class="jail-cell"><div class="barsv"></div><div class="t">HAPİS</div></div><div class="visit v1"><span>SADECE</span></div><div class="visit v2">ZİYARET</div>';
+      case 'parking': return `<div class="corner-in"><div class="t">ÜCRETSİZ</div>${icon('car')}<div class="t">OTOPARK</div></div>`;
+      case 'gotojail': return `<div class="corner-in"><div class="t">HAPSE</div>${icon('cuffs')}<div class="t">GİR</div></div>`;
       default: return '';
     }
+  }
+  function buildMap() {
+    const pts = (arr) => arr.map((p) => PROJ(p).join(',')).join(' ');
+    let html = `<polygon class="land" points="${pts(THRACE)}"/><polygon class="land" points="${pts(ANATOLIA)}"/>`;
+    BOARD.squares.filter((s) => s.type === 'prop' && CITY[s.name]).forEach((s) => {
+      const [x, y] = PROJ(CITY[s.name]);
+      const [anchor, dx, dy] = LABEL[s.name] || ['middle', 0, -18];
+      html += `<g class="city" data-city="${s.index}"><circle class="ring" cx="${x}" cy="${y}" r="17"/><circle class="dot" cx="${x}" cy="${y}" r="11" fill="${groupColor(s)}"/><text x="${+x + dx}" y="${+y + dy}" text-anchor="${anchor}">${esc(s.name)}</text></g>`;
+    });
+    $('#map').innerHTML = html;
   }
   function buildBoard() {
     const b = $('#board');
@@ -317,6 +398,7 @@
       d.onclick = () => openDeed(i);
       b.appendChild(d);
     });
+    buildMap();
     $('#die1').innerHTML = cubeHTML(); $('#die2').innerHTML = cubeHTML();
     boardBuilt = true;
   }
@@ -332,27 +414,34 @@
       let flag = $('.owner-flag', el);
       const owner = pr.owner && playerById(pr.owner);
       el.classList.toggle('owned', !!owner);
+      const city = $(`.city[data-city="${i}"]`);
+      if (city) {
+        city.classList.toggle('owned', !!owner);
+        $('.ring', city).setAttribute('stroke', owner ? owner.color : 'none');
+      }
       if (owner) {
         el.style.setProperty('--oc', owner.color);
         if (!flag) { flag = document.createElement('div'); flag.className = 'owner-flag'; el.appendChild(flag); }
         flag.style.background = owner.color;
         flag.title = `Sahibi: ${owner.name}`;
-        if (!fast && pp && pp.owner !== pr.owner) stamp(i, owner.color, pp.owner ? 'DEVREDİLDİ' : 'SATILDI!');
+        if (!fast && pp && pp.owner !== pr.owner) {
+          stamp(i, owner.color, pp.owner ? 'DEVREDİLDİ' : 'SATILDI!');
+          if (city) { city.classList.remove('flash'); void city.getBBox(); city.classList.add('flash'); }
+        }
       } else if (flag) flag.remove();
       if (s.type === 'prop') {
         const band = $('.band', el);
         band.innerHTML = pr.houses === 5 ? '<i class="hotel"></i>' : '<i class="house"></i>'.repeat(pr.houses);
-        if (!fast && pp && pr.houses > pp.houses) { band.classList.remove('pop'); void band.offsetWidth; band.classList.add('pop'); stamp(i, '#18a04a', pr.houses === 5 ? '🏨 OTEL!' : '🏠 EV!'); }
+        if (!fast && pp && pr.houses > pp.houses) { band.classList.remove('pop'); void band.offsetWidth; band.classList.add('pop'); stamp(i, '#18a04a', pr.houses === 5 ? 'OTEL!' : 'EV!'); }
       }
     });
   }
   function stamp(i, color, text) {
-    const el = sqEl(i);
     const st = document.createElement('div');
     st.className = 'stamp';
     st.style.setProperty('--sc', color);
     st.textContent = text;
-    el.appendChild(st);
+    sqEl(i).appendChild(st);
     setTimeout(() => st.remove(), 1900);
   }
   function pulseSquare(i) {
@@ -367,7 +456,7 @@
       if (!pawnEls[p.id]) {
         const d = document.createElement('div');
         d.className = 'pawn';
-        d.innerHTML = `<div class="pb" style="--c:${p.color}">${p.token}</div>`;
+        d.innerHTML = `<div class="pb">${tokenSVG(p.token)}</div>`;
         d.style.setProperty('--c', p.color);
         d.title = p.name;
         $('#tokenLayer').appendChild(d);
@@ -381,29 +470,33 @@
       const el = pawnEls[p.id]; if (!el) return;
       el.style.display = p.bankrupt ? 'none' : '';
       el.classList.toggle('cur', g.turn === p.id && g.phase !== 'gameover');
-      el.classList.toggle('jailed', p.inJail);
     });
   }
   function layoutPawns(animate = true) {
-    const g = game(); if (!g) return;
+    const g = game(); if (!g || !boardBuilt) return;
     const groups = {};
-    g.players.filter((p) => !p.bankrupt && pawnEls[p.id]).forEach((p) => { (groups[shownPos[p.id]] ||= []).push(p.id); });
-    for (const [pos, ids] of Object.entries(groups)) {
-      const el = sqEl(pos); if (!el) continue;
-      const cx = el.offsetLeft + el.offsetWidth / 2, cy = el.offsetTop + el.offsetHeight / 2;
-      const r = ids.length > 1 ? Math.min(el.offsetWidth, el.offsetHeight) * 0.24 : 0;
+    g.players.filter((p) => !p.bankrupt && pawnEls[p.id]).forEach((p) => {
+      const pos = shownPos[p.id];
+      const key = pos === 10 && p.inJail && p.pos === 10 ? 'jail' : String(pos);
+      (groups[key] ||= []).push(p.id);
+    });
+    for (const [key, ids] of Object.entries(groups)) {
+      const el = sqEl(key === 'jail' ? 10 : key); if (!el) continue;
+      let cx = el.offsetLeft + el.offsetWidth / 2, cy = el.offsetTop + el.offsetHeight / 2;
+      let rad = Math.min(el.offsetWidth, el.offsetHeight) * 0.24;
+      if (key === 'jail') { cx = el.offsetLeft + el.offsetWidth * 0.67; cy = el.offsetTop + el.offsetHeight * 0.3; rad *= 0.6; }
+      else if (key === '10') { cx = el.offsetLeft + el.offsetWidth * 0.22; cy = el.offsetTop + el.offsetHeight * 0.8; rad *= 0.5; }
+      if (ids.length === 1) rad = 0;
       ids.forEach((id, k) => {
         const a = (k / ids.length) * Math.PI * 2 - Math.PI / 2;
         const pe = pawnEls[id];
         if (!animate) pe.style.transition = 'none';
-        pe.style.left = `${cx + Math.cos(a) * r}px`;
-        pe.style.top = `${cy + Math.sin(a) * r}px`;
+        pe.style.left = `${cx + Math.cos(a) * rad}px`;
+        pe.style.top = `${cy + Math.sin(a) * rad}px`;
         if (!animate) { void pe.offsetWidth; pe.style.transition = ''; }
       });
     }
   }
-  window.addEventListener('resize', () => layoutPawns(false));
-
   function setPawn(pid, pos, mode, dur) {
     shownPos[pid] = pos;
     const pe = pawnEls[pid]; if (!pe) return;
@@ -419,15 +512,16 @@
     return path;
   }
   const stepFor = (len) => (len > 12 ? Math.max(70, Math.round(2400 / len)) : STEP_MS);
+  const JAIL_MS = 2500;
   function movesDuration(moves) {
-    return (moves || []).reduce((t, m) => t + (m.kind === 'jail' ? 950 : pathOf(m).length * stepFor(pathOf(m).length) + 80), 0);
+    return (moves || []).reduce((t, m) => t + (m.kind === 'jail' ? JAIL_MS : pathOf(m).length * stepFor(pathOf(m).length) + 80), 0);
   }
   function animateMoves(moves, g) {
     let t = 0;
     for (const m of moves) {
       if (m.kind === 'jail') {
-        after(t, () => { setPawn(m.pid, 10, 'jump'); banner('🚔 HAPSE!', 'jail'); });
-        t += 950;
+        after(t, () => { jailFx(m.pid); after(600, () => setPawn(m.pid, 10, 'jump')); });
+        t += JAIL_MS;
         continue;
       }
       const path = pathOf(m), step = stepFor(path.length);
@@ -441,9 +535,8 @@
     return t;
   }
   function snapTokens(g) {
-    let moved = false;
-    g.players.forEach((p) => { if (shownPos[p.id] !== p.pos) { shownPos[p.id] = p.pos; moved = true; } });
-    if (moved) layoutPawns(true);
+    g.players.forEach((p) => { shownPos[p.id] = p.pos; });
+    layoutPawns(true);
   }
 
   // ---------- 3D zar ----------
@@ -469,9 +562,9 @@
   }
 
   // ---------- efektler ----------
-  function banner(text, kind = '', color) {
+  function banner(text, color) {
     const b = $('#banner');
-    b.className = `banner ${kind}`;
+    b.className = 'banner';
     if (color) b.style.setProperty('--bc', color); else b.style.removeProperty('--bc');
     b.textContent = text;
     clearTimeout(banner.t);
@@ -482,17 +575,37 @@
     el.className = 'burst';
     el.textContent = text;
     el.style.left = x; el.style.top = y;
-    el.style.transform = 'translate(-50%,-50%)';
     $('#center').appendChild(el);
     setTimeout(() => el.remove(), 1200);
   }
-  const centerOf = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, ok: r.width > 0 }; };
+  function announce(p, idx, label, price) {
+    const s = sq(idx), el = $('#announce');
+    el.className = 'announce';
+    el.style.setProperty('--ac', p.color);
+    el.innerHTML = `<div class="ann-deed"><div class="mh" style="background:${groupColor(s)}"><small>TAPU SENEDİ</small>${esc(s.name)}</div><div class="mb">${money(price)}</div></div>
+      <div class="ann-text">${esc(p.name)}<small>${label}</small></div>`;
+    clearTimeout(announce.t);
+    announce.t = setTimeout(() => el.classList.add('hidden'), 2300);
+  }
+  function jailFx(pid) {
+    const p = playerById(pid);
+    const fx = $('#jailFx');
+    fx.classList.add('hidden'); void fx.offsetWidth;
+    $('#jailText').innerHTML = `${esc(p ? p.name : '')}<small>HAPSE GİRDİ!</small>`;
+    fx.classList.remove('hidden');
+    const frame = $('.board-frame');
+    after(550, () => { frame.classList.remove('shake'); void frame.offsetWidth; frame.classList.add('shake'); });
+    after(1400, () => { const j = sqEl(10); j.classList.remove('slam'); void j.offsetWidth; j.classList.add('slam'); });
+    clearTimeout(jailFx.t);
+    jailFx.t = setTimeout(() => fx.classList.add('hidden'), 2450);
+  }
+  const centerOf = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
   function rowPoint(pid) { const li = $(`#playerList li[data-pid="${pid}"]`); return li ? centerOf($('.cash', li) || li) : null; }
   function pawnPoint(pid) { const pe = pawnEls[pid]; return pe && pe.style.display !== 'none' ? centerOf(pe) : null; }
   const bankPoint = () => centerOf($('#diceRow'));
   function flyNotes(from, to, amount) {
     if (!from || !to || REDUCED) return;
-    const count = Math.min(5, 1 + Math.floor(Math.log10(Math.max(1, amount)) * 1.4));
+    const count = Math.min(5, 1 + Math.floor(Math.log10(Math.max(1, amount / K)) * 1.4));
     const d = noteFor(amount);
     for (let k = 0; k < count; k++) {
       const el = document.createElement('div');
@@ -511,16 +624,16 @@
       ], { duration: 1000, delay: k * 110, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' }).onfinish = () => el.remove();
     }
   }
-  function floatText(pt, text, cls) {
+  function floatText(pt, html, cls) {
     if (!pt) return;
     const el = document.createElement('div');
     el.className = `float-txt ${cls}`;
-    el.textContent = text;
+    el.innerHTML = html;
     el.style.left = `${pt.x}px`; el.style.top = `${pt.y}px`;
     $('#fx').appendChild(el);
     el.animate([
       { transform: 'translate(-50%,-50%) scale(.5)', opacity: 0 },
-      { transform: 'translate(-50%,-90%) scale(1.25)', opacity: 1, offset: 0.2 },
+      { transform: 'translate(-50%,-90%) scale(1.2)', opacity: 1, offset: 0.2 },
       { transform: 'translate(-50%,-250%) scale(1)', opacity: 0 },
     ], { duration: 1500, easing: 'ease-out', fill: 'both' }).onfinish = () => el.remove();
   }
@@ -539,14 +652,14 @@
       if (mi >= 0) {
         const p = pos.splice(mi, 1)[0];
         flyNotes(pawnPoint(n.id) || rowPoint(n.id), rowPoint(p.id), -n.d);
-        after(700, () => { floatText(rowPoint(p.id), `+${tl(p.d)}`, 'plus'); flashRow(p.id, 'gain'); });
+        after(700, () => { floatText(rowPoint(p.id), `+${money(p.d)}`, 'plus'); flashRow(p.id, 'gain'); });
       } else flyNotes(rowPoint(n.id), bankPoint(), -n.d);
-      floatText(pawnPoint(n.id) || rowPoint(n.id), tl(n.d), 'minus');
+      floatText(pawnPoint(n.id) || rowPoint(n.id), money(n.d), 'minus');
       flashRow(n.id, 'loss');
     });
     pos.forEach((p) => {
       flyNotes(bankPoint(), rowPoint(p.id), p.d);
-      after(650, () => { floatText(rowPoint(p.id), `+${tl(p.d)}`, 'plus'); flashRow(p.id, 'gain'); });
+      after(650, () => { floatText(rowPoint(p.id), `+${money(p.d)}`, 'plus'); flashRow(p.id, 'gain'); });
     });
   }
   function tweenCash(pid, to, fast) {
@@ -561,9 +674,9 @@
       if (!tw) continue;
       const k = Math.min(1, (t - tw.start) / tw.dur);
       const v = tw.from + (tw.to - tw.from) * (1 - (1 - k) ** 3);
-      cashShown[pid] = k === 1 ? tw.to : v;
+      cashShown[pid] = k === 1 ? tw.to : Math.round(v / 1000) * 1000;
       const el = $(`.cash[data-cash="${pid}"]`);
-      if (el && !el.dataset.dead) { el.textContent = tl(cashShown[pid]); el.classList.toggle('neg', cashShown[pid] < 0); }
+      if (el && !el.dataset.dead) { el.innerHTML = money(cashShown[pid]); el.classList.toggle('neg', cashShown[pid] < 0); }
       if (k < 1) more = true; else cashTweens[pid] = null;
     }
     if (more) requestAnimationFrame(tickCash);
@@ -571,19 +684,23 @@
 
   let cardHide = null;
   function showCard(g, prev) {
-    if (!g.card || (prev && prev.card && prev.card.seq === g.card.seq) || !prev) return;
+    if (!g.card || !prev || (prev.card && prev.card.seq === g.card.seq)) return;
     const p = playerById(g.card.player);
     const el = $('#cardPop');
     const ch = g.card.deck === 'chance';
+    const deck = ch ? $('#deckChance') : $('#deckChest');
+    deck.classList.remove('draw'); void deck.offsetWidth; deck.classList.add('draw');
     el.className = `card-pop ${g.card.deck}`;
-    el.innerHTML = `<div class="ci"><div class="cf"><h4>${ch ? '❓ ŞANS' : '💰 KAMU FONU'}</h4><div>${esc(g.card.text)}</div><small class="muted">${esc(p ? p.name : '')}</small></div><div class="cb">${ch ? '?' : 'B'}</div></div>`;
+    el.style.setProperty('--ox', ch ? '34cqw' : '-34cqw');
+    el.style.setProperty('--oy', '-24cqw');
+    el.style.setProperty('--or', ch ? '11deg' : '-11deg');
+    el.innerHTML = `<div class="ci"><div class="cf"><h4>${ch ? 'ŞANS' : 'KAMU FONU'}</h4><div>${fmtText(g.card.text)}</div><small class="muted">${esc(p ? p.name : '')}</small></div><div class="cb">${ch ? '?' : '<span class="cur">B</span>'}</div></div>`;
     clearTimeout(cardHide);
     const hide = () => { el.classList.add('out'); setTimeout(() => el.classList.add('hidden'), 400); };
     cardHide = setTimeout(hide, 4800);
     el.onclick = hide;
   }
 
-  // ---------- konfeti ----------
   function confetti() {
     if (REDUCED) return;
     const cv = $('#confetti'), ctx = cv.getContext('2d');
@@ -591,7 +708,7 @@
     const cols = ['#d7263d', '#f2b632', '#1d5fd0', '#1f9d55', '#ff4fa3', '#9b5de5'];
     const parts = Array.from({ length: 220 }, () => ({
       x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.5, vx: Math.random() * 4 - 2, vy: 2 + Math.random() * 4,
-      w: 6 + Math.random() * 8, h: 8 + Math.random() * 10, r: Math.random() * 6, vr: Math.random() * .3 - .15, c: cols[Math.floor(Math.random() * cols.length)],
+      w: 6 + Math.random() * 8, h: 8 + Math.random() * 10, r: Math.random() * 6, vr: Math.random() * 0.3 - 0.15, c: cols[Math.floor(Math.random() * cols.length)],
     }));
     const t0 = performance.now();
     (function frame(t) {
@@ -611,22 +728,19 @@
     const prev = prevGame;
     prevGame = g;
     showScreen('game');
-    if (!boardBuilt) { buildBoard(); fast = true; }
+    if (!boardBuilt) { fitLayout(); buildBoard(); fast = true; }
     $('#gameRoomName').textContent = s.name;
     $('#gameCode').textContent = s.code;
     ensurePawns(g);
     styleOfPawns(g);
-    if (fast) layoutPawns(false);
+    if (fast) { snapTokens(g); layoutPawns(false); }
 
     const rolled = prev && g.rollId !== prev.rollId;
     const animate = !fast && rolled;
     const diceT = animate ? DICE_MS : 0;
     const moveT = animate ? movesDuration(g.moves) : 0;
     setDice(g.dice, animate);
-    if (animate) {
-      const [a, b] = g.dice;
-      after(diceT - 150, () => { if (a === b) burst('ÇİFT! 🎲', '50%', '22%'); });
-    }
+    if (animate && g.dice[0] === g.dice[1]) after(diceT - 150, () => burst('ÇİFT!', '50%', '28%'));
     after(diceT, () => {
       if (animate && g.moves && g.moves.length) animateMoves(g.moves, g);
       else snapTokens(g);
@@ -638,18 +752,28 @@
   function renderMain(g, prev, fast) {
     updateBoard(g, prev, fast);
     styleOfPawns(g);
+    layoutPawns(true);
     renderPlayers(g, fast);
     if (!fast && prev) moneyFx(prev, g);
-    renderCenter(g, prev, fast);
+    renderCenter(g);
     renderLog(g);
     renderTrades(g);
-    if (!fast) showCard(g, prev);
     if (!fast && prev) {
+      // satın alma duyurusu
+      const bought = Object.keys(g.props).filter((i) => g.props[i].owner && !prev.props[i].owner);
+      if (bought.length === 1) {
+        const i = +bought[0], p = playerById(g.props[i].owner);
+        const viaAuction = prev.phase === 'auction' && prev.auction;
+        const o = prev.players.find((x) => x.id === p.id);
+        const paid = o ? o.cash - p.cash : sq(i).price;
+        announce(p, i, viaAuction ? 'AÇIK ARTIRMADA ALDI!' : 'SATIN ALDI!', paid > 0 ? paid : sq(i).price);
+      }
+      showCard(g, prev);
       const m = me();
-      if (prev.turn !== g.turn && m && g.turn === m.id && g.phase !== 'gameover') banner('SIRA SENDE! 🎲', '', m.color);
+      if (prev.turn !== g.turn && m && g.turn === m.id && g.phase !== 'gameover') after(bought.length ? 2300 : 0, () => banner('SIRA SENDE!', m.color));
       g.players.forEach((p) => {
         const o = prev.players.find((x) => x.id === p.id);
-        if (o && !o.bankrupt && p.bankrupt) banner(`💥 ${p.name} İFLAS!`, '', '#333');
+        if (o && !o.bankrupt && p.bankrupt) banner(`${p.name} İFLAS ETTİ!`, '#333');
       });
     }
     if (modalRender) { const body = $('#modalBody'); const st = body.parentElement.scrollTop; body.innerHTML = ''; modalRender(body); body.parentElement.scrollTop = st; }
@@ -662,17 +786,17 @@
       const mini = owned.map((i) => `<i style="background:${groupColor(sq(i))};${g.props[i].mortgaged ? 'opacity:.3' : ''}" title="${esc(sq(i).name)}"></i>`).join('');
       const shown = cashShown[p.id] === undefined ? p.cash : cashShown[p.id];
       return `<li class="${g.turn === p.id ? 'turn' : ''} ${p.bankrupt ? 'dead' : ''}" data-pid="${p.id}" style="--c:${p.color}">
-        <span class="pawn-chip" style="--c:${p.color}">${p.token}</span>
+        ${chip(p)}
         <div style="flex:1;min-width:0">
-          <div class="pname">${esc(p.name)}${p.id === session.pid ? ' (sen)' : ''}
+          <div class="pname" title="${esc(p.name)}">${p.id === session.pid ? '<b style="color:var(--red)">●</b> ' : ''}${esc(p.name)}
             ${p.inJail ? '<span class="badge-s jail">hapiste</span>' : ''}
             ${p.inDebt ? '<span class="badge-s debt">borçlu</span>' : ''}
             ${!p.connected && !p.bankrupt ? '<span class="badge-s off">çevrimdışı</span>' : ''}
-            ${p.jailCards.length ? `<span class="badge-s" title="Hapisten çıkış kartı">🔑${p.jailCards.length}</span>` : ''}
+            ${p.jailCards.length ? `<span class="badge-s" title="Hapisten çıkış kartı">Kart×${p.jailCards.length}</span>` : ''}
           </div>
           <div class="mini">${mini}</div>
         </div>
-        <span class="cash ${shown < 0 ? 'neg' : ''}" data-cash="${p.id}" ${p.bankrupt ? 'data-dead="1"' : ''}>${p.bankrupt ? 'İFLAS' : tl(shown)}</span>
+        <span class="cash ${shown < 0 ? 'neg' : ''}" data-cash="${p.id}" ${p.bankrupt ? 'data-dead="1"' : ''}>${p.bankrupt ? 'İFLAS' : money(shown)}</span>
       </li>`;
     }).join('');
     $$('#playerList li').forEach((li) => { li.onclick = () => openProps(li.dataset.pid); });
@@ -680,35 +804,36 @@
   }
 
   const phaseText = { roll: 'zar atacak', buy: 'satın alma kararı veriyor', auction: 'açık artırma sürüyor', end: 'turunu bitirecek', gameover: 'oyun bitti' };
+  const rentLabel = (s) => (s.type === 'prop' ? money(s.rent[0]) : s.type === 'station' ? money(25 * K) : `zar × ${money(4 * K)}`);
   function miniDeed(i) {
     const s = sq(i);
-    const rent = s.type === 'prop' ? tl(s.rent[0]) : s.type === 'station' ? tl(25) : 'zar × 4';
-    return `<div class="mini-deed"><div class="mh" style="background:${groupColor(s)}">${esc(s.name)}</div><div class="mb"><span>Fiyat <b>${tl(s.price)}</b></span><span>Kira <b>${rent}</b></span></div></div>`;
+    return `<div class="mini-deed"><div class="mh" style="background:${groupColor(s)}">${esc(s.name)}</div><div class="mb"><span>Fiyat <b>${money(s.price)}</b></span><span>Kira <b>${rentLabel(s)}</b></span></div></div>`;
   }
   function renderCenter(g) {
     const cur = playerById(g.turn), m = me();
     const myTurn = m && cur && m.id === cur.id && !m.bankrupt;
-    let info = `<span class="who" style="background:${cur.color}">${cur.token} ${esc(cur.name)}</span> <span class="${g.phase === 'gameover' ? '' : 'dots'}">${phaseText[g.phase] || ''}</span>`;
-    if (myTurn && g.phase === 'roll') info = m.inJail ? `🔒 Hapistesin (${m.jailTurns + 1}. deneme)` : (g.extraRoll ? '🎲 Çift attın, tekrar at!' : '🎲 Sıra sende!');
-    if (g.phase === 'buy' && g.pendingBuy !== null) info += `<br>${miniDeed(g.pendingBuy)}`;
+    const JAIL = 50 * K;
+    let info = `<span class="who" style="background:${cur.color}">${tokenSVG(cur.token)} ${esc(cur.name)}</span> <span class="${g.phase === 'gameover' ? '' : 'dots'}">${phaseText[g.phase] || ''}</span>`;
+    if (myTurn && g.phase === 'roll') info = m.inJail ? `Hapistesin (${m.jailTurns + 1}. deneme)` : (g.extraRoll ? 'Çift attın, tekrar at!' : 'Sıra sende!');
     $('#turnInfo').innerHTML = info;
+    const deedSlot = g.phase === 'buy' && g.pendingBuy !== null ? miniDeed(g.pendingBuy) : '';
 
     const A = [];
     if (myTurn && m.cash >= 0) {
       if (g.phase === 'roll') {
         if (m.inJail) {
-          A.push(['roll', '🎲 Çift Dene', 'primary pulse']);
-          A.push(['payJail', `Kefalet Öde ${tl(50)}`, 'gold', m.cash < 50]);
-          if (m.jailCards.length) A.push(['useJailCard', '🔑 Kartı Kullan', 'green']);
-        } else A.push(['roll', g.extraRoll ? '🎲 Tekrar Zar At' : '🎲 Zar At', 'primary pulse']);
+          A.push(['roll', `${ICON.dice} Çift Dene`, 'primary']);
+          A.push(['payJail', `Kefalet Öde ${money(JAIL)}`, 'gold', m.cash < JAIL]);
+          if (m.jailCards.length) A.push(['useJailCard', 'Kartı Kullan', 'green']);
+        } else A.push(['roll', `${ICON.dice} ${g.extraRoll ? 'Tekrar Zar At' : 'Zar At'}`, 'primary']);
       } else if (g.phase === 'buy') {
         const s = sq(g.pendingBuy);
-        A.push(['buy', `Satın Al ${tl(s.price)}`, 'green pulse', m.cash < s.price]);
-        A.push(['decline', '🔨 Açık Artırma', 'gold']);
+        A.push(['buy', `Satın Al ${money(s.price)}`, 'green', m.cash < s.price]);
+        A.push(['decline', 'Açık Artırma', 'gold']);
         A.push(['deed', 'Tapuya Bak', '']);
-      } else if (g.phase === 'end') A.push(['endTurn', 'Turu Bitir ➜', 'primary']);
+      } else if (g.phase === 'end') A.push(['endTurn', 'Turu Bitir →', 'primary']);
     }
-    $('#actions').innerHTML = A.map(([t, l, c, dis]) => `<button class="btn ${c}" data-a="${t}" ${dis ? 'disabled' : ''}>${l}</button>`).join('');
+    $('#actions').innerHTML = deedSlot + (deedSlot ? '<div style="flex-basis:100%"></div>' : '') + A.map(([t, l, c, dis]) => `<button class="btn ${c}" data-a="${t}" ${dis ? 'disabled' : ''}>${l}</button>`).join('');
     $$('#actions [data-a]').forEach((b) => {
       b.onclick = () => {
         if (b.dataset.a === 'deed') return openDeed(g.pendingBuy);
@@ -720,8 +845,8 @@
     const db = $('#debtBox');
     if (m && m.inDebt && !m.bankrupt) {
       db.classList.remove('hidden');
-      db.innerHTML = `<b>⚠️ ${tl(-m.cash)} borcun var!</b><span>Ev sat veya mülk ipotek et. Kapatamazsan iflas edersin.</span>
-        <div class="actions"><button class="btn gold" id="debtProps">📜 Mülklerim</button><button class="btn primary" id="debtBk">İflas Et</button></div><small id="debtTimer" class="muted"></small>`;
+      db.innerHTML = `<b>${money(-m.cash)} borcun var!</b><span>Ev sat veya mülk ipotek et. Kapatamazsan iflas edersin.</span>
+        <div class="actions"><button class="btn gold" id="debtProps">Mülklerim</button><button class="btn primary" id="debtBk">İflas Et</button></div><small id="debtTimer" class="muted"></small>`;
       $('#debtProps').onclick = () => openProps(m.id);
       $('#debtBk').onclick = () => confirmBox('İflas etmek istediğine emin misin?', 'İflas Et', () => act('bankrupt'));
     } else db.classList.add('hidden');
@@ -740,15 +865,16 @@
     const iLead = m && au.bidder === m.id;
     const changed = lastBid !== null && au.bid !== lastBid;
     lastBid = au.bid;
-    box.innerHTML = `<h4><span class="gavel ${changed ? 'bang' : ''}">🔨</span> Açık Artırma: <span style="color:${groupColor(s)}">${esc(s.name)}</span></h4>
-      <div class="bid ${changed ? 'bump' : ''}">${au.bid ? tl(au.bid) : 'Teklif yok'}</div>
+    const incs = [1, 10, 50, 100].map((x) => x * K);
+    box.innerHTML = `<h4><span class="gavel ${changed ? 'bang' : ''}">${ICON.gavel}</span> Açık Artırma: <span style="color:${groupColor(s)}">${esc(s.name)}</span></h4>
+      <div class="bid ${changed ? 'bump' : ''}">${au.bid ? money(au.bid) : 'Teklif yok'}</div>
       <div>${bidder ? `En yüksek: <b>${esc(bidder.name)}</b>` : 'İlk teklifi ver!'} · <span id="auTimer"></span></div>
       ${canBid && !iLead ? `<div class="row-btns">
-          ${[1, 10, 50, 100].map((inc) => `<button class="btn sm" data-inc="${inc}" ${au.bid + inc > m.cash ? 'disabled' : ''}>+${inc}</button>`).join('')}
-          <input id="bidInput" type="number" min="${au.bid + 1}" max="${m.cash}" placeholder="${au.bid + 1}">
+          ${incs.map((inc) => `<button class="btn sm" data-inc="${inc}" ${au.bid + inc > m.cash ? 'disabled' : ''}>+${num(inc)}</button>`).join('')}
+          <input id="bidInput" type="number" min="${au.bid + 1}" max="${m.cash}" step="1000" placeholder="${num(au.bid + K)}">
           <button class="btn sm green" id="bidBtn">Teklif</button>
           <button class="btn sm ghost" id="passBtn">Çekil</button></div>` : ''}
-      ${iLead ? '<b style="color:var(--green)">En yüksek teklif sende 👑</b>' : ''}
+      ${iLead ? '<b style="color:var(--green)">En yüksek teklif sende!</b>' : ''}
       ${m && !canBid && !iLead ? '<span class="muted">Bu artırmadan çekildin.</span>' : ''}`;
     $$('[data-inc]', box).forEach((b) => { b.onclick = () => act('bid', { amount: au.bid + +b.dataset.inc }); });
     if ($('#bidBtn', box)) {
@@ -757,12 +883,11 @@
     }
   }
 
-  // zamanlayıcılar
   setInterval(() => {
     const r = latest;
     if (r && r.status === 'lobby') {
       const el = $('#autoStartInfo');
-      if (r.autoStartAt) { el.classList.remove('hidden'); el.textContent = `⏱️ Oyun ${Math.max(0, Math.ceil((r.autoStartAt - now()) / 1000))} sn içinde otomatik başlayacak`; }
+      if (r.autoStartAt) { el.classList.remove('hidden'); el.textContent = `Oyun ${Math.max(0, Math.ceil((r.autoStartAt - now()) / 1000))} sn içinde otomatik başlayacak`; }
       else el.classList.add('hidden');
     }
     const g = game();
@@ -774,7 +899,7 @@
     bar.style.width = `${g.phase === 'auction' ? 100 : Math.min(100, (left / total) * 100)}%`;
     bar.classList.toggle('warn', left < 10000);
     const at = $('#auTimer');
-    if (at && g.auction) at.textContent = `⏱️ ${Math.max(0, Math.ceil((g.auction.endsAt - now()) / 1000))} sn`;
+    if (at && g.auction) at.textContent = `${Math.max(0, Math.ceil((g.auction.endsAt - now()) / 1000))} sn`;
     const dt = $('#debtTimer'), m = me();
     if (dt && m && m.debtSince) dt.textContent = `Kalan süre: ${Math.max(0, Math.ceil((m.debtSince + g.timing.DEBT_MS - now()) / 1000))} sn`;
   }, 250);
@@ -784,7 +909,7 @@
     if (newest === lastLogSeq) return;
     const prevSeq = lastLogSeq;
     lastLogSeq = newest;
-    $('#logList').innerHTML = g.log.slice().reverse().map((l) => `<li class="${prevSeq && l.seq > prevSeq ? 'new' : ''}">${esc(l.text)}</li>`).join('');
+    $('#logList').innerHTML = g.log.slice().reverse().map((l) => `<li class="${prevSeq && l.seq > prevSeq ? 'new' : ''}">${fmtText(l.text)}</li>`).join('');
   }
 
   // ---------- tapu ----------
@@ -795,17 +920,17 @@
     let rows = '';
     if (s.type === 'prop') {
       const labels = ['Kira', '1 ev ile', '2 ev ile', '3 ev ile', '4 ev ile', 'Otel ile'];
-      rows = s.rent.map((r, k) => `<tr class="${pr.houses === k && pr.owner ? 'cur' : ''}"><td>${labels[k]}</td><td>${tl(r)}</td></tr>`).join('')
+      rows = s.rent.map((r, k) => `<tr class="${pr.houses === k && pr.owner ? 'cur' : ''}"><td>${labels[k]}</td><td>${money(r)}</td></tr>`).join('')
         + '<tr><td colspan="2" class="muted" style="font-size:13px">Renk grubunun tamamına sahipsen boş arsa kirası 2 kat</td></tr>'
-        + `<tr><td>Ev / otel maliyeti</td><td>${tl(BOARD.groups[s.group].house)}</td></tr>`;
+        + `<tr><td>Ev / otel maliyeti</td><td>${money(BOARD.groups[s.group].house)}</td></tr>`;
     } else if (s.type === 'station') {
-      rows = [1, 2, 3, 4].map((n) => `<tr><td>${n} ulaşım noktası</td><td>${tl(25 * 2 ** (n - 1))}</td></tr>`).join('');
+      rows = [1, 2, 3, 4].map((n) => `<tr><td>${n} ulaşım noktası</td><td>${money(25 * K * 2 ** (n - 1))}</td></tr>`).join('');
     } else if (s.type === 'utility') {
-      rows = '<tr><td>1 idare</td><td>zar × 4</td></tr><tr><td>2 idare</td><td>zar × 10</td></tr>';
+      rows = `<tr><td>1 idare</td><td>zar × ${money(4 * K)}</td></tr><tr><td>2 idare</td><td>zar × ${money(10 * K)}</td></tr>`;
     } else {
-      return `<div class="deed">${head}<div class="df">${s.type === 'tax' ? `${tl(s.amount)} vergi ödenir.` : 'Bu kare satın alınamaz.'}</div></div>`;
+      return `<div class="deed">${head}<div class="df">${s.type === 'tax' ? `${money(s.amount)} vergi ödenir.` : 'Bu kare satın alınamaz.'}</div></div>`;
     }
-    return `<div class="deed">${head}<table><tr><td>Fiyat</td><td>${tl(s.price)}</td></tr>${rows}<tr><td>İpotek değeri</td><td>${tl(s.mortgage)}</td></tr></table>
+    return `<div class="deed">${head}<table><tr><td>Fiyat</td><td>${money(s.price)}</td></tr>${rows}<tr><td>İpotek değeri</td><td>${money(s.mortgage)}</td></tr></table>
       <div class="df">Sahibi: <b>${owner ? esc(owner.name) : 'Banka'}</b>${pr.mortgaged ? ' · <b style="color:var(--red)">İPOTEKLİ</b>' : ''}${s.type === 'prop' && pr.houses ? ` · ${pr.houses === 5 ? '1 otel' : `${pr.houses} ev`}` : ''}</div></div>`;
   }
   function propButtons(i) {
@@ -814,11 +939,11 @@
     const b = [];
     if (s.type === 'prop') {
       const h = BOARD.groups[s.group].house;
-      b.push(`<button class="btn sm green" data-pa="build" data-i="${i}">${pr.houses === 4 ? '🏨 Otel' : '🏠 Ev'} ${tl(h)}</button>`);
-      if (pr.houses) b.push(`<button class="btn sm" data-pa="sell" data-i="${i}">Bina sat +${tl(h / 2)}</button>`);
+      b.push(`<button class="btn sm green" data-pa="build" data-i="${i}">${pr.houses === 4 ? 'Otel' : 'Ev'} kur ${money(h)}</button>`);
+      if (pr.houses) b.push(`<button class="btn sm" data-pa="sell" data-i="${i}">Bina sat +${money(h / 2)}</button>`);
     }
-    if (!pr.mortgaged) b.push(`<button class="btn sm gold" data-pa="mortgage" data-i="${i}">İpotek +${tl(s.mortgage)}</button>`);
-    else b.push(`<button class="btn sm" data-pa="unmortgage" data-i="${i}">İpoteği kaldır ${tl(Math.ceil(s.mortgage * 1.1))}</button>`);
+    if (!pr.mortgaged) b.push(`<button class="btn sm gold" data-pa="mortgage" data-i="${i}">İpotek +${money(s.mortgage)}</button>`);
+    else b.push(`<button class="btn sm" data-pa="unmortgage" data-i="${i}">İpoteği kaldır ${money(Math.ceil(s.mortgage * 1.1))}</button>`);
     return b.join('');
   }
   function bindPropButtons(el) { $$('[data-pa]', el).forEach((b) => { b.onclick = () => act(b.dataset.pa, { idx: +b.dataset.i }); }); }
@@ -840,9 +965,9 @@
       owned.sort((a, b) => order(a) - order(b) || a - b);
       const worth = owned.reduce((t, i) => t + (g.props[i].mortgaged ? 0 : sq(i).mortgage) + (sq(i).type === 'prop' ? g.props[i].houses * BOARD.groups[sq(i).group].house / 2 : 0), 0);
       const wallet = breakdown(p.cash).map(([n, c], k) => `<div class="wn" style="animation-delay:${k * 60}ms">${noteSVG(n)}<b>×${c}</b></div>`).join('');
-      el.innerHTML = `<h3><span class="pawn-chip" style="--c:${p.color};display:inline-grid;vertical-align:middle">${p.token}</span> ${esc(p.name)} — ${tl(p.cash)}</h3>
-        <div class="wallet">${wallet || '<span class="muted">Cüzdan boş 😬</span>'}</div>
-        <p class="muted">${owned.length} mülk · Tasfiye değeri (ipotek + bina satışı): ${tl(worth)}</p>
+      el.innerHTML = `<h3 style="display:flex;align-items:center;gap:8px">${chip(p)} ${esc(p.name)} — ${money(p.cash)}</h3>
+        <div class="wallet">${wallet || '<span class="muted">Cüzdan boş.</span>'}</div>
+        <p class="muted">${owned.length} mülk · Tasfiye değeri (ipotek + bina satışı): ${money(worth)}</p>
         <div class="prop-groups">${owned.length ? owned.map((i) => {
           const s = sq(i), pr = g.props[i];
           const st = [pr.mortgaged ? 'ipotekli' : '', s.type === 'prop' && pr.houses ? (pr.houses === 5 ? 'otel' : `${pr.houses} ev`) : ''].filter(Boolean).join(', ');
@@ -858,8 +983,8 @@
   function tradeSummary(t) {
     const list = (props, cash, jail) => {
       const parts = props.map((i) => `<div style="border-left:5px solid ${groupColor(sq(i))};padding-left:5px">${esc(sq(i).name)}</div>`);
-      if (cash) parts.push(`<div><b>${tl(cash)}</b></div>`);
-      if (jail) parts.push(`<div>🔑 ${jail} hapis kartı</div>`);
+      if (cash) parts.push(`<div><b>${money(cash)}</b></div>`);
+      if (jail) parts.push(`<div>${jail} hapisten çıkış kartı</div>`);
       return parts.join('') || '<div class="muted">—</div>';
     };
     return `<div class="cols"><div><small class="muted">${esc(playerById(t.from).name)} verir:</small>${list(t.giveProps, t.giveCash, t.giveJail)}</div>
@@ -870,12 +995,12 @@
     const incoming = mine.filter((t) => t.to === session.pid).length;
     $('#tradeBadge').textContent = incoming;
     $('#tradeBadge').classList.toggle('hidden', !incoming);
-    if (incoming > (renderTrades.prev || 0)) toast('🤝 Yeni takas teklifin var! (Teklifler sekmesi)');
+    if (incoming > (renderTrades.prev || 0)) toast('Yeni takas teklifin var! (Teklifler sekmesi)');
     renderTrades.prev = incoming;
-    $('#tradeList').innerHTML = mine.length ? mine.map((t) => `<li><b>${t.to === session.pid ? `📩 ${esc(playerById(t.from).name)} sana teklif etti` : `📤 ${esc(playerById(t.to).name)} oyuncusuna teklifin`}</b>
+    $('#tradeList').innerHTML = mine.length ? mine.map((t) => `<li><b>${t.to === session.pid ? `${esc(playerById(t.from).name)} sana teklif etti` : `${esc(playerById(t.to).name)} oyuncusuna teklifin`}</b>
       ${tradeSummary(t)}
       <div class="btns">${t.to === session.pid ? `<button class="btn sm green" data-ta="tradeAccept" data-id="${t.id}">Kabul</button><button class="btn sm" data-ta="tradeReject" data-id="${t.id}">Reddet</button>` : `<button class="btn sm" data-ta="tradeCancel" data-id="${t.id}">Geri çek</button>`}</div></li>`).join('')
-      : '<li class="muted" style="border:none;background:none">Açık takas teklifi yok. "🤝 Takas" ile teklif yapabilirsin.</li>';
+      : '<li class="muted" style="border:none;background:none">Açık takas teklifi yok. "Takas" ile teklif yapabilirsin.</li>';
     $$('[data-ta]').forEach((b) => { b.onclick = () => act(b.dataset.ta, { id: +b.dataset.id }); });
   }
   $('#tradeBtn').onclick = () => {
@@ -892,14 +1017,14 @@
     el.innerHTML = '';
     const draw = () => {
       const t = playerById(target);
-      el.innerHTML = `<h3>🤝 Takas Teklifi</h3>
-        <label class="field"><span>Kiminle?</span><select id="trTarget">${others.map((p) => `<option value="${p.id}" ${p.id === target ? 'selected' : ''}>${p.token} ${esc(p.name)} (${tl(p.cash)})</option>`).join('')}</select></label>
+      el.innerHTML = `<h3>Takas Teklifi</h3>
+        <label class="field"><span>Kiminle?</span><select id="trTarget">${others.map((p) => `<option value="${p.id}" ${p.id === target ? 'selected' : ''}>${esc(p.name)} (B${num(p.cash)})</option>`).join('')}</select></label>
         <div class="trade-grid">
           <div><h4>Sen verirsin</h4><div class="check-list">${checks(m.id, 'give')}</div>
-            <label class="field"><span>Baron Doları (en fazla ${tl(Math.max(0, m.cash))})</span><input id="trGiveCash" type="number" min="0" max="${Math.max(0, m.cash)}" value="0"></label>
+            <label class="field"><span>Baron Doları (en fazla ${money(Math.max(0, m.cash))})</span><input id="trGiveCash" type="number" min="0" step="1000" max="${Math.max(0, m.cash)}" value="0"></label>
             ${m.jailCards.length ? `<label class="field"><span>Hapis kartı</span><input id="trGiveJail" type="number" min="0" max="${m.jailCards.length}" value="0"></label>` : ''}</div>
           <div><h4>${esc(t.name)} verir</h4><div class="check-list">${checks(t.id, 'get')}</div>
-            <label class="field"><span>Baron Doları (en fazla ${tl(Math.max(0, t.cash))})</span><input id="trGetCash" type="number" min="0" max="${Math.max(0, t.cash)}" value="0"></label>
+            <label class="field"><span>Baron Doları (en fazla ${money(Math.max(0, t.cash))})</span><input id="trGetCash" type="number" min="0" step="1000" max="${Math.max(0, t.cash)}" value="0"></label>
             ${t.jailCards.length ? `<label class="field"><span>Hapis kartı</span><input id="trGetJail" type="number" min="0" max="${t.jailCards.length}" value="0"></label>` : ''}</div>
         </div>
         <div class="modal-actions" style="margin-top:14px"><button class="btn primary" id="trSend">Teklifi Gönder</button></div>`;
@@ -931,8 +1056,8 @@
     if (renderGameOver.done) return;
     renderGameOver.done = true;
     const w = playerById(g.winner);
-    ov.innerHTML = `<div class="win-box"><div class="trophy">🎩</div><h2>${w ? `${esc(w.name)} yeni Baron oldu!` : 'Oyun bitti'}</h2>
-      ${w && w.id === session.pid ? '<p>Tebrikler, Baron sensin! 🏆</p>' : '<p>Bir dahaki sefere!</p>'}
+    ov.innerHTML = `<div class="win-box"><div class="trophy">${TOKENS.sapka}</div><h2>${w ? `${esc(w.name)} yeni Baron!` : 'Oyun bitti'}</h2>
+      ${w && w.id === session.pid ? '<p>Tebrikler, Türkiye senin!</p>' : '<p>Bir dahaki sefere!</p>'}
       <div class="modal-actions"><button class="btn primary" id="homeBtn">Ana Menü</button><button class="btn" id="stayBtn">Tahtaya Bak</button></div></div>`;
     ov.classList.remove('hidden');
     confetti();
@@ -941,5 +1066,5 @@
   }
 
   // ---------- başlat ----------
-  fetch('/api/board').then((r) => r.json()).then((b) => { BOARD = b; pump(); });
+  fetch('/api/board').then((r) => r.json()).then((b) => { BOARD = b; K = b.K || 1000; notesBackground(); pump(); });
 })();

@@ -24,7 +24,7 @@ for (let g = 0; g < 300; g++) {
         const o = others[0];
         if (o) {
           const theirs = Object.keys(game.props).map(Number).filter(i => game.props[i].owner === o.id);
-          game.act(p.id, { type: 'tradePropose', to: o.id, giveCash: 50, getProps: theirs.slice(0,1) });
+          game.act(p.id, { type: 'tradePropose', to: o.id, giveCash: 50000, getProps: theirs.slice(0,1) });
         }
       }
     }
@@ -39,7 +39,7 @@ for (let g = 0; g < 300; g++) {
       if (game.act(c.id, { type: rnd < .7 ? 'buy' : 'decline' }) && game.phase === 'buy') game.act(c.id, { type: 'decline' });
     } else if (game.phase === 'auction') {
       for (const p of game.active()) {
-        if (Math.random() < .5 && p.cash > game.auction?.bid + 10) game.act(p.id, { type: 'bid', amount: game.auction.bid + 10 });
+        if (Math.random() < .5 && p.cash > game.auction?.bid + 10000) game.act(p.id, { type: 'bid', amount: game.auction.bid + 10 });
         else if (game.auction) game.act(p.id, { type: 'pass' });
       }
       if (game.auction) game.resolveAuction();

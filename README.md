@@ -23,10 +23,11 @@ Tarayıcıdan oynanan, çevrimiçi ve çok oyunculu emlak ticareti oyunu
 | 🔑 **Kodla katıl** | 5 haneli kodla ya da ana sayfadaki açık odalar listesinden |
 | ⚡ **Hızlı eşleş** | Rastgele oyuncularla eşleş; 2 kişi olunca 25 sn sonra otomatik başlar |
 | 🗺️ **Türkiye tahtası** | Sinop'tan İstanbul'a 22 il, 4 ulaşım noktası (gar, liman, havalimanı) |
-| 💵 **Baron Doları (B)** | Kendine özel banknotları olan oyun parası: B1, B5, B10, B20, B50, B100, B500 |
+| 💵 **Baron Doları (฿)** | Dolar işareti gibi çizgili B; B1.000'den B1 milyona banknotlar. İstanbul B400.000, başlangıç parası B1.500.000 |
 | 🎲 **Tam kurallar** | Satın alma, açık artırma, ev/otel, ipotek, takas, hapis, Şans & Kamu Fonu kartları, iflas |
-| ✨ **Animasyonlar** | 3D zar, zıplayarak ilerleyen piyonlar, uçan banknotlar, kart çevirme, "SATILDI" damgası, konfeti |
-| ⛶ **Tam ekran** | Tahta ekranı doldurur; tek tıkla (veya **F** tuşuyla) tam ekran |
+| ✨ **Animasyonlar** | 3D zar, zıplayan piyonlar, uçan banknotlar, desteden çekilen kartlar, "SATIN ALDI" duyurusu, hapis parmaklıkları, konfeti |
+| 🗺️ **Canlı harita** | Tahtanın ortasındaki Türkiye haritasında satın alınan iller sahibinin rengiyle işaretlenir |
+| ⛶ **Her ekrana sığar** | Masaüstü, tablet ve telefonda kaydırma olmadan; tek tıkla (veya **F** tuşuyla) tam ekran |
 | 💬 **Sohbet** | Lobide ve oyun içinde canlı sohbet, olay kaydı |
 | 🔄 **Yeniden bağlanma** | Sayfa yenilense ya da internet kopsa bile aynı koltuğa dönülür |
 | ⏱️ **Süre sınırı** | Tur 60 sn, borç kapatma 90 sn; kimse oyunu kilitleyemez |

@@ -8,9 +8,9 @@
 <meta name="description" content="Türkiye'nin illerini satın al, ev ve otel dik, rakiplerini iflas ettir. Arkadaşlarınla oda kur ya da rastgele oyuncularla eşleş.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎩</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%231b2228' d='M7 3h10v11H7z'/><path fill='%23d7263d' d='M7 11h10v2H7z'/><ellipse fill='%231b2228' cx='12' cy='16' rx='10' ry='3'/></svg>">
 </head>
 <body>
 
@@ -19,9 +19,9 @@
   <div id="notesBg" class="notes-bg" aria-hidden="true"></div>
   <div class="home-wrap">
     <header class="brand">
-      <div class="logo-hat" aria-hidden="true">🎩</div>
+      <div class="logo-hat" id="logoHat" aria-hidden="true"></div>
       <h1>BARON<small>TÜRKİYE</small></h1>
-      <p>Türkiye'nin illerini kap, ev ve otel dik, rakiplerini iflas ettir. Baron sen ol!<br>2–6 kişi · tarayıcıdan oyna</p>
+      <p>Türkiye'nin illerini kap, ev ve otel dik, rakiplerini iflas ettir. Baron sen ol!</p>
     </header>
 
     <div class="card home-card">
@@ -30,10 +30,10 @@
         <input id="nameInput" maxlength="16" placeholder="Örn. Ayşe" autocomplete="nickname">
       </label>
 
-      <button id="quickBtn" class="btn big primary">⚡ Hızlı Eşleş <small>Rastgele oyuncularla oyna</small></button>
+      <button id="quickBtn" class="btn big primary">Hızlı Eşleş <small>Rastgele oyuncularla oyna</small></button>
 
       <div class="row two">
-        <button id="showCreateBtn" class="btn big">🏠 Oda Kur</button>
+        <button id="showCreateBtn" class="btn big">Oda Kur</button>
         <div class="join-box">
           <input id="codeInput" maxlength="5" placeholder="ODA KODU" autocomplete="off">
           <button id="joinBtn" class="btn">Katıl</button>
@@ -46,7 +46,7 @@
           <label class="field"><span>Oyuncu sayısı</span>
             <select id="maxPlayersSel"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label>
           <label class="field"><span>Başlangıç parası</span>
-            <select id="startMoneySel"><option value="1000">B1.000</option><option value="1500" selected>B1.500</option><option value="2000">B2.000</option><option value="2500">B2.500</option></select></label>
+            <select id="startMoneySel"><option value="1000000">B1.000.000</option><option value="1500000" selected>B1.500.000</option><option value="2000000">B2.000.000</option><option value="2500000">B2.500.000</option></select></label>
           <label class="field"><span>Görünürlük</span>
             <select id="publicSel"><option value="0">Özel (kodla)</option><option value="1">Herkese açık</option></select></label>
         </div>
@@ -54,11 +54,11 @@
       </form>
     </div>
 
-    <div class="card">
+    <div class="card rooms-card">
       <div class="card-head"><h3>Açık Odalar</h3></div>
       <ul id="publicRooms" class="room-list"><li class="muted">Şu an açık oda yok. İlk odayı sen kur!</li></ul>
     </div>
-    <p class="foot">Para birimi: <b>Baron Doları (B)</b> · Klasik emlak ticareti kurallarıyla bağımsız bir yapımdır.</p>
+    <p class="foot">2–6 kişi · Para birimi: <b>Baron Doları (<span class="cur">B</span>)</b></p>
   </div>
 </section>
 
@@ -75,7 +75,7 @@
       </div>
       <div class="code-box">
         <div><span class="muted">Oda kodu</span><strong id="lobbyCode">-----</strong></div>
-        <button id="copyLinkBtn" class="btn">🔗 Davet linkini kopyala</button>
+        <button id="copyLinkBtn" class="btn">Davet linkini kopyala</button>
       </div>
       <ul id="lobbyPlayers" class="lobby-players"></ul>
       <div class="picker">
@@ -98,17 +98,24 @@
 <!-- ============ OYUN ============ -->
 <section id="game" class="screen hidden">
   <div class="game-wrap">
-    <div class="board-holder">
+    <div class="board-frame">
       <div id="board" class="board">
         <div class="center" id="center">
-          <div class="center-brand"><span class="hat">🎩</span><div>BARON<small>TÜRKİYE</small></div></div>
-          <div class="dice-row" id="diceRow"><div class="die" id="die1"></div><div class="die" id="die2"></div></div>
-          <div class="turn-info" id="turnInfo"></div>
-          <div class="timer"><div id="timerBar"></div></div>
-          <div class="actions" id="actions"></div>
-          <div class="debt-box hidden" id="debtBox"></div>
-          <div class="auction-box hidden" id="auctionBox"></div>
+          <svg class="map" id="map" viewBox="0 0 1510 660" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+          <div class="deck chance" id="deckChance"><div class="deck-card"><b>?</b><span>ŞANS</span></div></div>
+          <div class="deck chest" id="deckChest"><div class="deck-card"><i id="deckChestIcon"></i><span>KAMU FONU</span></div></div>
+          <div class="center-inner">
+            <div class="logo-ribbon"><span>BARON</span><small>TÜRKİYE</small></div>
+            <div class="dice-row" id="diceRow"><div class="die" id="die1"></div><div class="die" id="die2"></div></div>
+            <div class="turn-info" id="turnInfo"></div>
+            <div class="timer"><div id="timerBar"></div></div>
+            <div class="actions" id="actions"></div>
+            <div class="debt-box hidden" id="debtBox"></div>
+            <div class="auction-box hidden" id="auctionBox"></div>
+          </div>
           <div class="card-pop hidden" id="cardPop"></div>
+          <div class="announce hidden" id="announce"></div>
+          <div class="jail-fx hidden" id="jailFx"><div class="siren"><i></i><i></i></div><div class="bars"></div><div class="jail-text" id="jailText"></div></div>
           <div class="banner hidden" id="banner"></div>
         </div>
         <div id="tokenLayer" class="token-layer"></div>
@@ -119,14 +126,14 @@
       <div class="side-top">
         <div class="room-tag"><span id="gameRoomName"></span> · <b id="gameCode"></b></div>
         <div class="side-top-btns">
-          <button id="fsBtn" class="btn ghost sm" title="Tam ekran (F)">⛶ Tam ekran</button>
+          <button id="fsBtn" class="btn ghost sm" title="Tam ekran (F)">Tam ekran</button>
           <button id="leaveGameBtn" class="btn ghost sm">Çık</button>
         </div>
       </div>
       <ul id="playerList" class="player-list"></ul>
       <div class="side-buttons">
-        <button id="myPropsBtn" class="btn">📜 Mülklerim</button>
-        <button id="tradeBtn" class="btn">🤝 Takas</button>
+        <button id="myPropsBtn" class="btn">Mülklerim</button>
+        <button id="tradeBtn" class="btn">Takas</button>
       </div>
       <div class="tabs">
         <button class="tab active" data-tab="log">Olaylar</button>

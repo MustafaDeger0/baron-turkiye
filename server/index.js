@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
 const { Game } = require('./game');
-const { SQUARES, GROUPS } = require('./board');
+const { SQUARES, GROUPS, K } = require('./board');
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -14,9 +14,9 @@ const io = new Server(server, { cors: { origin: process.env.CORS_ORIGIN || false
 
 app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h' }));
 app.get('/health', (_req, res) => res.json({ ok: true, rooms: rooms.size, players: io.engine.clientsCount }));
-app.get('/api/board', (_req, res) => res.json({ squares: SQUARES, groups: GROUPS }));
+app.get('/api/board', (_req, res) => res.json({ squares: SQUARES, groups: GROUPS, K }));
 
-const ICONS = ['🚗', '🎩', '🐕', '⛵', '🧿', '☕', '🐈', '🚀'];
+const ICONS = ['araba', 'sapka', 'gemi', 'cay', 'nazar', 'ucak', 'tac', 'roket'];
 const COLORS = ['#e63946', '#1d7cf2', '#2a9d8f', '#f4a261', '#9b5de5', '#ff4fa3'];
 const LOBBY_GRACE_MS = 20_000;
 const QUICK_AUTOSTART_MS = 25_000;
@@ -45,7 +45,7 @@ function createRoom({ roomName, isPublic, maxPlayers, startMoney, quick }) {
     isPublic: !!isPublic,
     quick: !!quick,
     maxPlayers: Math.min(6, Math.max(2, parseInt(maxPlayers, 10) || 4)),
-    startMoney: [1000, 1500, 2000, 2500].includes(+startMoney) ? +startMoney : 1500,
+    startMoney: [1000, 1500, 2000, 2500].map((x) => x * K).includes(+startMoney) ? +startMoney : 1500 * K,
     hostId: null,
     players: [],
     status: 'lobby',
@@ -235,6 +235,11 @@ io.on('connection', (socket) => {
     if (COLORS.includes(color) && !room.players.some((p) => p !== me && p.color === color)) me.color = color;
     broadcast(room);
   }));
+
+  if (process.env.DEBUG) {
+    // Yalnızca geliştirme: sonraki zarları sabitler (testler için)
+    socket.on('debug:dice', (d) => { const { room } = ctx(); if (room && room.game) room.game.forceDice = Array.isArray(d) ? d : null; });
+  }
 
   socket.on('chat', guard((text) => {
     const { room, me } = ctx();

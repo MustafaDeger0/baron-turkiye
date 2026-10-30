@@ -1,7 +1,9 @@
 // Sunucu tarafında yetkili oyun motoru. Tüm kurallar burada uygulanır;
 // istemciler yalnızca eylem gönderir ve durumu görüntüler.
 const crypto = require('crypto');
-const { SQUARES, GROUPS, GROUP_MEMBERS, CHANCE, CHEST } = require('./board');
+const { SQUARES, GROUPS, GROUP_MEMBERS, CHANCE, CHEST, K } = require('./board');
+const GO_MONEY = 200 * K;
+const JAIL_FEE = 50 * K;
 
 const TIMING = {
   TURN_MS: 60_000,          // sıradaki oyuncunun karar süresi
@@ -26,7 +28,7 @@ const tl = (n) => `B${Number(n).toLocaleString('tr-TR')}`;
 
 class Game {
   constructor(players, opts = {}) {
-    this.startMoney = opts.startMoney || 1500;
+    this.startMoney = opts.startMoney || 1500 * K;
     this.players = shuffle(players.map((p) => ({
       id: p.id, name: p.name, color: p.color, token: p.token,
       cash: this.startMoney, pos: 0, inJail: false, jailTurns: 0, jailCards: [],
@@ -83,7 +85,7 @@ class Game {
     if (from.cash < 0) {
       if (!from.debtSince) from.debtSince = Date.now();
       from.debtTo = to ? to.id : null;
-      this.addLog(`⚠️ ${from.name} borçlu duruma düştü (${tl(-from.cash)}). Mülk ipotekle/ev sat ya da iflas et.`);
+      this.addLog(`${from.name} borçlu duruma düştü (${tl(-from.cash)}). Mülk ipotekle/ev sat ya da iflas et.`);
     }
   }
   receive(p, amount, reason) {
@@ -94,7 +96,7 @@ class Game {
     for (const p of this.players) {
       if (p.debtSince && p.cash >= 0) {
         p.debtSince = null; p.debtTo = null;
-        this.addLog(`✅ ${p.name} borcunu kapattı.`);
+        this.addLog(`${p.name} borcunu kapattı.`);
         if (this.isCurrent(p)) this.resetDeadline();
       }
     }
@@ -142,11 +144,11 @@ class Game {
     if (!this.isCurrent(p)) return 'Sıra sende değil.';
     if (this.phase !== 'roll') return 'Şu an zar atamazsın.';
     if (p.cash < 0) return 'Önce borcunu kapatmalısın.';
-    const a = die(), b = die(), sum = a + b, dbl = a === b;
+    const a = this.forceDice ? this.forceDice[0] : die(), b = this.forceDice ? this.forceDice[1] : die(), sum = a + b, dbl = a === b;
     this.dice = [a, b];
     this.rollId++;
     this.moves = [];
-    this.addLog(`🎲 ${p.name} zar attı: ${a} + ${b} = ${sum}${dbl ? ' (çift!)' : ''}`);
+    this.addLog(`${p.name} zar attı: ${a} + ${b} = ${sum}${dbl ? ' (çift!)' : ''}`);
     if (p.inJail) {
       if (dbl) {
         p.inJail = false; p.jailTurns = 0;
@@ -154,8 +156,8 @@ class Game {
       } else {
         p.jailTurns++;
         if (p.jailTurns >= 3) {
-          this.addLog(`${p.name} 3. denemede de çift atamadı, ${tl(50)} ödeyip çıkıyor.`);
-          this.pay(p, null, 50, 'Hapis cezası');
+          this.addLog(`${p.name} 3. denemede de çift atamadı, ${tl(JAIL_FEE)} ödeyip çıkıyor.`);
+          this.pay(p, null, JAIL_FEE, 'Hapis cezası');
           p.inJail = false; p.jailTurns = 0;
         } else {
           this.phase = 'end';
@@ -188,7 +190,7 @@ class Game {
     this.phase = this.extraRoll && !p.inJail ? 'roll' : 'end';
   }
 
-  passGo(p) { this.receive(p, 200, 'BAŞLANGIÇ\'tan geçti'); }
+  passGo(p) { this.receive(p, GO_MONEY, 'BAŞLANGIÇ\'tan geçti'); }
 
   move(p, steps) {
     const np = (p.pos + steps + 40) % 40;
@@ -209,7 +211,7 @@ class Game {
     this.moves.push({ pid: p.id, from: p.pos, to: 10, kind: 'jail' });
     p.pos = 10; p.inJail = true; p.jailTurns = 0;
     this.extraRoll = false;
-    this.addLog(`🚔 ${p.name} hapse girdi.`);
+    this.addLog(`${p.name} hapse girdi.`);
   }
 
   land(p, opts = {}) {
@@ -249,18 +251,18 @@ class Game {
     }
     if (sq.type === 'station') {
       const n = this.countOwned(pr.owner, 'station');
-      return 25 * 2 ** (n - 1) * (opts.stationMult || 1);
+      return 25 * K * 2 ** (n - 1) * (opts.stationMult || 1);
     }
     if (sq.type === 'utility') {
       if (opts.utilityRoll) {
         const a = die(), b = die();
         this.dice = [a, b]; this.rollId++;
-        this.addLog(`🎲 İdare kirası için zar: ${a} + ${b} → ×10`);
-        return (a + b) * 10;
+        this.addLog(`İdare kirası için zar: ${a} + ${b} → ×10`);
+        return (a + b) * 10 * K;
       }
       const n = this.countOwned(pr.owner, 'utility');
       const sum = opts.dice || this.dice[0] + this.dice[1];
-      return sum * (n === 2 ? 10 : 4);
+      return sum * (n === 2 ? 10 : 4) * K;
     }
     return 0;
   }
@@ -271,7 +273,7 @@ class Game {
     const card = list[id];
     if (!card.jailFree) this.decks[deck].push(id);
     this.card = { deck, text: card.text, seq: ++this.cardSeq, player: p.id };
-    this.addLog(`🃏 ${p.name} ${deck === 'chance' ? 'Şans' : 'Kamu Fonu'} kartı çekti: "${card.text}"`);
+    this.addLog(`${p.name} ${deck === 'chance' ? 'Şans' : 'Kamu Fonu'} kartı çekti: "${card.text}"`);
 
     if (card.move !== undefined) return this.moveTo(p, card.move);
     if (card.moveRel) {
@@ -313,8 +315,8 @@ class Game {
   // ---------- hapis ----------
   payJail(p) {
     if (!this.isCurrent(p) || this.phase !== 'roll' || !p.inJail) return 'Şu an kefalet ödeyemezsin.';
-    if (p.cash < 50) return 'Yeterli paran yok.';
-    this.pay(p, null, 50, 'Hapis kefaleti');
+    if (p.cash < JAIL_FEE) return 'Yeterli paran yok.';
+    this.pay(p, null, JAIL_FEE, 'Hapis kefaleti');
     p.inJail = false; p.jailTurns = 0;
     this.addLog(`${p.name} kefaletle serbest kaldı.`);
     return null;
@@ -337,7 +339,7 @@ class Game {
     if (p.cash < sq.price) return 'Yeterli paran yok. Açık artırmaya çıkarabilirsin.';
     p.cash -= sq.price;
     this.props[sq.index].owner = p.id;
-    this.addLog(`🏠 ${p.name}, ${sq.name} mülkünü ${tl(sq.price)}'ye satın aldı.`);
+    this.addLog(`${p.name}, ${sq.name} mülkünü ${tl(sq.price)}'ye satın aldı.`);
     this.pendingBuy = null;
     this.phase = 'moving';
     this.afterMove();
@@ -355,7 +357,7 @@ class Game {
       passed: this.players.filter((p) => p.bankrupt || !p.connected).map((p) => p.id),
       endsAt: Date.now() + TIMING.AUCTION_MS,
     };
-    this.addLog(`🔨 ${SQUARES[idx].name} açık artırmaya çıktı!`);
+    this.addLog(`${SQUARES[idx].name} açık artırmaya çıktı!`);
     this.checkAuctionEnd();
   }
   bid(p, amount) {
@@ -396,9 +398,9 @@ class Game {
     if (w && !w.bankrupt && w.cash >= au.bid) {
       w.cash -= au.bid;
       this.props[au.idx].owner = w.id;
-      this.addLog(`🔨 ${sq.name}, ${w.name} tarafından ${tl(au.bid)}'ye alındı.`);
+      this.addLog(`${sq.name}, ${w.name} tarafından ${tl(au.bid)}'ye alındı.`);
     } else {
-      this.addLog(`🔨 ${sq.name} için teklif gelmedi, bankada kaldı.`);
+      this.addLog(`${sq.name} için teklif gelmedi, bankada kaldı.`);
     }
     this.auction = null;
     this.pendingBuy = null;
@@ -425,7 +427,7 @@ class Game {
       if (!this.players[i].bankrupt) { this.turn = i; break; }
     }
     this.phase = 'roll';
-    this.addLog(`➡️ Sıra ${this.current().name} oyuncusunda.`);
+    this.addLog(`Sıra ${this.current().name} oyuncusunda.`);
     this.resetDeadline();
   }
 
@@ -450,11 +452,11 @@ class Game {
     if (pr.houses === 4) {
       if (this.hotelsLeft <= 0) return 'Bankada otel kalmadı.';
       pr.houses = 5; this.hotelsLeft--; this.housesLeft += 4;
-      this.addLog(`🏨 ${p.name}, ${sq.name} üzerine otel dikti.`);
+      this.addLog(`${p.name}, ${sq.name} üzerine otel dikti.`);
     } else {
       if (this.housesLeft <= 0) return 'Bankada ev kalmadı.';
       pr.houses++; this.housesLeft--;
-      this.addLog(`🏠 ${p.name}, ${sq.name} üzerine ev yaptı (${pr.houses}).`);
+      this.addLog(`${p.name}, ${sq.name} üzerine ev yaptı (${pr.houses}).`);
     }
     p.cash -= cost;
     return null;
@@ -532,7 +534,7 @@ class Game {
     if (this.trades.filter((x) => x.from === p.id).length >= 3) return 'En fazla 3 açık teklifin olabilir.';
     const e = this.validateTrade(t); if (e) return e;
     this.trades.push(t);
-    this.addLog(`🤝 ${p.name}, ${this.player(t.to).name} oyuncusuna takas teklif etti.`);
+    this.addLog(`${p.name}, ${this.player(t.to).name} oyuncusuna takas teklif etti.`);
     return null;
   }
   tradeAccept(p, id) {
@@ -548,7 +550,7 @@ class Game {
     for (let k = 0; k < t.giveJail; k++) to.jailCards.push(from.jailCards.shift());
     for (let k = 0; k < t.getJail; k++) from.jailCards.push(to.jailCards.shift());
     this.trades = this.trades.filter((x) => x !== t);
-    this.addLog(`🤝 ${from.name} ile ${to.name} takası tamamlandı.`);
+    this.addLog(`${from.name} ile ${to.name} takası tamamlandı.`);
     return null;
   }
   tradeReject(p, id) {
@@ -585,7 +587,7 @@ class Game {
     if (creditor && p.cash > 0) creditor.cash += p.cash;
     p.cash = 0; p.bankrupt = true; p.debtSince = null; p.debtTo = null; p.inJail = false;
     this.trades = this.trades.filter((t) => t.from !== p.id && t.to !== p.id);
-    this.addLog(`💥 ${p.name} iflas etti${reason ? ` (${reason})` : ''}.${creditor ? ` Varlıkları ${creditor.name} oyuncusuna geçti.` : ' Mülkleri bankaya döndü.'}`);
+    this.addLog(`${p.name} iflas etti${reason ? ` (${reason})` : ''}.${creditor ? ` Varlıkları ${creditor.name} oyuncusuna geçti.` : ' Mülkleri bankaya döndü.'}`);
 
     if (this.auction) {
       if (this.auction.bidder === p.id) { this.auction.bidder = null; this.auction.bid = 0; }
@@ -625,7 +627,7 @@ class Game {
       this.phase = 'gameover';
       this.auction = null;
       this.winner = act[0] ? act[0].id : null;
-      this.addLog(`🏆 Oyun bitti! Kazanan: ${act[0] ? act[0].name : '—'}`);
+      this.addLog(`Oyun bitti! Kazanan: ${act[0] ? act[0].name : '—'}`);
       return true;
     }
     return false;
@@ -659,14 +661,14 @@ class Game {
     for (const p of this.active()) {
       if (p.cash < 0 && p.debtSince) {
         const lim = p.connected ? TIMING.DEBT_MS : TIMING.OFFLINE_DEBT_MS;
-        if (now - p.debtSince > lim) { this.addLog(`⏱️ ${p.name} için borç süresi doldu, otomatik tasfiye.`); this.autoResolve(p); changed = true; }
+        if (now - p.debtSince > lim) { this.addLog(`${p.name} için borç süresi doldu, otomatik tasfiye.`); this.autoResolve(p); changed = true; }
       }
     }
     if (this.phase === 'gameover') return true;
     const cur = this.current();
     if (this.phase !== 'auction' && cur.cash >= 0 && now >= this.deadline) {
       changed = true;
-      this.addLog(`⏱️ ${cur.name} için süre doldu.`);
+      this.addLog(`${cur.name} için süre doldu.`);
       if (this.phase === 'roll') this.act(cur.id, { type: 'roll' });
       else if (this.phase === 'buy') this.act(cur.id, { type: 'decline' });
       else if (this.phase === 'end') this.act(cur.id, { type: 'endTurn' });
