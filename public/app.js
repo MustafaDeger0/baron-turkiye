@@ -149,42 +149,79 @@
   if (location.hostname === 'localhost') window.__baronDebug = (d) => socket.emit('debug:dice', d); // yalnızca yerel test
 
   // ---------- ekrana sığdırma (kaydırma yok) ----------
+  // iPhone çentiği / ana ekran çubuğu için güvenli alan payları
+  const safeProbe = document.createElement('div');
+  safeProbe.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+  document.body.appendChild(safeProbe);
+  function safeArea() {
+    const cs = getComputedStyle(safeProbe);
+    return { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
+  }
+  let layoutMode = 'desktop';
   function fitLayout() {
-    const W = window.innerWidth, H = window.innerHeight, root = document.documentElement.style;
-    root.setProperty('--vh', `${H}px`);
-    const pad = 10, gap = 12;
+    const sa = safeArea(), root = document.documentElement.style;
+    const fullW = window.innerWidth, fullH = window.innerHeight;
+    root.setProperty('--vh', `${fullH}px`);
+    const W = fullW - sa.l - sa.r, H = fullH - sa.t - sa.b;   // çentik dışında kalan alan
     const landscape = W > H * 1.05;
-    const compact = landscape && H < 560;          // yan çevrilmiş telefon
-    let side, sideW;
-    if (compact) {
-      // tahta tüm yüksekliği kullanır, yan panel kalan genişliği
+    const mode = !landscape ? 'portrait' : H < 560 ? 'compact' : 'desktop';
+    let side, sideW, leftW = 0;
+    if (mode === 'compact') {
+      // yan çevrilmiş telefon: [oyuncular] [tahta] [eylemler]
       side = H - 8;
-      sideW = Math.min(440, W - side - 14);
-      if (sideW < 230) { sideW = 230; side = W - sideW - 14; }
-    } else if (landscape) {
+      let rem = W - side - 12;
+      if (rem < 230) { side = W - 230 - 12; rem = 230; }
+      if (rem >= 390) { leftW = Math.round(Math.min(185, Math.max(130, rem * 0.36))); sideW = Math.min(320, rem - leftW - 8); }
+      else sideW = rem;
+    } else if (mode === 'desktop') {
       sideW = Math.round(Math.min(360, Math.max(260, W * 0.22)));
-      side = Math.min(H - pad * 2, W - sideW - gap - pad * 2);
+      side = Math.min(H - 20, W - sideW - 32);
     } else {
-      side = Math.min(W - 12, H - 12 - Math.max(190, H * 0.3));
+      // dikey telefon: tahta üstte, altta eylemler ve oyuncular
+      side = Math.min(W - 8, H - 8 - Math.max(230, H * 0.32));
       sideW = side;
     }
-    side = Math.max(240, Math.floor(side));
+    side = Math.max(220, Math.floor(side));
     root.setProperty('--side', `${side}px`);
-    root.setProperty('--sideW', `${sideW}px`);
-    $('#game').classList.toggle('portrait', !landscape);
-    $('#game').classList.toggle('compact', compact);
-    placeControls(!landscape || compact);
+    root.setProperty('--sideW', `${Math.floor(sideW)}px`);
+    root.setProperty('--leftW', `${leftW}px`);
+    root.setProperty('--sat', `${sa.t}px`); root.setProperty('--sar', `${sa.r}px`); root.setProperty('--sab', `${sa.b}px`); root.setProperty('--sal', `${sa.l}px`);
+    const gm = $('#game');
+    gm.classList.toggle('portrait', mode === 'portrait');
+    gm.classList.toggle('compact', mode === 'compact');
+    gm.classList.toggle('has-strip', leftW > 0);
+    if (mode !== layoutMode || !fitLayout.done) arrange(mode, leftW > 0);
+    layoutMode = mode; fitLayout.done = true;
     if (boardBuilt) requestAnimationFrame(() => layoutPawns(false));
   }
-  function placeControls(portrait) {
+  // Ögeleri ekran türüne göre yerleştir
+  function arrange(mode, strip) {
+    const small = mode !== 'desktop';
     const inner = $('.center-inner'), bar = $('#mobileBar'), timer = $('.timer', inner) || $('.timer');
+    const aside = $('.side'), drawer = $('#gameDrawerBody'), players = $('#playerList');
+    const extras = [$('.side-buttons'), $('#game .tabs, #gameDrawerBody .tabs'), ...$$('.tab-body')];
     const ids = ['#turnInfo', '#landing', '#actions', '#debtBox', '#auctionBox'];
-    if (portrait) ids.forEach((id) => bar.appendChild($(id)));
-    else {
-      inner.insertBefore($('#turnInfo'), timer);
-      ids.slice(1).forEach((id) => inner.appendChild($(id)));
-    }
+    if (small) ids.forEach((id) => bar.appendChild($(id)));
+    else { inner.insertBefore($('#turnInfo'), timer); ids.slice(1).forEach((id) => inner.appendChild($(id))); inner.insertBefore($('#bankStock'), $('#landing')); }
+    if (small) extras.forEach((el) => el && drawer.appendChild(el));
+    else extras.forEach((el) => el && aside.appendChild(el));
+    if (strip) $('#leftStrip').appendChild(players);
+    else if (small) aside.insertBefore(players, $('#mobileBar').nextSibling);
+    else aside.insertBefore(players, $('.side-buttons'));
+    if (!small) closeDrawer();
   }
+  // Oyun içi açılır menü
+  function openDrawer() { $('#gameDrawer').classList.add('open'); $('#drawerBackdrop').classList.remove('hidden'); if (latest) renderChat(latest); updateMenuBadge(); }
+  function closeDrawer() { $('#gameDrawer').classList.remove('open'); $('#drawerBackdrop').classList.add('hidden'); }
+  const drawerOpen = () => $('#gameDrawer').classList.contains('open');
+  let unreadChat = 0, incomingTrades = 0;
+  function updateMenuBadge() {
+    const n = unreadChat + incomingTrades, b = $('#menuBadge');
+    b.textContent = n; b.classList.toggle('hidden', !n);
+  }
+  $('#menuBtn').onclick = () => (drawerOpen() ? closeDrawer() : openDrawer());
+  $('#drawerClose').onclick = closeDrawer;
+  $('#drawerBackdrop').onclick = closeDrawer;
   window.addEventListener('resize', fitLayout);
   window.addEventListener('orientationchange', () => setTimeout(fitLayout, 250));
   if (window.visualViewport) window.visualViewport.addEventListener('resize', fitLayout);
@@ -298,6 +335,8 @@
   function renderSoundBtns() {
     const A = window.BaronAudio; if (!A) return;
     $$('[data-snd="music"]').forEach((b) => { b.classList.toggle('off', !A.musicOn); b.title = A.musicOn ? 'Müziği kapat' : 'Müziği aç'; });
+    $$('[data-toggle="music"]').forEach((t) => t.classList.toggle('on', A.musicOn));
+    $$('[data-toggle="sfx"]').forEach((t) => t.classList.toggle('on', A.sfxOn));
     $$('[data-snd="sfx"]').forEach((b) => { b.classList.toggle('off', !A.sfxOn); b.textContent = A.sfxOn ? '🔊' : '🔈'; b.title = A.sfxOn ? 'Efektleri kapat' : 'Efektleri aç'; });
   }
   $$('[data-snd]').forEach((b) => {
@@ -377,6 +416,8 @@
     $('#ubStats').textContent = `${u.games} oyun · ${u.wins} galibiyet${u.games ? ` · %${Math.round((u.wins / u.games) * 100)}` : ''}`;
     renderDailyCard(u);
     $('#ubChips').innerHTML = chips(u.chips);
+    $('#mChips').innerHTML = chips(u.chips);
+    $('#mGiftDot').classList.toggle('hidden', !u.dailyAvailable);
     if (prev && prev.chips !== u.chips) { const el = $('#ubChips'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   }
   function renderDailyCard(u) {
@@ -473,6 +514,14 @@
       el.innerHTML = `<h3>Sıralama — En Zengin Baronlar</h3><ol class="lb">${(r.top || []).map((u, k) => `<li class="${user && u.name === user.name ? 'me' : ''}"><span class="rk">${k + 1}</span><b>${esc(u.name)}</b><span class="muted small">${u.wins} galibiyet · ${u.games} oyun</span>${chips(u.chips)}</li>`).join('') || '<li class="muted">Henüz kimse yok.</li>'}</ol>`;
     });
   };
+  const home2 = () => $('#home2');
+  $('#homeMenuBtn').onclick = () => home2().classList.add('drawer-open');
+  $('#homeMenuClose').onclick = () => home2().classList.remove('drawer-open');
+  $('#homeBackdrop').onclick = () => home2().classList.remove('drawer-open');
+  $('#mGiftBtn').onclick = () => $('#dailyBtn').click();
+  $('#homeFsBtn').onclick = () => { home2().classList.remove('drawer-open'); toggleFullscreen(); };
+  $('#logoutBtn2').onclick = () => $('#logoutBtn').click();
+  $$('[data-toggle]').forEach((t) => { t.onclick = (e) => { e.preventDefault(); const b = $(`.snd[data-snd="${t.dataset.toggle}"]`); if (b) b.click(); }; });
   $('#addBotBtn').onclick = () => socket.emit('lobby:bot', { add: true }, handle);
 
   // seçim düğmeleri (açılır liste yerine: para/çip simgeleri görünsün)
@@ -606,11 +655,14 @@
       if (atBottom) ul.scrollTop = ul.scrollHeight;
     });
     const last = r.chat.length ? r.chat[r.chat.length - 1].seq : 0;
-    const chatOpen = !$('[data-body="chat"]').classList.contains('hidden') || r.status === 'lobby';
+    const chatBody = $('[data-body="chat"]');
+    const inDrawer = $('#gameDrawerBody').contains(chatBody);
+    const chatOpen = (!chatBody.classList.contains('hidden') && (!inDrawer || drawerOpen())) || r.status === 'lobby';
     if (chatOpen) seenChatSeq = last;
     const unread = r.chat.filter((m) => m.seq > seenChatSeq && m.from).length;
     $('#chatBadge').textContent = unread;
     $('#chatBadge').classList.toggle('hidden', !unread);
+    unreadChat = unread; updateMenuBadge();
   }
   $$('[data-chat]').forEach((f) => {
     f.onsubmit = (e) => {
@@ -1122,6 +1174,8 @@
     renderPlayers(g, fast);
     if (!fast && prev) moneyFx(prev, g);
     renderPot(g, prev, fast);
+    const bs = $('#bankStock');
+    bs.innerHTML = `<span class="bs-l">BANKA</span><span class="bs-i ${g.housesLeft <= 6 ? 'low' : ''}" title="Kalan ev"><i class="bs-house"></i>${g.housesLeft}</span><span class="bs-i ${g.hotelsLeft <= 3 ? 'low' : ''}" title="Kalan otel"><i class="bs-hotel"></i>${g.hotelsLeft}</span>`;
     sqEl(20).classList.toggle('has-pot', (g.pot || 0) > 0);
     renderCenter(g);
     renderLog(g);
@@ -1367,7 +1421,7 @@
       $$('[data-deed]', el).forEach((n) => { n.onclick = () => openDeed(+n.dataset.deed); });
     });
   }
-  $('#myPropsBtn').onclick = () => session && openProps(session.pid);
+  $('#myPropsBtn').onclick = () => { closeDrawer(); if (session) openProps(session.pid); };
 
   // ---------- takas ----------
   function tradeSummary(t) {
@@ -1385,6 +1439,7 @@
     const incoming = mine.filter((t) => t.to === session.pid).length;
     $('#tradeBadge').textContent = incoming;
     $('#tradeBadge').classList.toggle('hidden', !incoming);
+    incomingTrades = incoming; updateMenuBadge();
     if (incoming > (renderTrades.prev || 0)) toast('Yeni takas teklifin var! (Teklifler sekmesi)');
     renderTrades.prev = incoming;
     $('#tradeList').innerHTML = mine.length ? mine.map((t) => `<li><b>${t.to === session.pid ? `${esc(playerById(t.from).name)} sana teklif etti` : `${esc(playerById(t.to).name)} oyuncusuna teklifin`}</b>
@@ -1394,6 +1449,7 @@
     $$('[data-ta]').forEach((b) => { b.onclick = () => act(b.dataset.ta, { id: +b.dataset.id }); });
   }
   $('#tradeBtn').onclick = () => {
+    closeDrawer();
     const g = game(), m = me();
     if (!g || !m || m.bankrupt) return;
     const others = g.players.filter((p) => !p.bankrupt && p.id !== m.id);

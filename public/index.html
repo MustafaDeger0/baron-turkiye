@@ -55,7 +55,12 @@
 <!-- ============ ANA MENÜ ============ -->
 <section id="home" class="screen hidden">
   <div id="notesBg" class="notes-bg" aria-hidden="true"></div>
-  <div class="home2">
+  <div class="home2" id="home2">
+    <div class="m-topbar">
+      <button class="icon-btn" id="homeMenuBtn" aria-label="Menü">☰</button>
+      <div class="m-chips" id="mChips"></div>
+      <button class="icon-btn gift" id="mGiftBtn" aria-label="Günlük ödül">🎁<i class="dot hidden" id="mGiftDot"></i></button>
+    </div>
     <div class="h-main">
       <header class="hero">
         <div class="hero-art" aria-hidden="true">
@@ -94,7 +99,9 @@
       </div>
     </div>
 
-    <aside class="h-side">
+    <div class="h-backdrop" id="homeBackdrop"></div>
+    <aside class="h-side" id="homeSide">
+      <div class="hs-head"><b>Profilim</b><button class="icon-btn" id="homeMenuClose" aria-label="Kapat">✕</button></div>
       <div class="card profile">
         <div class="p-top">
           <span class="avatar" id="ubAvatar"></span>
@@ -116,6 +123,13 @@
       <div class="card lb-card">
         <div class="card-head"><h3>En Zengin Baronlar</h3><button class="btn sm ghost" id="lbBtn">Tümü</button></div>
         <ol class="lb mini" id="lbMini"><li class="muted">Yükleniyor…</li></ol>
+      </div>
+      <div class="card settings-card">
+        <div class="card-head"><h3>Ayarlar</h3></div>
+        <label class="set-row"><span>Müzik</span><button class="toggle" data-toggle="music"></button></label>
+        <label class="set-row"><span>Ses efektleri</span><button class="toggle" data-toggle="sfx"></button></label>
+        <button class="btn" id="homeFsBtn">Tam ekran / Ana ekrana ekle</button>
+        <button class="btn ghost" id="logoutBtn2">Çıkış yap</button>
       </div>
       <p class="foot">Para birimi: <b>Baron Doları (<span class="cur">B</span>)</b> · Kalıcı puan: <b>çip</b></p>
     </aside>
@@ -182,6 +196,7 @@
 <!-- ============ OYUN ============ -->
 <section id="game" class="screen hidden">
   <div class="game-wrap">
+    <div id="leftStrip" class="left-strip"></div>
     <div class="board-frame">
       <div id="board" class="board">
         <div class="center" id="center">
@@ -193,6 +208,7 @@
             <div class="dice-row" id="diceRow"><div class="die" id="die1"></div><div class="die" id="die2"></div><div class="dice-sum hidden" id="diceSum"></div></div>
             <div class="turn-info" id="turnInfo"></div>
             <div class="timer"><div id="timerBar"></div></div>
+            <div class="bank-stock" id="bankStock" title="Bankada kalan ev ve otel sayısı"></div>
             <div class="landing hidden" id="landing"></div>
             <div class="actions" id="actions"></div>
             <div class="debt-box hidden" id="debtBox"></div>
@@ -212,6 +228,7 @@
       <div class="side-top">
         <div class="room-tag"><span id="gameRoomName"></span> · <b id="gameCode"></b></div>
         <div class="side-top-btns">
+          <button class="btn ghost sm menu-btn" id="menuBtn" title="Menü: mülkler, takas, olaylar, sohbet">☰ Menü<i id="menuBadge" class="badge hidden"></i></button>
           <button class="btn ghost sm snd" data-snd="music" title="Müzik aç/kapat">♪</button>
           <button class="btn ghost sm snd" data-snd="sfx" title="Ses efektleri aç/kapat">🔊</button>
           <button id="fsBtn" class="btn ghost sm" title="Tam ekran (F)">Tam ekran</button>
@@ -238,6 +255,13 @@
     </aside>
   </div>
 </section>
+
+<!-- oyun içi açılır menü (telefonda olaylar/sohbet/takas burada) -->
+<div id="drawerBackdrop" class="drawer-backdrop hidden"></div>
+<aside id="gameDrawer" class="game-drawer" aria-hidden="true">
+  <div class="gd-head"><b>Menü</b><button class="btn ghost sm" id="drawerClose">✕</button></div>
+  <div class="gd-body" id="gameDrawerBody"></div>
+</aside>
 
 <!-- ============ MODALLAR ============ -->
 <div id="modal" class="modal hidden" role="dialog" aria-modal="true">

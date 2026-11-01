@@ -1000,3 +1000,135 @@ input, select { font: inherit; }
   .btn.big { padding: 9px 14px; font-size: 16px; }
 }
 .hero-text p { max-width: 520px; }
+
+/* ================= v12: telefon düzeni, çekmece, banka stoğu, güvenli alan ================= */
+/* iPhone çentiği: oyun alanı güvenli bölgenin içinde kalır */
+#game { box-sizing: border-box; padding: var(--sat, 0) var(--sar, 0) var(--sab, 0) var(--sal, 0); }
+.game-wrap { box-sizing: border-box; }
+
+/* bankada kalan ev / otel */
+.bank-stock { display: flex; align-items: center; gap: 1.2cqw; padding: .5cqw 1.4cqw; border-radius: 99px; background: rgba(255,255,255,.88); border: .25cqw solid var(--ink); box-shadow: 0 .35cqw 0 var(--ink); font-size: 1.9cqw; font-weight: 800; color: var(--ink); line-height: 1; }
+.bank-stock:empty { display: none; }
+.bs-l { font-size: 1.3cqw; letter-spacing: .16em; color: var(--muted); }
+.bs-i { display: inline-flex; align-items: center; gap: .5cqw; font-variant-numeric: tabular-nums; }
+.bs-i.low { color: var(--red); animation: bump 1.2s ease-in-out infinite alternate; }
+.bs-house { display: inline-block; width: 1.9cqw; height: 1.9cqw; background: #1aa34d; clip-path: polygon(50% 0, 100% 42%, 100% 100%, 0 100%, 0 42%); }
+.bs-hotel { display: inline-block; width: 3cqw; height: 1.9cqw; background: #d91e2a; clip-path: polygon(10% 0, 90% 0, 100% 30%, 100% 100%, 0 100%, 0 30%); }
+#game.portrait .bank-stock, #game.compact .bank-stock { font-size: 2.6cqw; padding: .6cqw 1.8cqw; }
+#game.portrait .bs-l, #game.compact .bs-l { font-size: 1.7cqw; }
+#game.portrait .bs-house, #game.compact .bs-house { width: 2.5cqw; height: 2.5cqw; }
+#game.portrait .bs-hotel, #game.compact .bs-hotel { width: 3.8cqw; height: 2.5cqw; }
+
+/* menü düğmesi yalnız telefonda */
+.menu-btn { display: none; position: relative; }
+#game.portrait .menu-btn, #game.compact .menu-btn { display: inline-flex; align-items: center; gap: 4px; background: var(--gold); color: var(--ink); border-color: var(--ink); font-weight: 800; }
+.menu-btn .badge { position: absolute; top: -7px; right: -7px; }
+
+/* yan çevrilmiş telefon: sol şerit (oyuncular) */
+.left-strip { display: none; }
+#game.compact.has-strip .left-strip { display: flex; flex-direction: column; flex: none; width: var(--leftW); height: var(--side); overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+#game.compact.has-strip .left-strip::-webkit-scrollbar { display: none; }
+.left-strip .player-list { display: flex !important; flex-direction: column; gap: 5px; }
+.left-strip .player-list li { display: grid !important; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 7px; row-gap: 0; align-items: center; padding: 5px 7px !important; border-radius: 10px; background: rgba(255,255,255,.95); }
+.left-strip .player-list li > .token-chip { grid-row: 1 / 3; width: 28px !important; height: 28px !important; padding: 4px !important; }
+.left-strip .player-list li > div { min-width: 0; }
+.left-strip .player-list .pname { font-size: 12px !important; line-height: 1.2; }
+.left-strip .player-list .cash { grid-column: 2; font-size: 14px !important; line-height: 1.15; text-align: left; }
+.left-strip .player-list .badge-s { display: none; }
+.left-strip .player-list li.turn { box-shadow: 0 2px 0 var(--ink), 0 0 0 2px var(--gold); }
+.left-strip .player-list li:hover { transform: none; }
+
+/* yan çevrilmiş telefon: sağ panel yalnız eylemler */
+#game.compact .game-wrap { padding: 4px; gap: 6px; justify-content: center; align-items: center; }
+#game.compact .side { width: var(--sideW); height: var(--side); max-height: var(--side); padding: 6px; gap: 6px; }
+#game.compact .side-top-btns { flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+#game.compact .mobile-bar { flex: 1 1 auto; min-height: 0; overflow-y: auto; justify-content: flex-start; }
+#game.compact .mobile-bar .actions .btn { font-size: 15px; padding: 9px 10px; }
+#game.compact .side > .player-list { flex: none; }
+
+/* dikey telefon */
+#game.portrait .game-wrap { padding: 4px; gap: 6px; align-items: center; }
+#game.portrait .side { width: var(--side); flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+#game.portrait .side-top-btns { width: 100%; justify-content: space-between; }
+#game.portrait .side-top-btns #fsBtn { display: none; }
+#game.portrait .side > .player-list { flex: none; }
+
+/* oyun içi çekmece */
+.drawer-backdrop { position: fixed; inset: 0; z-index: 44; background: rgba(5,15,22,.5); animation: fadeIn .2s; }
+.game-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 45; width: min(380px, 88vw);
+  background: var(--panel); box-shadow: -14px 0 34px rgba(0,0,0,.4); border-radius: 16px 0 0 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: calc(10px + var(--sat, 0px)) calc(10px + var(--sar, 0px)) calc(10px + var(--sab, 0px)) 12px;
+  transform: translateX(105%); transition: transform .28s cubic-bezier(.2,.9,.3,1); visibility: hidden;
+}
+.game-drawer.open { transform: translateX(0); visibility: visible; }
+.gd-head { display: flex; align-items: center; justify-content: space-between; font-size: 17px; }
+.gd-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.gd-body .side-buttons .btn { font-size: 15px; padding: 9px; }
+.gd-body .tab-body { flex: 1 1 0; height: auto; min-height: 0; }
+.gd-body .tab { font-size: 14px; padding: 6px 10px; }
+
+/* ================= ana sayfa: telefon üst çubuğu ve yan menü ================= */
+.m-topbar, .h-backdrop, .hs-head { display: none; }
+.icon-btn { position: relative; width: 42px; height: 42px; border-radius: 12px; border: 2px solid rgba(255,255,255,.25); background: rgba(255,255,255,.1); color: #fff; font-size: 20px; display: grid; place-items: center; cursor: pointer; padding: 0; font-family: inherit; }
+.icon-btn:active { transform: scale(.94); }
+.icon-btn .dot { position: absolute; top: -3px; right: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--red); border: 2px solid #fff; animation: bump 1s ease-in-out infinite alternate; }
+.settings-card { display: flex; flex-direction: column; gap: 8px; }
+.settings-card .card-head { margin-bottom: 2px; }
+.set-row { display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 15px; cursor: pointer; }
+.toggle { position: relative; width: 48px; height: 28px; border-radius: 99px; border: 2px solid var(--ink); background: #d9d4c5; cursor: pointer; padding: 0; transition: background .2s; flex: none; }
+.toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.4); transition: transform .2s; }
+.toggle.on { background: #1f9d55; }
+.toggle.on::after { transform: translateX(20px); }
+.settings-card .btn { width: 100%; }
+
+@media (min-width: 921px) {
+  .settings-card #logoutBtn2 { display: none; }
+}
+@media (max-width: 920px) {
+  #home { padding: var(--sat, 0) var(--sar, 0) var(--sab, 0) var(--sal, 0); box-sizing: border-box; }
+  .home2 { display: block; padding: 8px 14px 24px; }
+  .h-main { gap: 14px; }
+  .m-topbar { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 5; padding: 6px 0; }
+  .m-chips { flex: 1; display: flex; justify-content: flex-end; }
+  .m-chips:not(:empty) { font-weight: 800; font-size: 17px; }
+  .m-chips > * { background: rgba(255,255,255,.95); color: var(--ink); padding: 5px 12px; border-radius: 99px; box-shadow: 0 2px 0 rgba(0,0,0,.3); }
+  /* BARON yazısı en üstte, ortalı */
+  .hero { flex-direction: column; text-align: center; gap: 6px; padding: 0 0 4px; }
+  .hero-art { display: none; }
+  .hero-text h1 { font-size: 64px; }
+  .hero-text h1 small { margin: 8px 0 0 12px; }
+  .hero-text p { margin: 8px auto 0; font-size: 15px; }
+  /* yan menü */
+  .h-backdrop { display: block; position: fixed; inset: 0; z-index: 40; background: rgba(5,15,22,.55); opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .h-side {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 41; width: min(360px, 88vw); overflow-y: auto;
+    padding: calc(12px + var(--sat, 0px)) 12px calc(16px + var(--sab, 0px)) calc(12px + var(--sal, 0px));
+    background: linear-gradient(180deg, #12304b, #0b2034); box-shadow: 14px 0 34px rgba(0,0,0,.45);
+    transform: translateX(-105%); transition: transform .28s cubic-bezier(.2,.9,.3,1); gap: 12px; visibility: hidden;
+  }
+  .home2.drawer-open .h-side { transform: translateX(0); visibility: visible; }
+  .home2.drawer-open .h-backdrop { opacity: 1; pointer-events: auto; }
+  .h-side .p-btns { display: none; }
+  .hs-head { display: flex; align-items: center; justify-content: space-between; color: #fff; font-size: 20px; }
+  .lb-card, .h-side .foot { display: flex; }
+  .lb-card { flex-direction: column; }
+  .h-side .foot { color: #9fb6c6; font-size: 13px; display: block; }
+}
+@media (max-width: 920px) and (orientation: landscape) {
+  .hero-text h1 { font-size: 46px; }
+  .hero-text p { display: none; }
+  .modes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .mode { grid-template-columns: 1fr; text-align: center; justify-items: center; padding: 12px 8px; }
+  .m-ic { grid-row: auto; width: 40px; height: 40px; } .m-ic svg { width: 24px; height: 24px; }
+  .m-t { font-size: 16px; } .m-d { font-size: 11px; }
+  .mode { grid-template-columns: minmax(0, 1fr); }
+  .m-join .join-box { grid-column: 1; width: 100%; min-width: 0; }
+  .m-join .join-box input { flex: 1 1 0; width: 0; letter-spacing: 2px; text-align: center; }
+  .m-join { grid-column: auto !important; }
+}
+@media (max-width: 520px) {
+  .modes { grid-template-columns: 1fr 1fr; }
+  .hero-text h1 { font-size: 56px; }
+}
