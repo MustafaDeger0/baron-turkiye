@@ -32,7 +32,10 @@ function pgStore(url) {
   const host = u.hostname;
   const internal = host === 'localhost' || host === '127.0.0.1' || !host.includes('.'); // Render iç adresi: dpg-xxxx-a
   const ssl = internal || process.env.PGSSL === 'off' ? false : { rejectUnauthorized: false };
-  const pool = new Pool({ connectionString: u.toString(), ssl, max: 5 });
+  // Neon gibi servisler boşta kalınca uyur ve açık bağlantıları kapatır:
+  // boştaki bağlantıları erken bırak, kopan bağlantı sunucuyu çökertmesin.
+  const pool = new Pool({ connectionString: u.toString(), ssl, max: 5, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 15_000 });
+  pool.on('error', (e) => console.warn('Veritabanı bağlantısı koptu (otomatik yeniden bağlanılacak):', e.message));
   const one = async (q, args) => (await pool.query(q, args)).rows[0] || null;
   return {
     kind: 'postgres',

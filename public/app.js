@@ -188,7 +188,7 @@
     setTimeout(() => t.remove(), 3200);
   }
   function showScreen(id) {
-    ['auth', 'home', 'lobby', 'game'].forEach((s) => $(`#${s}`).classList.toggle('hidden', s !== id));
+    ['loading', 'auth', 'home', 'lobby', 'game'].forEach((s) => $(`#${s}`).classList.toggle('hidden', s !== id));
     document.body.classList.toggle('ingame', id === 'game');
   }
   function saveSession(res) {
@@ -444,7 +444,18 @@
       else { session = null; if (!room) { showScreen('home'); socket.emit('rooms:list', renderRooms); } }
     });
   });
-  socket.on('connect_error', (e) => { if (e && e.message === 'auth') logout(); });
+  let connFails = 0;
+  socket.on('connect_error', (e) => {
+    if (e && e.message === 'auth') return logout();
+    // sunucu/veritabanı uyanıyor olabilir: bekle ve tekrar dene
+    connFails++;
+    if (!$('#loading').classList.contains('hidden')) {
+      $('#loadingText').textContent = 'Sunucuya bağlanılıyor…';
+      $('#loadingSub').textContent = connFails > 3 ? 'Sunucu yanıt vermiyor. Biraz bekleyip yeniden dene.' : 'Sunucu uyanıyor, birkaç saniye…';
+      if (connFails > 3) $('#retryBtn').classList.remove('hidden');
+    } else toast('Sunucuya bağlanılamadı, tekrar deneniyor…', 'err');
+    setTimeout(() => { if (token && !socket.connected) socket.connect(); }, Math.min(10000, 1500 * connFails));
+  });
   socket.on('disconnect', (reason) => { if (token && reason !== 'io client disconnect') $('#conn').classList.remove('hidden'); });
   socket.on('me', (u) => setUser(u));
   socket.on('rooms:list', renderRooms);
@@ -1310,8 +1321,18 @@
   fetch('/api/board').then((r) => r.json()).then((b) => { BOARD = b; K = b.K || 1000; opt.startMoney = 1500 * K; renderSegs(); notesBackground(); pump(); });
   (async () => {
     if (!token) return showScreen('auth');
-    const r = await api('/api/me');
-    if (!r.ok) { if (r.status === 401) return logout(); return showScreen('auth'); }
+    let r = null;
+    for (let k = 0; k < 6 && !(r && (r.ok || r.status === 401)); k++) {
+      if (k) { $('#loadingSub').textContent = 'Sunucu uyanıyor, birkaç saniye…'; await new Promise((ok) => setTimeout(ok, 2500)); }
+      r = await api('/api/me').catch(() => null);
+    }
+    if (!r || !r.ok) {
+      if (r && r.status === 401) return logout();
+      $('#loadingText').textContent = 'Sunucuya ulaşılamadı';
+      $('#loadingSub').textContent = (r && r.error) || 'Biraz bekleyip yeniden dene.';
+      $('#retryBtn').classList.remove('hidden');
+      return;
+    }
     setUser(r.user);
     startSocket();
   })();

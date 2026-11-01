@@ -487,7 +487,10 @@ setInterval(() => {
 }, 1000);
 
 const ready = db.init().then(() => {
-  server.listen(PORT, () => console.log(`Baron Türkiye sunucusu http://localhost:${PORT} (veri: ${db.kind})`));
+  server.listen(PORT, () => {
+    console.log(`Baron Türkiye sunucusu http://localhost:${PORT} (veri: ${db.kind})`);
+    if (db.kind === 'json') console.log('Not: DATABASE_URL bulunamadı, hesaplar yerel dosyaya yazılıyor (Render gibi ortamlarda kalıcı değildir).');
+  });
 });
 ready.catch((e) => { console.error('Veritabanı başlatılamadı:', e); process.exit(1); });
 

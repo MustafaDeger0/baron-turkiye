@@ -752,3 +752,12 @@ input, select { font: inherit; }
 @keyframes jumpShadow { 50% { transform: scale(.3); opacity: .2; } }
 #game.portrait .pawn { width: 4.6cqw; height: 7.4cqw; margin: -6.1cqw 0 0 -2.3cqw; }
 .mny { white-space: nowrap; }
+
+/* yükleniyor ekranı */
+#loading { min-height: var(--vh); display: grid; place-items: center; }
+#loading.hidden { display: none; }
+.loading-box { color: #e9f1f5; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 20px; max-width: 420px; }
+.loading-box b { font-size: 20px; }
+.loading-box small { color: #9fb6c2; font-size: 14px; }
+.spinner { width: 46px; height: 46px; border-radius: 50%; border: 5px solid rgba(255,255,255,.15); border-top-color: var(--gold); animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -12,6 +12,16 @@
 </head>
 <body>
 
+<!-- ============ YÜKLENİYOR ============ -->
+<section id="loading" class="screen">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <b id="loadingText">Bağlanıyor…</b>
+    <small id="loadingSub">Sunucu uykudaysa ilk açılış 30–60 saniye sürebilir.</small>
+    <button class="btn hidden" id="retryBtn" onclick="location.reload()">Yeniden dene</button>
+  </div>
+</section>
+
 <!-- ============ GİRİŞ ============ -->
 <section id="auth" class="screen hidden">
   <div class="home-wrap">
@@ -198,6 +208,13 @@
 <div id="toasts" class="toasts"></div>
 <div id="conn" class="conn hidden">Bağlantı koptu, yeniden bağlanılıyor…</div>
 
+<script>
+  window.addEventListener('error', function (e) {
+    var t = document.getElementById('loadingText'), s = document.getElementById('loadingSub'), b = document.getElementById('retryBtn');
+    var l = document.getElementById('loading');
+    if (l && t) { l.classList.remove('hidden'); t.textContent = 'Bir hata oluştu'; s.textContent = (e.message || 'Bilinmeyen hata') + ' — sayfayı yenile (Ctrl+F5).'; b.classList.remove('hidden'); }
+  });
+</script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="app.js"></script>
 </body>
