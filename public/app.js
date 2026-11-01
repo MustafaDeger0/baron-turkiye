@@ -256,6 +256,7 @@
   }
   function clearSession() {
     session = null; room = null; latest = null; prevGame = null; queue.length = 0; busy = false;
+    if (V3) V3.reset(); gameKey = null;
     history.replaceState(null, '', location.pathname);
     boardBuilt = false; renderGameOver.done = false; renderGameOver.res = false; lastLogSeq = 0; seenChatSeq = 0;
     [shownPos, pawnEls, cashShown].forEach((o) => Object.keys(o).forEach((k) => delete o[k]));
@@ -803,7 +804,7 @@
         }
       } else if (flag) flag.remove();
       if (V3) V3.setProp(i, owner ? owner.color : null, s.type === 'prop' ? pr.houses : 0, pr.mortgaged);
-      if (V3 && !fast && pp && s.type === 'prop' && pr.houses > pp.houses) V3.popBuilding(i);
+      if (V3 && !fast && pp && s.type === 'prop' && pr.houses > pp.houses) { V3.popBuilding(i); V3.fx('build', i); }
       if (s.type === 'prop') {
         const band = $('.band', el);
         band.innerHTML = pr.houses === 5 ? '<i class="hotel"></i>' : pr.houses ? '<i class="house"></i>'.repeat(pr.houses) + `<b class="hcount">${pr.houses}</b>` : '';
@@ -931,7 +932,7 @@
         continue;
       }
       const path = pathOf(m), step = stepFor(path.length);
-      path.forEach((pos, k) => after(t + k * step, () => { setPawn(m.pid, pos, 'hop', step); sqEl(pos).classList.remove('path'); if (V3) V3.removeStep(pos); if (path.length <= 12) sfx('step'); }));
+      path.forEach((pos, k) => after(t + k * step, () => { if (pos === 0 && V3 && m.kind !== 'back') V3.fx('go', 0); setPawn(m.pid, pos, 'hop', step); sqEl(pos).classList.remove('path'); if (V3) V3.removeStep(pos); if (path.length <= 12) sfx('step'); }));
       t += path.length * step;
       const to = m.to;
       after(t, () => pulseSquare(to));
@@ -1065,7 +1066,7 @@
     const li = $(`#playerList li[data-pid="${pid}"]`); if (!li) return;
     li.classList.remove('gain', 'loss'); void li.offsetWidth; li.classList.add(cls);
   }
-  const potPoint = () => { const el = $('#pot'); return el && !el.classList.contains('hidden') ? centerOf(el) : centerOf($('#center')); };
+  const potPoint = () => { if (V3) return V3.potScreen(); const el = $('#pot'); return el && !el.classList.contains('hidden') ? centerOf(el) : centerOf($('#center')); };
   function renderPot(g, prev, fast) {
     const el = $('#pot'), pot = g.pot || 0;
     if (!pot) { if (!el.classList.contains('hidden') && prev && prev.pot && !fast) { el.classList.add('emptying'); setTimeout(() => { el.classList.add('hidden'); el.classList.remove('emptying'); }, 700); } else el.classList.add('hidden'); return; }
@@ -1104,6 +1105,7 @@
       if (jackpot) {
         const who = playerById(p.id);
         banner(`${who ? who.name : ''} KASAYI KAPTI!`, '#1f9d55');
+        if (V3) V3.fx('jackpot', 20);
         sfx('jackpot');
         for (let k = 0; k < 3; k++) after(k * 220, () => flyNotes(potPoint(), pawnPoint(p.id) || rowPoint(p.id), -potDelta));
         after(900, () => { floatText(pawnPoint(p.id) || rowPoint(p.id), `+${money(p.d)}`, 'plus'); flashRow(p.id, 'gain'); });
@@ -1196,9 +1198,18 @@
     };
     tick();
   }
+  let gameKey = null;
   function applyGame(s, fast) {
     room = s;
     const g = s.game;
+    const key = `${s.code}:${g.startsAt}`;
+    if (key !== gameKey) {          // yeni oyun: önceki oyunun piyonları/binaları kalmasın
+      gameKey = key;
+      if (V3) V3.reset();
+      [shownPos, pawnEls, cashShown].forEach((o) => Object.keys(o).forEach((k) => delete o[k]));
+      $('#tokenLayer').innerHTML = '';
+      if (prevGame && prevGame.startsAt !== g.startsAt) { prevGame = null; fast = true; }
+    }
     countdown(g);
     const prev = prevGame;
     prevGame = g;
@@ -1237,6 +1248,7 @@
     renderPlayers(g, fast);
     if (!fast && prev) moneyFx(prev, g);
     renderPot(g, prev, fast);
+    if (V3) { V3.setBank(g.housesLeft, g.hotelsLeft); V3.setPot(g.pot || 0); }
     const bs = $('#bankStock');
     bs.innerHTML = `<span class="bs-l">BANKA</span><span class="bs-i ${g.housesLeft <= 6 ? 'low' : ''}" title="Kalan ev"><i class="bs-house"></i>${g.housesLeft}</span><span class="bs-i ${g.hotelsLeft <= 3 ? 'low' : ''}" title="Kalan otel"><i class="bs-hotel"></i>${g.hotelsLeft}</span>`;
     sqEl(20).classList.toggle('has-pot', (g.pot || 0) > 0);
@@ -1252,6 +1264,7 @@
         const o = prev.players.find((x) => x.id === p.id);
         const paid = o ? o.cash - p.cash : sq(i).price;
         announce(p, i, viaAuction ? 'AÇIK ARTIRMADA ALDI!' : 'SATIN ALDI!', paid > 0 ? paid : sq(i).price);
+        if (V3) V3.fx('buy', i, p.color);
         sfx('buy');
       }
       showCard(g, prev);
@@ -1321,7 +1334,9 @@
     const JAIL = 50 * K;
     let info = `<span class="who" style="background:${cur.color}">${tokenSVG(cur.token)} ${esc(cur.name)}</span> <span class="${g.phase === 'gameover' ? '' : 'dots'}">${phaseText[g.phase] || ''}</span>`;
     if (myTurn && g.phase === 'roll') info = m.inJail ? `Hapistesin (${m.jailTurns + 1}. deneme)` : (g.extraRoll ? 'Çift attın, tekrar at!' : 'Sıra sende!');
-    if (g.roundLimit) info += ` <span class="round-tag">Tur ${Math.min(g.round, g.roundLimit)}/${g.roundLimit}</span>`;
+    const rt = $('#roundTop');
+    rt.textContent = g.roundLimit ? `Tur ${Math.min(g.round, g.roundLimit)} / ${g.roundLimit}` : `Tur ${g.round || 1}`;
+    rt.classList.remove('hidden');
     $('#turnInfo').innerHTML = info;
     renderLanding(g);
     const deedSlot = g.phase === 'buy' && g.pendingBuy !== null ? miniDeed(g.pendingBuy) : '';
@@ -1568,6 +1583,7 @@
     if (g.phase !== 'gameover') { ov.classList.add('hidden'); return; }
     if (renderGameOver.done && (renderGameOver.res || !room.result)) return;
     const firstShow = !renderGameOver.done;
+    if (firstShow && V3) V3.fx('win');
     renderGameOver.done = true;
     renderGameOver.res = !!room.result;
     const w = playerById(g.winner);

@@ -1476,3 +1476,10 @@ body.ingame { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: 
 .countdown b.pop { animation: cdPop .9s cubic-bezier(.2,1.6,.4,1) both; }
 .countdown small { margin-top: 8px; color: #fff; font-weight: 800; letter-spacing: .2em; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,.5); }
 @keyframes cdPop { 0% { transform: scale(2.2); opacity: 0; } 30% { transform: scale(.9); opacity: 1; } 55% { transform: scale(1.05); } 100% { transform: scale(1); opacity: 1; } }
+
+/* ================= v20 ================= */
+/* üstte zar toplamı yerine tur; banka ve kasa artık 3D tahtanın üstünde */
+.hud-sq .dice-row, .hud-sq .bank-stock, .hud-sq .pot { display: none !important; }
+.round-top { font-size: clamp(14px, 3.6cqw, 24px); font-weight: 900; color: #fff; background: var(--ink); border-radius: 99px; padding: .25em 1em; box-shadow: 0 3px 0 rgba(0,0,0,.25); letter-spacing: .04em; }
+.round-top.hidden { display: none; }
+.hud-sq .turn-info .round-tag { display: none; }

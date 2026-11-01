@@ -4,6 +4,7 @@ import { RoundedBoxGeometry } from './vendor/RoundedBoxGeometry.js';
 import { makeToken } from './tokens.js';
 
 const CUR = '฿';
+const mix = (a, b, t) => { const ca = new THREE.Color(a), cb = new THREE.Color(b); return '#' + ca.lerp(cb, t).getHexString(); };
 const short = (n) => `${n >= 1e6 ? (n / 1e6).toLocaleString('tr-TR') + 'M' : Math.round(n / 1000) + 'K'}`;
 const B = 10, U = B / 12.6, C = 1.8 * U;                 // tahta kenarı, kare genişliği, köşe kare
 const sideOf = (i) => (i < 10 ? 0 : i < 20 ? 1 : i < 30 ? 2 : 3); // 0 alt(+z) 1 sol(-x) 2 üst(-z) 3 sağ(+x)
@@ -64,6 +65,17 @@ async function paintBoard(S, squares, groups, ART, ICON) {
     ...Object.entries(ICON).map(async ([k, v]) => { imgs['ic:' + k] = await svgImg(v); }),
   ]);
   const icon = (k, x, y, w, h) => { const im = imgs['ic:' + k]; if (im) g.drawImage(im, x - w / 2, y - h / 2, w, h); };
+  // çizimler yuvarlak, hafif gölgeli bir madalyonun içinde dursun
+  const medal = (x, y, r, tint) => {
+    g.save();
+    g.shadowColor = 'rgba(0,0,0,.18)'; g.shadowBlur = 18; g.shadowOffsetY = 6;
+    const rg = g.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
+    rg.addColorStop(0, '#ffffff'); rg.addColorStop(0.7, tint ? mix('#fbfaf4', tint, 0.1) : '#f6f3e8'); rg.addColorStop(1, tint ? mix('#f1ead6', tint, 0.28) : '#e9e2cc');
+    g.fillStyle = rg; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    g.restore();
+    g.save(); g.lineWidth = 5; g.strokeStyle = tint ? mix('#ffffff', tint, 0.55) : '#d9cfae'; g.beginPath(); g.arc(x, y, r - 3, 0, Math.PI * 2); g.stroke(); g.restore();
+  };
+  const artIn = (im, x, y, wd) => { if (!im) return; g.save(); g.shadowColor = 'rgba(0,0,0,.28)'; g.shadowBlur = 10; g.shadowOffsetY = 5; g.drawImage(im, x - wd / 2, y - wd * 0.375, wd, wd * 0.75); g.restore(); };
 
   for (const s of squares) {
     const i = s.index; if (i % 10 === 0) continue;
@@ -79,19 +91,22 @@ async function paintBoard(S, squares, groups, ART, ICON) {
     if (s.type === 'prop') { band(0.012, 0.22, groupColor(s)); band(0.012, 0.06, 'rgba(255,255,255,.28)'); }
     if (amount) band(0.76, 0.988, s.type === 'tax' ? '#fde3e3' : '#ffeaa6');
     const yTop = flip ? 0.84 : 0.16;
-    if (amount) drawText(short(amount), 0, y0 + h * (flip ? 0.12 : 0.88), w - 10, 124, s.type === 'tax' ? '#b3122b' : '#14202b', 900);
+    if (amount) drawText(short(amount), 0, y0 + h * (flip ? 0.12 : 0.88), w - 30, 92, s.type === 'tax' ? '#b3122b' : '#14202b', 900);
     if (s.type === 'prop') {
-      drawText(s.name.toUpperCase(), 0, y0 + h * (flip ? 0.66 : 0.33), w - 14, 80, '#14202b', 900);
-      const im = imgs['art:' + s.name]; if (im) g.drawImage(im, -w * 0.3, y0 + h * (flip ? 0.34 : 0.58) - w * 0.225, w * 0.6, w * 0.45);
+      drawText(s.name.toUpperCase(), 0, y0 + h * (flip ? 0.69 : 0.31), w - 30, 56, '#14202b', 900);
+      const yc = y0 + h * (flip ? 0.4 : 0.6);
+      medal(0, yc, h * 0.165, groupColor(s));
+      artIn(imgs['art:' + s.name], 0, yc, w * 0.66);
     } else if (s.type === 'chance') {
-      drawText('ŞANS', 0, y0 + h * yTop, w - 20, 62, '#a24f00', 900);
-      g.save(); g.font = '900 210px Nunito'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 10; g.strokeStyle = '#6b3200'; g.strokeText('?', 0, y0 + h * 0.52); g.fillStyle = '#ef7d00'; g.fillText('?', 0, y0 + h * 0.52); g.restore();
+      drawText('ŞANS', 0, y0 + h * yTop, w - 30, 54, '#a24f00', 900);
+      medal(0, y0 + h * 0.52, h * 0.17, '#ef8a00');
+      g.save(); g.font = '900 190px Nunito'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 10; g.strokeStyle = '#6b3200'; g.strokeText('?', 0, y0 + h * 0.52); g.fillStyle = '#ef7d00'; g.fillText('?', 0, y0 + h * 0.52); g.restore();
     } else if (s.type === 'chest') {
-      drawText('KAMU FONU', 0, y0 + h * yTop, w - 16, 62, '#1d4fb3', 900);
-      icon('chest', 0, y0 + h * 0.52, w * 0.62, w * 0.62);
+      drawText('KAMU FONU', 0, y0 + h * yTop, w - 26, 50, '#1d4fb3', 900);
+      medal(0, y0 + h * 0.52, h * 0.17, '#1d5fd0'); icon('chest', 0, y0 + h * 0.52, w * 0.5, w * 0.5);
     } else {
-      drawText(s.name.toUpperCase(), 0, y0 + h * (flip ? 0.81 : 0.19), w - 12, 72, '#14202b', 900);
-      icon(iconKey(s), 0, y0 + h * 0.5, w * 0.5, w * 0.5);
+      drawText(s.name.toUpperCase(), 0, y0 + h * (flip ? 0.81 : 0.19), w - 26, 50, '#14202b', 900);
+      medal(0, y0 + h * 0.5, h * 0.16, s.type === 'tax' ? '#d7263d' : null); icon(iconKey(s), 0, y0 + h * 0.5, w * 0.44, w * 0.44);
     }
     g.restore();
   }
@@ -170,20 +185,111 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   const top = new THREE.Mesh(new THREE.PlaneGeometry(B, B), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75 }));
   top.rotation.x = -Math.PI / 2; top.receiveShadow = true; scene.add(top);
 
-  // kart desteleri
+  // kart desteleri: üst üste birkaç yuvarlak köşeli kart, en üstte desenli yüz
   const decks = {};
-  function deck(key, color, label, x, z, ry) {
-    const c2 = document.createElement('canvas'); c2.width = 512; c2.height = 360; const d = c2.getContext('2d');
-    d.fillStyle = color; d.fillRect(0, 0, 512, 360);
-    d.strokeStyle = 'rgba(255,255,255,.25)'; d.lineWidth = 26; for (let k = -400; k < 900; k += 70) { d.beginPath(); d.moveTo(k, 0); d.lineTo(k + 360, 360); d.stroke(); }
-    d.fillStyle = '#fff'; d.font = '900 64px Nunito'; d.textAlign = 'center'; d.textBaseline = 'middle'; d.fillText(label, 256, 190);
-    const t = new THREE.CanvasTexture(c2); t.colorSpace = THREE.SRGBColorSpace;
-    const side = new THREE.MeshStandardMaterial({ color: '#f4f1e8' });
-    const m = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.22, 1.05), [side, side, new THREE.MeshStandardMaterial({ map: t }), side, side, side]);
-    m.position.set(x, 0.11, z); m.rotation.y = ry; m.castShadow = true; scene.add(m); decks[key] = m;
+  function deckFace(chance) {
+    const W = 1024, H = 720, c2 = document.createElement('canvas'); c2.width = W; c2.height = H; const d = c2.getContext('2d');
+    const base = chance ? '#f08a00' : '#1d5fd0', light = chance ? '#ffb347' : '#4f8ff0', dark = chance ? '#a95300' : '#0f3a8a';
+    d.fillStyle = '#fffaf0'; d.beginPath(); d.roundRect(0, 0, W, H, 70); d.fill();
+    const gr = d.createLinearGradient(0, 0, W, H); gr.addColorStop(0, light); gr.addColorStop(1, base);
+    d.fillStyle = gr; d.beginPath(); d.roundRect(26, 26, W - 52, H - 52, 54); d.fill();
+    d.save(); d.beginPath(); d.roundRect(26, 26, W - 52, H - 52, 54); d.clip();
+    d.globalAlpha = 0.16; d.fillStyle = '#fff';
+    for (let k = -H; k < W; k += 64) { d.beginPath(); d.moveTo(k, 0); d.lineTo(k + 32, 0); d.lineTo(k + 32 + H, H); d.lineTo(k + H, H); d.fill(); }
+    d.restore();
+    d.strokeStyle = 'rgba(255,255,255,.85)'; d.lineWidth = 10; d.setLineDash([24, 18]); d.beginPath(); d.roundRect(60, 60, W - 120, H - 120, 36); d.stroke(); d.setLineDash([]);
+    // ortada madalyon + simge
+    d.fillStyle = '#fff'; d.beginPath(); d.arc(W / 2, H / 2 - 40, 170, 0, Math.PI * 2); d.fill();
+    d.strokeStyle = dark; d.lineWidth = 12; d.stroke();
+    d.textAlign = 'center'; d.textBaseline = 'middle';
+    if (chance) { d.font = '900 260px Nunito'; d.lineWidth = 16; d.strokeStyle = dark; d.strokeText('?', W / 2, H / 2 - 30); d.fillStyle = base; d.fillText('?', W / 2, H / 2 - 30); }
+    else { d.font = '900 210px Nunito'; d.fillStyle = base; d.fillText('฿', W / 2, H / 2 - 30); }
+    d.font = '900 92px Nunito'; d.fillStyle = '#fff'; d.lineWidth = 14; d.strokeStyle = dark; d.lineJoin = 'round';
+    const label = chance ? 'ŞANS' : 'KAMU FONU';
+    d.strokeText(label, W / 2, H - 120); d.fillText(label, W / 2, H - 120);
+    const t = new THREE.CanvasTexture(c2); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
   }
-  deck('chance', '#ef8a00', 'ŞANS ?', -2.1, 0.9, Math.PI / 4);
-  deck('chest', '#1d5fd0', 'KAMU FONU', 0.9, -2.1, Math.PI / 4);
+  function deck(key, x, z) {
+    const grp = new THREE.Group(); grp.position.set(x, 0, z); grp.rotation.y = Math.PI / 4;
+    const edge = new THREE.MeshStandardMaterial({ color: '#f7f2e6', roughness: 0.8 });
+    for (let k = 0; k < 6; k++) {
+      const card = new THREE.Mesh(new RoundedBoxGeometry(1.42, 0.03, 1.0, 2, 0.06), edge);
+      card.position.set((Math.random() - 0.5) * 0.04, 0.02 + k * 0.032, (Math.random() - 0.5) * 0.04); card.rotation.y = (Math.random() - 0.5) * 0.06;
+      card.castShadow = true; card.receiveShadow = true; grp.add(card);
+    }
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.985), new THREE.MeshStandardMaterial({ map: deckFace(key === 'chance'), roughness: 0.55 }));
+    face.rotation.x = -Math.PI / 2; face.position.y = 0.02 + 5 * 0.032 + 0.017; grp.add(face);
+    scene.add(grp); decks[key] = grp;
+  }
+  deck('chance', -1.95, 1.0);
+  deck('chest', 1.0, -1.95);
+
+  // banka (kalan ev/otel) ve otopark kasası tahtanın üstünde, tahtayla birlikte yakınlaşır
+  function flatSign(wd, ht, cw, ch) {
+    const c2 = document.createElement('canvas'); c2.width = cw; c2.height = ch;
+    const t = new THREE.CanvasTexture(c2); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(wd, ht), new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.6 }));
+    m.rotation.x = -Math.PI / 2; m.receiveShadow = true;
+    const holder = new THREE.Group(); holder.rotation.y = Math.PI / 4; holder.add(m);
+    return { holder, mesh: m, ctx: c2.getContext('2d'), tex: t, cw, ch };
+  }
+  const bank = flatSign(2.6, 0.81, 1024, 318); bank.holder.position.set(-0.45, 0.012, 2.25); scene.add(bank.holder);
+  function setBank(houses, hotels) {
+    const { ctx: d, cw, ch } = bank;
+    d.clearRect(0, 0, cw, ch);
+    d.fillStyle = 'rgba(255,255,255,.96)'; d.beginPath(); d.roundRect(8, 8, cw - 16, ch - 16, 70); d.fill();
+    d.lineWidth = 12; d.strokeStyle = '#1b2a36'; d.stroke();
+    d.textAlign = 'left'; d.textBaseline = 'middle'; d.fillStyle = '#5c6b77'; d.font = '900 54px Nunito'; d.fillText('BANKA', 60, ch / 2);
+    const item = (x, n, low, hotel) => {
+      d.fillStyle = hotel ? '#d91e2a' : '#1aa34d';
+      if (hotel) { d.beginPath(); d.moveTo(x + 10, ch / 2 - 40); d.lineTo(x + 110, ch / 2 - 40); d.lineTo(x + 120, ch / 2 - 22); d.lineTo(x + 120, ch / 2 + 46); d.lineTo(x, ch / 2 + 46); d.lineTo(x, ch / 2 - 22); d.fill(); }
+      else { d.beginPath(); d.moveTo(x + 45, ch / 2 - 52); d.lineTo(x + 92, ch / 2 - 10); d.lineTo(x + 92, ch / 2 + 46); d.lineTo(x - 2, ch / 2 + 46); d.lineTo(x - 2, ch / 2 - 10); d.fill(); }
+      d.fillStyle = low ? '#d7263d' : '#1b2a36'; d.font = '900 110px Nunito'; d.fillText(String(n), x + (hotel ? 140 : 112), ch / 2 + 6);
+    };
+    item(330, houses, houses <= 6, false); item(640, hotels, hotels <= 3, true);
+    bank.tex.needsUpdate = true;
+  }
+  setBank(32, 12);
+
+  // otopark kasası: banknot destesi + etiket
+  function noteTex(color) {
+    const c2 = document.createElement('canvas'); c2.width = 256; c2.height = 128; const d = c2.getContext('2d');
+    d.fillStyle = color; d.fillRect(0, 0, 256, 128); d.strokeStyle = 'rgba(0,0,0,.25)'; d.lineWidth = 6; d.strokeRect(10, 10, 236, 108);
+    d.fillStyle = 'rgba(255,255,255,.75)'; d.beginPath(); d.arc(128, 64, 34, 0, 7); d.fill();
+    d.fillStyle = 'rgba(0,0,0,.55)'; d.font = '900 46px Nunito'; d.textAlign = 'center'; d.textBaseline = 'middle'; d.fillText('฿', 128, 66);
+    const t = new THREE.CanvasTexture(c2); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }
+  const NOTE_MATS = ['#c9b3f2', '#a9c8f5', '#f5c99b', '#b9e3b0', '#f3a8b5'].map((c) => new THREE.MeshStandardMaterial({ map: noteTex(c), roughness: 0.7 }));
+  const potGrp = new THREE.Group(); potGrp.position.set(2.05, 0, 0.35); scene.add(potGrp);
+  const potLabel = flatSign(1.9, 0.53, 768, 215); potLabel.holder.position.set(2.5, 0.012, 0.85); potLabel.holder.visible = false; scene.add(potLabel.holder);
+  let potNotes = [], potShown = 0;
+  function setPot(amount) {
+    const want = amount > 0 ? Math.min(14, 2 + Math.floor(Math.log2(amount / 25000) * 1.6)) : 0;
+    if (amount <= 0 && potNotes.length) {     // kasa boşaldı: banknotlar havaya uçsun
+      const fly = potNotes; potNotes = [];
+      fly.forEach((n, k) => { const y0 = n.position.y; anims.push({ t: 0, dur: 700 + k * 40, fn: (t) => { n.position.y = y0 + t * 2.4; n.rotation.y += 0.2; n.material.opacity = 1 - t; if (t >= 1) potGrp.remove(n); } }); n.material = n.material.clone(); n.material.transparent = true; });
+    }
+    while (potNotes.length < want) {
+      const k = potNotes.length;
+      const n = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.012, 0.31), NOTE_MATS[k % NOTE_MATS.length]);
+      n.position.set(Math.sin(k * 2.3) * 0.08, 0.008 + k * 0.016, Math.cos(k * 1.7) * 0.08); n.rotation.y = Math.PI / 4 + Math.sin(k * 1.3) * 0.5; n.castShadow = true;
+      potGrp.add(n); potNotes.push(n);
+      const y1 = n.position.y; n.position.y = y1 + 0.8;
+      anims.push({ t: 0, dur: 380, fn: (t) => { n.position.y = y1 + (1 - t) * (1 - t) * 0.8; } });
+    }
+    while (potNotes.length > want) potGrp.remove(potNotes.pop());
+    potLabel.holder.visible = amount > 0;
+    if (amount > 0 && amount !== potShown) {
+      const { ctx: d, cw, ch } = potLabel;
+      d.clearRect(0, 0, cw, ch);
+      d.fillStyle = 'rgba(255,255,255,.96)'; d.beginPath(); d.roundRect(8, 8, cw - 16, ch - 16, 60); d.fill(); d.lineWidth = 10; d.strokeStyle = '#1b2a36'; d.stroke();
+      d.textAlign = 'center'; d.textBaseline = 'middle';
+      d.fillStyle = '#1f9d55'; d.font = '900 40px Nunito'; d.fillText('OTOPARK KASASI', cw / 2, 66);
+      d.fillStyle = '#1b2a36'; d.font = '900 76px Nunito'; d.fillText(`${CUR}${amount.toLocaleString('tr-TR')}`, cw / 2, 145);
+      potLabel.tex.needsUpdate = true;
+    }
+    potShown = amount;
+  }
 
   // ---------- kare katmanları: sahiplik, ipotek, vurgu ----------
   const overlays = {};
@@ -236,10 +342,56 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
     if (i != null) landedMark = glow(i, '#ffd54a', 0.35);
   }
   function pulse(i) {
+    wave(i);
     const m = glow(i, '#ffffff', 0.7);
     anims.push({ t: 0, dur: 1200, fn: (t) => { m.material.opacity = 0.7 * (1 - t); if (t >= 1) { scene.remove(m); marks.delete(m); } } });
   }
   function removeStep(i) { const k = pathMarks.findIndex((d) => d.position.distanceTo(sqCenter(i)) < 0.05); if (k >= 0) { scene.remove(pathMarks[k]); pathMarks.splice(k, 1); } }
+
+  // ---------- efektler ----------
+  const parts = [];
+  const PART_GEO = new THREE.BoxGeometry(0.07, 0.07, 0.015);
+  function burst(pos, color, n = 26, power = 1, kind = 'confetti') {
+    const cols = Array.isArray(color) ? color : [color, '#ffffff', '#f2b632'];
+    for (let k = 0; k < n; k++) {
+      const m = new THREE.Mesh(kind === 'coin' ? new THREE.CylinderGeometry(0.06, 0.06, 0.018, 14) : PART_GEO, new THREE.MeshStandardMaterial({ color: kind === 'coin' ? '#f6c443' : cols[k % cols.length], emissive: kind === 'coin' ? '#7a5200' : '#000000', emissiveIntensity: 0.3, transparent: true }));
+      m.position.copy(pos);
+      const a = Math.random() * Math.PI * 2, sp = (0.9 + Math.random() * 1.6) * power;
+      m.userData = { v: new THREE.Vector3(Math.cos(a) * sp * 0.6, 2.2 * power + Math.random() * 2 * power, Math.sin(a) * sp * 0.6), r: new THREE.Vector3(Math.random() * 12, Math.random() * 12, Math.random() * 12), life: 1.1 + Math.random() * 0.6, age: 0 };
+      scene.add(m); parts.push(m);
+    }
+  }
+  function wave(i, color = '#ffd54a') {
+    const c = sqCenter(i);
+    const m = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.3, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+    m.rotation.x = -Math.PI / 2; m.position.copy(c); m.position.y = 0.02; scene.add(m);
+    anims.push({ t: 0, dur: 800, fn: (t) => { m.scale.setScalar(1 + t * 3.2); m.material.opacity = 0.9 * (1 - t); if (t >= 1) scene.remove(m); } });
+  }
+  function puff(pos) {
+    for (let k = 0; k < 8; k++) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.6, depthWrite: false }));
+      const a = (k / 8) * Math.PI * 2; m.position.set(pos.x + Math.cos(a) * 0.25, 0.06, pos.z + Math.sin(a) * 0.25); scene.add(m);
+      anims.push({ t: 0, dur: 600, fn: (t) => { m.position.x += Math.cos(a) * 0.01; m.position.z += Math.sin(a) * 0.01; m.scale.setScalar(1 + t * 1.8); m.material.opacity = 0.6 * (1 - t); if (t >= 1) scene.remove(m); } });
+    }
+  }
+  // oyun olayları için hazır efektler
+  function fx(kind, i, color) {
+    const at = (i != null ? sqCenter(i) : new THREE.Vector3()).setY(0.25);
+    if (kind === 'buy') { burst(at, color, 34, 1); wave(i, color); }
+    else if (kind === 'build') { burst(at, ['#1aa34d', '#7ddc8f', '#ffffff'], 22, 0.8); wave(i, '#1aa34d'); }
+    else if (kind === 'jackpot') { burst(at, null, 40, 1.3, 'coin'); wave(i, '#f2b632'); }
+    else if (kind === 'go') { burst(at, ['#d7263d', '#f2b632', '#ffffff'], 30, 1); wave(i, '#f2b632'); }
+    else if (kind === 'land') wave(i, color || '#ffd54a');
+    else if (kind === 'win') { for (let k = 0; k < 4; k++) setTimeout(() => burst(new THREE.Vector3((Math.random() - 0.5) * 6, 0.3, (Math.random() - 0.5) * 6), ['#d7263d', '#f2b632', '#1d7cf2', '#1f9d55', '#ffffff'], 40, 1.5), k * 300); }
+  }
+  // yeni oyunda eski oyunun her şeyini temizle
+  function reset() {
+    for (const [id, p] of Object.entries(pawns)) { scene.remove(p.root); delete pawns[id]; }
+    for (let i = 0; i < 40; i++) setProp(i, null, 0, false);
+    Object.keys(overlays).forEach((k) => delete overlays[k]);
+    landed(null); clearPreview(); setPot(0); setBank(32, 12); turnId = null;
+    view.manual = false;
+  }
 
   // ---------- karakterler ----------
   const pawns = {};
@@ -302,14 +454,14 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
         d.position.y = 0.31 + Math.abs(Math.sin(t * Math.PI * 2.2)) * 2.0 * (1 - t);
         if (t < 0.75) d.rotation.set(spin.x * t, spin.y * t, spin.z * t);
         else { const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(spin.x * 0.75, spin.y * 0.75, spin.z * 0.75)); d.quaternion.slerpQuaternions(q, endQ, (t - 0.75) / 0.25); }
-        if (t >= 1) { d.quaternion.copy(endQ); d.position.y = 0.31; }
+        if (t >= 1) { d.quaternion.copy(endQ); d.position.y = 0.31; puff(d.position); }
       } });
     });
   }
   function drawDeck(key) {
     const m = decks[key]; if (!m) return;
-    const y0 = m.position.y;
-    anims.push({ t: 0, dur: 500, fn: (t) => { m.position.y = y0 + Math.sin(t * Math.PI) * 0.25; } });
+    anims.push({ t: 0, dur: 600, fn: (t) => { m.position.y = Math.sin(t * Math.PI) * 0.3; m.rotation.z = Math.sin(t * Math.PI * 2) * 0.06; } });
+    burst(m.position.clone().setY(0.3), key === 'chance' ? '#ffb347' : '#6fa8ff', 22, 0.9);
   }
 
   // ---------- kamera ----------
@@ -385,6 +537,8 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   const pawnScreen = (id) => (pawns[id] && pawns[id].root.visible ? screenOf(pawns[id].root.position.clone().add(new THREE.Vector3(0, 0.45, 0))) : null);
   const squareScreen = (i) => screenOf(sqCenter(i));
   const centerScreen = () => screenOf(new THREE.Vector3(0, 0, 0));
+  const potScreen = () => screenOf(potGrp.position.clone().setY(0.2));
+  const bankScreen = () => screenOf(bank.holder.position.clone());
   function shake() { shakeT = 0.45; }
 
   // ---------- döngü ----------
@@ -394,6 +548,14 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (!canvas.offsetParent) return;                       // oyun ekranı kapalıyken çizme
     for (let k = anims.length - 1; k >= 0; k--) { const a = anims[k]; a.t = Math.min(1, a.t + dt * 1000 / a.dur); a.fn(a.t); if (a.t >= 1) anims.splice(k, 1); }
+    for (let k = parts.length - 1; k >= 0; k--) {
+      const m = parts[k], u = m.userData; u.age += dt;
+      u.v.y -= 7 * dt; m.position.addScaledVector(u.v, dt);
+      if (m.position.y < 0.02) { m.position.y = 0.02; u.v.multiplyScalar(0.4); u.v.y = Math.abs(u.v.y) * 0.3; }
+      m.rotation.x += u.r.x * dt; m.rotation.y += u.r.y * dt; m.rotation.z += u.r.z * dt;
+      m.material.opacity = Math.min(1, (u.life - u.age) * 2.5);
+      if (u.age >= u.life) { scene.remove(m); m.geometry !== PART_GEO && m.geometry.dispose(); m.material.dispose(); parts.splice(k, 1); }
+    }
     for (const p of Object.values(pawns)) {
       if (p.anim) {
         const a = p.anim; a.t = Math.min(1, a.t + dt * 1000 / a.dur);
@@ -426,5 +588,5 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   try { const hold = makeToken('araba', '#888'); scene.add(hold); renderer.compile(scene, camera); scene.remove(hold); } catch { /* sorun değil */ }
 
   const debugPawns = () => Object.fromEntries(Object.entries(pawns).map(([k, p]) => [k, { pos: p.root.position.toArray().map((v) => +v.toFixed(2)), vis: p.root.visible, anim: !!p.anim }]));
-  return { debugPawns, ensurePawn, setVisible, setTurn, layout, step, setProp, popBuilding, preview, clearPreview, removeStep, landed, pulse, setDice, drawDeck, setCamMode, get camMode() { return view.mode; }, setMargins, resize, pawnScreen, squareScreen, centerScreen, shake, pick };
+  return { fx, reset, setBank, setPot, potScreen, bankScreen, debugPawns, ensurePawn, setVisible, setTurn, layout, step, setProp, popBuilding, preview, clearPreview, removeStep, landed, pulse, setDice, drawDeck, setCamMode, get camMode() { return view.mode; }, setMargins, resize, pawnScreen, squareScreen, centerScreen, shake, pick };
 }
