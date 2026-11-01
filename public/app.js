@@ -8,6 +8,8 @@
   const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const DICE_MS = REDUCED ? 0 : 1050;
   const STEP_MS = 210;
+  const PREVIEW_MS = REDUCED ? 0 : 750;   // zar sonrası hedef kare önizlemesi
+  const sfx = (n) => { if (window.BaronAudio) window.BaronAudio.sfx(n); };
   const COLORS = ['#e63946', '#1d7cf2', '#2a9d8f', '#f4a261', '#9b5de5', '#ff4fa3'];
   const GROUP_ORDER = ['kahve', 'acikmavi', 'pembe', 'turuncu', 'kirmizi', 'sari', 'yesil', 'lacivert'];
 
@@ -274,6 +276,21 @@
     } else (d.exitFullscreen || d.webkitExitFullscreen).call(d);
   }
   $('#fsBtn').onclick = toggleFullscreen;
+  function renderSoundBtns() {
+    const A = window.BaronAudio; if (!A) return;
+    $$('[data-snd="music"]').forEach((b) => { b.classList.toggle('off', !A.musicOn); b.title = A.musicOn ? 'Müziği kapat' : 'Müziği aç'; });
+    $$('[data-snd="sfx"]').forEach((b) => { b.classList.toggle('off', !A.sfxOn); b.textContent = A.sfxOn ? '🔊' : '🔈'; b.title = A.sfxOn ? 'Efektleri kapat' : 'Efektleri aç'; });
+  }
+  $$('[data-snd]').forEach((b) => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      const A = window.BaronAudio; if (!A) return;
+      const on = b.dataset.snd === 'music' ? A.toggleMusic() : A.toggleSfx();
+      toast(b.dataset.snd === 'music' ? (on ? 'Müzik açıldı' : 'Müzik kapatıldı') : (on ? 'Efektler açıldı' : 'Efektler kapatıldı'));
+      renderSoundBtns();
+    };
+  });
+  renderSoundBtns();
   document.addEventListener('fullscreenchange', () => {
     $('#fsBtn').textContent = document.fullscreenElement ? 'Küçült' : 'Tam ekran';
     setTimeout(fitLayout, 100);
@@ -590,11 +607,11 @@
     const pts = (arr) => arr.map((p) => PROJ(p).join(',')).join(' ');
     const land = `<polygon points="${pts(THRACE)}"/><polygon points="${pts(ANATOLIA)}"/>`;
     let side = '';
-    for (let k = 22; k >= 2; k -= 2) side += `<g transform="translate(0 ${k})" fill="${k > 12 ? '#6f5228' : '#8a6a35'}">${land}</g>`;
+    for (let k = 22; k >= 2; k -= 2) side += `<g transform="translate(0 ${k})" fill="${k > 12 ? '#4e7a3c' : '#6a9a4e'}">${land}</g>`;
     let html = `<defs>
-        <linearGradient id="landTop" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#f6e7bb"/><stop offset=".55" stop-color="#e2c98c"/><stop offset="1" stop-color="#c9a764"/></linearGradient>
-        <radialGradient id="seaGlow" cx=".5" cy=".55" r=".6"><stop offset="0" stop-color="#7cc4ea" stop-opacity=".55"/><stop offset=".7" stop-color="#7cc4ea" stop-opacity=".18"/><stop offset="1" stop-color="#7cc4ea" stop-opacity="0"/></radialGradient>
-        <filter id="mapShadow" x="-10%" y="-10%" width="120%" height="140%"><feDropShadow dx="0" dy="26" stdDeviation="14" flood-color="#3b2a10" flood-opacity=".35"/></filter>
+        <linearGradient id="landTop" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#eef6d2"/><stop offset=".55" stop-color="#c9e2a0"/><stop offset="1" stop-color="#9fc97a"/></linearGradient>
+        <radialGradient id="seaGlow" cx=".5" cy=".55" r=".6"><stop offset="0" stop-color="#5fb3dc" stop-opacity=".45"/><stop offset=".7" stop-color="#5fb3dc" stop-opacity=".15"/><stop offset="1" stop-color="#5fb3dc" stop-opacity="0"/></radialGradient>
+        <filter id="mapShadow" x="-10%" y="-10%" width="120%" height="140%"><feDropShadow dx="0" dy="26" stdDeviation="14" flood-color="#0d3550" flood-opacity=".35"/></filter>
         <filter id="pinShadow"><feGaussianBlur stdDeviation="2"/></filter>
       </defs>
       <ellipse cx="755" cy="330" rx="900" ry="420" fill="url(#seaGlow)"/>
@@ -605,7 +622,7 @@
       const [x, y] = PROJ(CITY[s.name]);
       const [anchor, dx, dy] = LABEL[s.name] || ['middle', 0, -18];
       const hy = +y - 26;
-      html += `<g class="city" data-city="${s.index}"><ellipse cx="${x}" cy="${y}" rx="9" ry="4" fill="#000" opacity=".3" filter="url(#pinShadow)"/><path d="M${x} ${y}V${hy}" stroke="#4a3b22" stroke-width="3.5" stroke-linecap="round"/><circle class="ring" cx="${x}" cy="${hy}" r="18"/><circle class="dot" cx="${x}" cy="${hy}" r="11" fill="${groupColor(s)}" stroke="#fff" stroke-width="3"/><circle cx="${+x - 3.5}" cy="${hy - 3.5}" r="3.5" fill="#fff" opacity=".6"/><text x="${+x + dx}" y="${hy + dy}" text-anchor="${anchor}">${esc(s.name)}</text></g>`;
+      html += `<g class="city" data-city="${s.index}"><ellipse cx="${x}" cy="${y}" rx="9" ry="4" fill="#000" opacity=".3" filter="url(#pinShadow)"/><path d="M${x} ${y}V${hy}" stroke="#2a3f52" stroke-width="3.5" stroke-linecap="round"/><circle class="ring" cx="${x}" cy="${hy}" r="18"/><circle class="dot" cx="${x}" cy="${hy}" r="11" fill="${groupColor(s)}" stroke="#fff" stroke-width="3"/><circle cx="${+x - 3.5}" cy="${hy - 3.5}" r="3.5" fill="#fff" opacity=".6"/><text x="${+x + dx}" y="${hy + dy}" text-anchor="${anchor}">${esc(s.name)}</text></g>`;
     });
     $('#map').innerHTML = html;
   }
@@ -751,12 +768,12 @@
     let t = 0;
     for (const m of moves) {
       if (m.kind === 'jail') {
-        after(t, () => { jailFx(m.pid); after(600, () => setPawn(m.pid, 10, 'jump')); });
+        after(t, () => { jailFx(m.pid); sfx('jail'); after(600, () => setPawn(m.pid, 10, 'jump')); });
         t += JAIL_MS;
         continue;
       }
       const path = pathOf(m), step = stepFor(path.length);
-      path.forEach((pos, k) => after(t + k * step, () => setPawn(m.pid, pos, 'hop', step)));
+      path.forEach((pos, k) => after(t + k * step, () => { setPawn(m.pid, pos, 'hop', step); sqEl(pos).classList.remove('path'); if (path.length <= 12) sfx('step'); }));
       t += path.length * step;
       const to = m.to;
       after(t, () => pulseSquare(to));
@@ -764,6 +781,17 @@
     }
     after(t, () => snapTokens(g));
     return t;
+  }
+  // Piyon yola çıkmadan önce gideceği kare (ve yol) parlasın
+  function previewTarget(moves) {
+    const m = moves.find((x) => x.kind !== 'jail') || moves[0];
+    $$('.sq.target, .sq.path').forEach((x) => x.classList.remove('target', 'path'));
+    if (!m) return;
+    const to = m.kind === 'jail' ? 10 : m.to;
+    if (m.kind !== 'jail') pathOf(m).slice(0, -1).forEach((i, k) => after(k * 40, () => sqEl(i).classList.add('path')));
+    const el = sqEl(to); el.classList.add('target');
+    const clear = movesDuration(moves) + PREVIEW_MS + 200;
+    setTimeout(() => $$('.sq.target, .sq.path').forEach((x) => x.classList.remove('target', 'path')), clear);
   }
   function snapTokens(g) {
     g.players.forEach((p) => { shownPos[p.id] = p.pos; });
@@ -872,7 +900,24 @@
     const li = $(`#playerList li[data-pid="${pid}"]`); if (!li) return;
     li.classList.remove('gain', 'loss'); void li.offsetWidth; li.classList.add(cls);
   }
+  const potPoint = () => { const el = $('#pot'); return el && !el.classList.contains('hidden') ? centerOf(el) : centerOf($('#center')); };
+  function renderPot(g, prev, fast) {
+    const el = $('#pot'), pot = g.pot || 0;
+    if (!pot) { if (!el.classList.contains('hidden') && prev && prev.pot && !fast) { el.classList.add('emptying'); setTimeout(() => { el.classList.add('hidden'); el.classList.remove('emptying'); }, 700); } else el.classList.add('hidden'); return; }
+    el.classList.remove('hidden', 'emptying');
+    // yığındaki banknot sayısı tutarla büyür
+    const n = Math.min(12, 2 + Math.floor(Math.log2(pot / (25 * K)) * 1.6));
+    const dens = [500, 100, 50, 100, 20, 500, 50, 100, 10, 1000, 50, 100].map((d) => d * K);
+    $('#potNotes').innerHTML = Array.from({ length: Math.max(1, n) }, (_, k) => {
+      const r = ((k * 47) % 50) - 25, x = ((k * 29) % 36) - 18, y = -k * 2.2;
+      return `<div class="pn" style="transform:translate(${x}%, ${y}%) rotate(${r}deg)">${noteSVG(dens[k % dens.length])}</div>`;
+    }).join('');
+    $('#potAmount').innerHTML = money(pot);
+    if (prev && pot > (prev.pot || 0) && !fast) { el.classList.remove('grow'); void el.offsetWidth; el.classList.add('grow'); }
+  }
   function moneyFx(prev, g) {
+    const potDelta = (g.pot || 0) - (prev.pot || 0);
+    const meId = session && session.pid;
     const deltas = g.players.map((p) => {
       const o = prev.players.find((x) => x.id === p.id);
       return { id: p.id, d: o ? p.cash - o.cash : 0 };
@@ -884,11 +929,22 @@
         const p = pos.splice(mi, 1)[0];
         flyNotes(pawnPoint(n.id) || rowPoint(n.id), rowPoint(p.id), -n.d);
         after(700, () => { floatText(rowPoint(p.id), `+${money(p.d)}`, 'plus'); flashRow(p.id, 'gain'); });
-      } else flyNotes(rowPoint(n.id), bankPoint(), -n.d);
+      } else flyNotes(pawnPoint(n.id) || rowPoint(n.id), potDelta > 0 ? potPoint() : bankPoint(), -n.d);
+      if (n.id === meId) sfx('pay');
       floatText(pawnPoint(n.id) || rowPoint(n.id), money(n.d), 'minus');
       flashRow(n.id, 'loss');
     });
     pos.forEach((p) => {
+      const jackpot = potDelta < 0 && p.d >= -potDelta;
+      if (jackpot) {
+        const who = playerById(p.id);
+        banner(`${who ? who.name : ''} KASAYI KAPTI!`, '#1f9d55');
+        sfx('jackpot');
+        for (let k = 0; k < 3; k++) after(k * 220, () => flyNotes(potPoint(), pawnPoint(p.id) || rowPoint(p.id), -potDelta));
+        after(900, () => { floatText(pawnPoint(p.id) || rowPoint(p.id), `+${money(p.d)}`, 'plus'); flashRow(p.id, 'gain'); });
+        return;
+      }
+      if (p.id === meId) sfx('coin');
       flyNotes(bankPoint(), rowPoint(p.id), p.d);
       after(650, () => { floatText(rowPoint(p.id), `+${money(p.d)}`, 'plus'); flashRow(p.id, 'gain'); });
     });
@@ -920,6 +976,7 @@
     const el = $('#cardPop');
     const ch = g.card.deck === 'chance';
     const deck = ch ? $('#deckChance') : $('#deckChest');
+    sfx('card');
     deck.classList.remove('draw'); void deck.offsetWidth; deck.classList.add('draw');
     el.className = `card-pop ${g.card.deck}`;
     el.style.setProperty('--ox', ch ? '34cqw' : '-34cqw');
@@ -969,14 +1026,16 @@
     const rolled = prev && g.rollId !== prev.rollId;
     const animate = !fast && rolled;
     const diceT = animate ? DICE_MS : 0;
-    const moveT = animate ? movesDuration(g.moves) : 0;
+    const hasMoves = animate && g.moves && g.moves.length;
+    const moveT = hasMoves ? PREVIEW_MS + movesDuration(g.moves) : 0;
+    if (animate) sfx('dice');
     setDice(g.dice, animate);
     if (animate && g.dice[0] === g.dice[1]) after(diceT - 150, () => burst('ÇİFT!', '50%', '28%'));
     const ds = $('#diceSum');
     if (g.rollId) { after(animate ? diceT - 250 : 0, () => { ds.textContent = `= ${g.dice[0] + g.dice[1]}`; ds.classList.remove('hidden', 'pop'); void ds.offsetWidth; if (animate) ds.classList.add('pop'); }); }
     else ds.classList.add('hidden');
     after(diceT, () => {
-      if (animate && g.moves && g.moves.length) animateMoves(g.moves, g);
+      if (hasMoves) { previewTarget(g.moves); after(PREVIEW_MS, () => animateMoves(g.moves, g)); }
       else snapTokens(g);
       after(moveT, () => renderMain(g, prev, fast));
     });
@@ -989,6 +1048,8 @@
     layoutPawns(true);
     renderPlayers(g, fast);
     if (!fast && prev) moneyFx(prev, g);
+    renderPot(g, prev, fast);
+    sqEl(20).classList.toggle('has-pot', (g.pot || 0) > 0);
     renderCenter(g);
     renderLog(g);
     renderTrades(g);
@@ -1001,10 +1062,11 @@
         const o = prev.players.find((x) => x.id === p.id);
         const paid = o ? o.cash - p.cash : sq(i).price;
         announce(p, i, viaAuction ? 'AÇIK ARTIRMADA ALDI!' : 'SATIN ALDI!', paid > 0 ? paid : sq(i).price);
+        sfx('buy');
       }
       showCard(g, prev);
       const m = me();
-      if (prev.turn !== g.turn && m && g.turn === m.id && g.phase !== 'gameover') after(bought.length ? 2300 : 0, () => banner('SIRA SENDE!', m.color));
+      if (prev.turn !== g.turn && m && g.turn === m.id && g.phase !== 'gameover') after(bought.length ? 2300 : 0, () => { banner('SIRA SENDE!', m.color); sfx('turn'); });
       g.players.forEach((p) => {
         const o = prev.players.find((x) => x.id === p.id);
         if (o && !o.bankrupt && p.bankrupt) banner(`${p.name} İFLAS ETTİ!`, '#333');

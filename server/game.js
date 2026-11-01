@@ -38,6 +38,8 @@ class Game {
     })));
     this.props = {};
     SQUARES.forEach((s) => { if (s.price) this.props[s.index] = { owner: null, houses: 0, mortgaged: false }; });
+    this.pot = 0;          // Ücretsiz Otopark kasası
+    this.potWins = 0;
     this.housesLeft = 32;
     this.hotelsLeft = 12;
     this.decks = { chance: shuffle([...CHANCE.keys()]), chest: shuffle([...CHEST.keys()]) };
@@ -79,16 +81,23 @@ class Game {
   groupHasBuildings(group) { return GROUP_MEMBERS[group].some((i) => this.props[i].houses > 0); }
   countOwned(pid, type) { return SQUARES.filter((s) => s.type === type && this.props[s.index].owner === pid).length; }
 
-  pay(from, to, amount, reason) {
+  pay(from, to, amount, reason, toName) {
     if (amount <= 0) return;
     from.cash -= amount;
     if (to) to.cash += amount;
-    this.addLog(`${from.name} → ${to ? to.name : 'Banka'}: ${tl(amount)} (${reason})`);
+    this.addLog(`${from.name} → ${to ? to.name : (toName || 'Banka')}: ${tl(amount)} (${reason})`);
     if (from.cash < 0) {
       if (!from.debtSince) from.debtSince = Date.now();
       from.debtTo = to ? to.id : null;
       this.addLog(`${from.name} borçlu duruma düştü (${tl(-from.cash)}). Mülk ipotekle/ev sat ya da iflas et.`);
     }
+  }
+  // Cezalar (vergi, kart, onarım, hapis) bankaya değil Ücretsiz Otopark kasasına gider
+  payToPot(p, amount, reason) {
+    if (amount <= 0) return;
+    this.pot += amount;
+    this.pay(p, null, amount, reason, 'Otopark kasası');
+    this.addLog(`Otopark kasasında şimdi ${tl(this.pot)} var.`);
   }
   receive(p, amount, reason) {
     p.cash += amount;
@@ -160,7 +169,7 @@ class Game {
         p.jailTurns++;
         if (p.jailTurns >= 3) {
           this.addLog(`${p.name} 3. denemede de çift atamadı, ${tl(JAIL_FEE)} ödeyip çıkıyor.`);
-          this.pay(p, null, JAIL_FEE, 'Hapis cezası');
+          this.payToPot(p, JAIL_FEE, 'Hapis cezası');
           p.inJail = false; p.jailTurns = 0;
         } else {
           this.phase = 'end';
@@ -236,12 +245,20 @@ class Game {
         this.pay(p, owner, rent, `${sq.name} kirası`);
         return;
       }
-      case 'tax': this.pay(p, null, sq.amount, sq.name); return;
+      case 'tax': this.payToPot(p, sq.amount, sq.name); return;
       case 'chance': this.drawCard(p, 'chance'); return;
       case 'chest': this.drawCard(p, 'chest'); return;
       case 'gotojail': this.sendToJail(p); return;
       case 'jail': this.addLog(`${p.name} hapishaneyi ziyaret ediyor.`); return;
-      case 'parking': this.addLog(`${p.name} otoparkta dinleniyor.`); return;
+      case 'parking':
+        if (this.pot > 0) {
+          const won = this.pot;
+          this.pot = 0;
+          p.cash += won;
+          this.potWins++;
+          this.addLog(`${p.name} Ücretsiz Otopark kasasındaki ${tl(won)}'yi kaptı!`);
+        } else this.addLog(`${p.name} otoparkta dinleniyor (kasa boş).`);
+        return;
       default: return;
     }
   }
@@ -291,7 +308,7 @@ class Game {
       return this.moveTo(p, t, card.nearest === 'station' ? { stationMult: 2 } : { utilityRoll: true });
     }
     if (card.money > 0) return this.receive(p, card.money, 'kart');
-    if (card.money < 0) return this.pay(p, null, -card.money, 'kart');
+    if (card.money < 0) return this.payToPot(p, -card.money, 'kart');
     if (card.jail) return this.sendToJail(p);
     if (card.jailFree) { p.jailCards.push(deck); return; }
     if (card.repairs) {
@@ -302,7 +319,7 @@ class Game {
         void i;
       }
       const cost = houses * card.repairs[0] + hotels * card.repairs[1];
-      if (cost > 0) this.pay(p, null, cost, `onarım (${houses} ev, ${hotels} otel)`);
+      if (cost > 0) this.payToPot(p, cost, `onarım (${houses} ev, ${hotels} otel)`);
       else this.addLog(`${p.name}'in binası yok, ödeme çıkmadı.`);
       return;
     }
@@ -319,7 +336,7 @@ class Game {
   payJail(p) {
     if (!this.isCurrent(p) || this.phase !== 'roll' || !p.inJail) return 'Şu an kefalet ödeyemezsin.';
     if (p.cash < JAIL_FEE) return 'Yeterli paran yok.';
-    this.pay(p, null, JAIL_FEE, 'Hapis kefaleti');
+    this.payToPot(p, JAIL_FEE, 'Hapis kefaleti');
     p.inJail = false; p.jailTurns = 0;
     this.addLog(`${p.name} kefaletle serbest kaldı.`);
     return null;
@@ -717,6 +734,8 @@ class Game {
       dice: this.dice,
       rollId: this.rollId,
       moves: this.moves,
+      pot: this.pot,
+      potWins: this.potWins,
       rollLogSeq: this.rollLogSeq || 0,
       pendingBuy: this.pendingBuy,
       auction: this.auction,

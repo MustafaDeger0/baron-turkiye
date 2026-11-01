@@ -761,3 +761,59 @@ input, select { font: inherit; }
 .loading-box small { color: #9fb6c2; font-size: 14px; }
 .spinner { width: 46px; height: 46px; border-radius: 50%; border: 5px solid rgba(255,255,255,.15); border-top-color: var(--gold); animation: spin .9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ================= v10: ferah renk paleti ================= */
+:root { --line: #22384b; --paper: #fbfdf9; --panel: #fdfcf7; }
+.board-frame {
+  background: linear-gradient(145deg, #1d4a6e, #12304b 55%, #0b2034);
+  box-shadow: 0 22px 50px rgba(0,0,0,.55), inset 0 0 0 2px rgba(255,255,255,.12), inset 0 0 0 calc(var(--side) * .006) #e3b448;
+}
+.board::after { opacity: .35; mix-blend-mode: multiply; filter: grayscale(1); }
+.sq.prop { background: linear-gradient(180deg, color-mix(in srgb, var(--gc) 13%, #ffffff), color-mix(in srgb, var(--gc) 5%, #ffffff)); }
+.sq.station, .sq.utility, .sq.tax { background: #f3f7fa; }
+.sq.chance { background: #fff4e3; }
+.sq.chest { background: #e8f1fd; }
+.sq .nm { color: #1c2b38; }
+.sq .pr, .sq .prc { color: #2a3c4c; }
+.sq.go { background: linear-gradient(135deg, #ffe6e6, #fff8e1); }
+.sq.parking { background: linear-gradient(135deg, #e3f7e8, #f3fbe9); }
+.sq.gotojail { background: linear-gradient(135deg, #e3ecfd, #f0f4ff); }
+.sq.jail { background: #f6f2e6; }
+.center {
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='40'><path d='M0 20 Q15 10 30 20 T60 20 T90 20 T120 20' fill='none' stroke='%23ffffff' stroke-opacity='.35' stroke-width='1.5'/></svg>"),
+    radial-gradient(ellipse at 50% 35%, #e9f6fb 0%, #cfe9f4 45%, #a9d5e9 100%);
+}
+.turn-info { background: rgba(255,255,255,.9); }
+.map .sea { fill: #2a6f9a; opacity: .55; }
+.map .city text { fill: #1d3346; stroke: #eef8f2; }
+.logo-ribbon { background: linear-gradient(180deg, #e3344a, #b5182b); }
+
+/* ================= Ücretsiz Otopark kasası ================= */
+.pot { position: absolute; left: 50%; top: 66%; width: 15cqw; height: 9cqw; margin: -4.5cqw 0 0 -7.5cqw; z-index: 4; pointer-events: auto; cursor: help; }
+.pot .pot-notes { position: absolute; inset: 0; }
+.pot .pn { position: absolute; left: 12%; top: 18%; width: 76%; filter: drop-shadow(0 .3cqw .3cqw rgba(0,0,0,.3)); }
+.pot .pot-label { position: absolute; left: 50%; bottom: -2.6cqw; transform: translateX(-50%); background: #fff; border: .25cqw solid var(--ink); border-radius: 99px; padding: .2cqw 1.1cqw; text-align: center; white-space: nowrap; box-shadow: 0 .3cqw 0 var(--ink); font-size: 1.5cqw; line-height: 1.15; }
+.pot .pot-label small { display: block; font-size: .95cqw; letter-spacing: .12em; color: #1f9d55; font-weight: 800; }
+.pot.grow { animation: potGrow .6s cubic-bezier(.2,1.8,.4,1); }
+@keyframes potGrow { 30% { transform: scale(1.18); } }
+.pot.emptying .pn { animation: potFly .7s ease-in forwards; }
+@keyframes potFly { to { transform: translateY(-14cqw) rotate(200deg) scale(.4); opacity: 0; } }
+#game.portrait .pot { width: 20cqw; height: 12cqw; margin: -6cqw 0 0 -10cqw; top: 70%; }
+#game.portrait .pot .pot-label { font-size: 2.2cqw; bottom: -3.6cqw; }
+#game.portrait .pot .pot-label small { font-size: 1.4cqw; }
+/* otopark köşesi: kasa doluysa ipucu */
+.sq.parking.has-pot { box-shadow: inset 0 0 0 .4cqw #1f9d55; animation: landPulse 1.6s ease-in-out infinite; }
+
+/* ================= hedef kare önizlemesi ================= */
+.sq.path::after { content: ''; position: absolute; left: 50%; top: 50%; width: 1.4cqw; height: 1.4cqw; margin: -.7cqw; border-radius: 50%; background: rgba(242,182,50,.9); box-shadow: 0 0 0 .3cqw rgba(255,255,255,.8); z-index: 5; animation: popIn .25s ease-out both; }
+.sq.target { z-index: 6; animation: targetGlow .5s ease-in-out infinite alternate; }
+.sq.target::before { content: ''; position: absolute; inset: 0; border: .5cqw solid #ffd23f; border-radius: .3cqw; z-index: 7; box-shadow: inset 0 0 2cqw rgba(255,210,63,.9); }
+@keyframes targetGlow { from { box-shadow: 0 0 .6cqw .2cqw rgba(255,210,63,.6); filter: brightness(1.05); } to { box-shadow: 0 0 2.4cqw 1cqw rgba(255,210,63,.95); filter: brightness(1.2); } }
+
+/* ses düğmeleri */
+.btn.snd.off { opacity: .45; text-decoration: line-through; }
+/* kasa düğmelerin üstüne binmesin: haritanın güneyinde, tıklamaları engellemeden */
+.pot { top: 83%; z-index: 2; pointer-events: none; width: 13cqw; height: 7.6cqw; margin: -3.8cqw 0 0 -6.5cqw; }
+.pot .pot-label { bottom: -1.6cqw; }
+#game.portrait .pot { top: 82%; }

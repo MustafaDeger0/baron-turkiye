@@ -21,7 +21,7 @@ function propValue(game, pid, idx) {
 
 // Hareket animasyonunun istemcide süreceği yaklaşık süre (bot beklesin ki izlenebilsin)
 function animDelay(game) {
-  let t = DICE_MS + 600;
+  let t = DICE_MS + 600 + 750; // + hedef kare önizlemesi
   for (const m of game.moves || []) {
     if (m.kind === 'jail') { t += 2500; continue; }
     const n = m.kind === 'back' ? (m.from - m.to + 40) % 40 : (m.to - m.from + 40) % 40;

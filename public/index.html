@@ -55,6 +55,7 @@
       <div class="chip-pill" id="ubChips" title="Çiplerin"></div>
       <button class="btn sm gold" id="dailyBtn">Günlük Ödül</button>
       <button class="btn sm" id="lbBtn">Sıralama</button>
+      <button class="btn sm ghost snd" data-snd="music" title="Müzik aç/kapat">♪</button>
       <button class="btn sm ghost" id="logoutBtn">Çıkış</button>
     </div>
     <header class="brand compact">
@@ -157,6 +158,7 @@
             <div class="debt-box hidden" id="debtBox"></div>
             <div class="auction-box hidden" id="auctionBox"></div>
           </div>
+          <div class="pot hidden" id="pot" title="Ücretsiz Otopark kasası: otoparka gelen hepsini alır"><div class="pot-notes" id="potNotes"></div><div class="pot-label"><small>OTOPARK KASASI</small><b id="potAmount"></b></div></div>
           <div class="card-pop hidden" id="cardPop"></div>
           <div class="announce hidden" id="announce"></div>
           <div class="jail-fx hidden" id="jailFx"><div class="siren"><i></i><i></i></div><div class="bars"></div><div class="jail-text" id="jailText"></div></div>
@@ -170,6 +172,8 @@
       <div class="side-top">
         <div class="room-tag"><span id="gameRoomName"></span> · <b id="gameCode"></b></div>
         <div class="side-top-btns">
+          <button class="btn ghost sm snd" data-snd="music" title="Müzik aç/kapat">♪</button>
+          <button class="btn ghost sm snd" data-snd="sfx" title="Ses efektleri aç/kapat">🔊</button>
           <button id="fsBtn" class="btn ghost sm" title="Tam ekran (F)">Tam ekran</button>
           <button id="leaveGameBtn" class="btn ghost sm">Çık</button>
         </div>
@@ -217,6 +221,7 @@
   });
 </script>
 <script src="/socket.io/socket.io.js"></script>
+<script src="audio.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
