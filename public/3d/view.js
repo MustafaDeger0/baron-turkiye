@@ -590,3 +590,4 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   const debugPawns = () => Object.fromEntries(Object.entries(pawns).map(([k, p]) => [k, { pos: p.root.position.toArray().map((v) => +v.toFixed(2)), vis: p.root.visible, anim: !!p.anim }]));
   return { fx, reset, setBank, setPot, potScreen, bankScreen, debugPawns, ensurePawn, setVisible, setTurn, layout, step, setProp, popBuilding, preview, clearPreview, removeStep, landed, pulse, setDice, drawDeck, setCamMode, get camMode() { return view.mode; }, setMargins, resize, pawnScreen, squareScreen, centerScreen, shake, pick };
 }
+export { pipTex, FACE, dieQuat };

@@ -1609,21 +1609,13 @@
     (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(() => load3D(), { timeout: 1500 });
   });
   // ana sayfa vitrin: 3D piyonlar ve dönen zarlar
+  // ana sayfa vitrini: oyundaki 3D karakterler ve zarlar
   (function heroArt() {
-    $('#heroPawns').innerHTML = ['#e63946', '#1d7cf2', '#f4a261', '#2a9d8f'].map((c, k) => `<div class="hp hp${k}">${pawnSVG(c, `hero${k}`)}</div>`).join('');
-    $('#heroDie1').innerHTML = cubeHTML(); $('#heroDie2').innerHTML = cubeHTML();
-    let n = 0;
-    const spinHero = () => {
-      if ($('#home').classList.contains('hidden')) return;
-      [$('#heroDie1'), $('#heroDie2')].forEach((d, i) => {
-        const c = $('.cube', d); if (!c) return;
-        const f = 1 + ((n * 3 + i * 4) % 6), [fx, fy] = FACE_ROT[f];
-        c.style.transition = 'transform 1.1s cubic-bezier(.12,.75,.28,1)';
-        c.style.transform = `rotateX(${720 * (n + 1) + fx - 18}deg) rotateY(${720 * (n + 1) + fy + 24}deg)`;
-      });
-      n++;
-    };
-    spinHero(); setInterval(spinHero, 3200);
+    const cv = $('#heroGl'); if (!cv) return;
+    const vis = () => !$('#home').classList.contains('hidden') && cv.offsetParent !== null && !document.hidden;
+    const start = () => import('/3d/hero.js').then((m) => m.createHero(cv, vis)).catch((e) => console.error(e));
+    if (matchMedia('(max-width: 920px)').matches) matchMedia('(max-width: 920px)').addEventListener('change', (e) => { if (!e.matches && !start.done) { start.done = true; start(); } });
+    else { start.done = true; start(); }
   })();
 
   (async () => {

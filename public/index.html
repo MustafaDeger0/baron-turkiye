@@ -19,6 +19,7 @@
 <link rel="modulepreload" href="/3d/vendor/RoundedBoxGeometry.js">
 <link rel="modulepreload" href="/3d/tokens.js">
 <link rel="modulepreload" href="/3d/view.js">
+<link rel="modulepreload" href="/3d/hero.js">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 </head>
 <body>
@@ -68,10 +69,7 @@
     </div>
     <div class="h-main">
       <header class="hero">
-        <div class="hero-art" aria-hidden="true">
-          <div class="hero-pawns" id="heroPawns"></div>
-          <div class="hero-dice"><div class="die" id="heroDie1"></div><div class="die" id="heroDie2"></div></div>
-        </div>
+        <div class="hero-art" aria-hidden="true"><canvas id="heroGl" class="hero-gl"></canvas></div>
         <div class="hero-text">
           <h1>BARON<small>TÜRKİYE</small></h1>
           <p>İlleri kap, ev ve otel dik, rakiplerini iflas ettir. <b>Baron sen ol!</b></p>
