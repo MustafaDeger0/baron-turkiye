@@ -14,7 +14,8 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: process.env.CORS_ORIGIN || false }, pingInterval: 10000, pingTimeout: 8000 });
-const db = createStore();
+let db, dbError = null;
+try { db = createStore(); } catch (e) { dbError = e.message; db = null; }
 
 // ---------- ekonomi ----------
 const STAKES = [0, 50, 100, 250, 500];   // oda giriş ücreti (çip)
@@ -30,7 +31,18 @@ const QUICK_MAX = 4;
 
 app.use(express.json({ limit: '10kb' }));
 app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h' }));
-app.get('/health', (_req, res) => res.json({ ok: true, rooms: rooms.size, players: io.engine.clientsCount, db: db.kind }));
+app.get('/health', (_req, res) => res.json({
+  ok: !dbError, rooms: rooms.size, players: io.engine.clientsCount,
+  db: dbError ? 'hata' : db.kind,
+  ...(dbError ? { dbHata: dbError } : {}),
+  ...(db && db.where ? { dbAdres: db.where } : {}),
+  databaseUrlTanimli: !!(process.env.DATABASE_URL && process.env.DATABASE_URL.trim()),
+}));
+// Veritabanı hazır değilse hesap isteklerini anlaşılır bir mesajla reddet
+app.use('/api', (req, res, next) => {
+  if (dbError && req.path !== '/board') return res.status(503).json({ error: `Veritabanına bağlanılamadı: ${dbError}` });
+  next();
+});
 app.get('/api/board', (_req, res) => res.json({ squares: SQUARES, groups: GROUPS, K }));
 
 // ---------- hesap API ----------
@@ -265,6 +277,7 @@ function roomOfUser(uid) {
 
 // ---------- soket ----------
 io.use(async (socket, next) => {
+  if (dbError) return next(new Error('server'));
   try {
     const u = await auth.userFromToken(db, socket.handshake.auth && socket.handshake.auth.token);
     if (!u) return next(new Error('auth'));
@@ -488,12 +501,27 @@ setInterval(() => {
   if (listDirty) { listDirty = false; io.emit('rooms:list', listPublic()); }
 }, 1000);
 
-const ready = db.init().then(() => {
+// Veritabanını hazırla (Neon uykudaysa birkaç kez dene). Başaramazsa sunucu yine açılır,
+// /health sayfasında hatanın nedeni görünür — böylece sorun gizli kalmaz.
+async function initDb() {
+  if (!db) return;
+  for (let k = 1; k <= 5; k++) {
+    try { await db.init(); dbError = null; return; } catch (e) {
+      dbError = e.message;
+      console.error(`Veritabanına bağlanılamadı (deneme ${k}/5): ${e.message}`);
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
+}
+console.log(`DATABASE_URL ${process.env.DATABASE_URL && process.env.DATABASE_URL.trim() ? `bulundu → ${db && db.where ? db.where : '(geçersiz)'}` : 'TANIMLI DEĞİL → hesaplar geçici dosyaya yazılacak'}`);
+if (dbError) console.error(`HATA: ${dbError}`);
+const ready = initDb().then(() => new Promise((ok) => {
   server.listen(PORT, () => {
-    console.log(`Baron Türkiye sunucusu http://localhost:${PORT} (veri: ${db.kind})`);
-    if (db.kind === 'json') console.log('Not: DATABASE_URL bulunamadı, hesaplar yerel dosyaya yazılıyor (Render gibi ortamlarda kalıcı değildir).');
+    console.log(`Baron Türkiye sunucusu http://localhost:${PORT} (veri: ${dbError ? 'HATA' : db.kind})`);
+    if (dbError) console.error(`Veritabanı çalışmıyor: ${dbError}. /health sayfasına bak.`);
+    else if (db.kind === 'json') console.log('Not: DATABASE_URL bulunamadı, hesaplar yerel dosyaya yazılıyor (Render gibi ortamlarda kalıcı değildir).');
+    ok();
   });
-});
-ready.catch((e) => { console.error('Veritabanı başlatılamadı:', e); process.exit(1); });
+}));
 
 module.exports = { server, io, db, ready, rooms };

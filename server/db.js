@@ -27,7 +27,9 @@ function publicUser(u) {
 function pgStore(url) {
   const { Pool } = require('pg');
   // Bağlantı adresindeki sslmode / channel_binding gibi parametreleri temizle; SSL'i kendimiz ayarlayalım
-  const u = new URL(url);
+  let u;
+  try { u = new URL(url); } catch { throw new Error('DATABASE_URL geçerli bir adres değil. "postgresql://" ile başlamalı.'); }
+  if (!/^postgres(ql)?:$/.test(u.protocol)) throw new Error(`DATABASE_URL "postgresql://" ile başlamalı (şu an: ${u.protocol}).`);
   ['sslmode', 'channel_binding', 'sslrootcert'].forEach((k) => u.searchParams.delete(k));
   const host = u.hostname;
   const internal = host === 'localhost' || host === '127.0.0.1' || !host.includes('.'); // Render iç adresi: dpg-xxxx-a
@@ -39,6 +41,7 @@ function pgStore(url) {
   const one = async (q, args) => (await pool.query(q, args)).rows[0] || null;
   return {
     kind: 'postgres',
+    where: maskDbUrl(u.toString()),
     async init() {
       await pool.query(`CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -138,9 +141,23 @@ function jsonStore(file) {
   };
 }
 
+// Panelden yapıştırılan adresi temizle: boşluk, tırnak, baştaki "psql" gibi fazlalıklar
+function cleanDbUrl(raw) {
+  let u = String(raw || '').trim();
+  u = u.replace(/^psql\s+/i, '').trim();
+  u = u.replace(/^DATABASE_URL\s*=\s*/i, '').trim();
+  u = u.replace(/^['"]+|['"]+$/g, '').trim();
+  if (u.startsWith('postgres://')) u = `postgresql://${u.slice('postgres://'.length)}`;
+  return u;
+}
+// Günlüklerde şifreyi göstermeden adres özeti
+function maskDbUrl(u) {
+  try { const x = new URL(u); return `${x.protocol}//${x.username}:***@${x.host}${x.pathname}`; } catch { return '(okunamadı)'; }
+}
+
 function createStore() {
-  if (process.env.DATABASE_URL) return pgStore(process.env.DATABASE_URL);
+  if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim()) return pgStore(cleanDbUrl(process.env.DATABASE_URL));
   return jsonStore(process.env.DATA_FILE || path.join(__dirname, '..', 'data', 'db.json'));
 }
 
-module.exports = { createStore, publicUser, dayStr, dailyReward, START_CHIPS, DAILY_REWARDS };
+module.exports = { createStore, cleanDbUrl, maskDbUrl, publicUser, dayStr, dailyReward, START_CHIPS, DAILY_REWARDS };
