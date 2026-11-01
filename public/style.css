@@ -1317,3 +1317,111 @@ body.ingame { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: 
 #game.m-land .log-list li { padding: 2px 0; }
 #game.m-land .chat-form input { padding: 3px 8px; }
 #game.m-land .chat-form .btn { font-size: 12px; padding: 3px 8px; }
+
+/* ================= v17: yan telefonda 3D eğik tahta ================= */
+.board-stage, .board-tilt { display: contents; }
+#game.tilt .board-stage { display: block; position: relative; flex: none; width: var(--stageW); height: var(--stageH); perspective: var(--persp); perspective-origin: var(--po); }
+#game.tilt .board-tilt { display: block; position: absolute; left: var(--tiltL); top: var(--tiltT); width: var(--side); height: var(--side); transform: rotateX(var(--tilt)); transform-origin: 50% 50%; transform-style: preserve-3d; }
+#game.tilt .board-frame { transform-style: preserve-3d; box-shadow: 0 30px 40px rgba(0,0,0,.6), inset 0 0 0 2px rgba(255,255,255,.12), inset 0 0 0 calc(var(--side) * .006) #e3b448; }
+#game.tilt .board, #game.tilt .token-layer { transform-style: preserve-3d; }
+#game.tilt .board::after { mix-blend-mode: normal; opacity: .12; }
+/* piyonlar masada ayakta dursun */
+#game.tilt .pawn { transform: rotateX(calc(-1 * var(--tilt))); transform-origin: 50% 83%; transform-style: preserve-3d; }
+#game.tilt .pawn { width: 4.2cqw; height: 6.8cqw; margin: -5.6cqw 0 0 -2.1cqw; }
+/* eğik tahtada orta yazılar biraz daha büyük */
+#game.tilt .turn-info { font-size: 3.1cqw; }
+#game.tilt .landing { font-size: 2.7cqw; }
+#game.tilt .actions .btn { font-size: max(11px, 2.9cqw); }
+#game.tilt .game-wrap { gap: 6px; }
+#game.tilt .side { height: var(--panelH); max-height: var(--panelH); }
+/* eğik tahtanın düz hâldeki kutusu ekrandan taşar; tarayıcı odaklanınca oyunu kaydırmasın */
+#game, #game .game-wrap { overflow: clip; }
+
+/* ================= v18: 3D tahta (Business Tour tarzı izometrik) ================= */
+#game.g3d { position: relative; height: var(--vh); overflow: clip; padding: 0; background: radial-gradient(120% 90% at 50% 40%, #d7eefa 0%, #bfe3f5 55%, #9fd0ea 100%); }
+#game.g3d .gl3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; z-index: 1; }
+.board-dom { position: fixed; left: -12000px; top: 0; width: 640px; height: 640px; visibility: hidden; pointer-events: none; --side: 640px; }
+.board-dom .board-frame { width: 640px; height: 640px; }
+
+/* tahta üstü göstergeler */
+.hud-sq { position: absolute; left: 50%; top: 50%; width: var(--hs); height: var(--hs); transform: translate(-50%, -50%); container-type: size; pointer-events: none; z-index: 3; }
+.hud-top, .hud-low { position: absolute; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.hud-top { left: 6cqw; right: 6cqw; top: 3cqw; gap: 1cqw; }
+.hud-low { left: 3cqw; right: 3cqw; top: 60cqw; gap: 1.2cqw; }
+.hud-top > *, .hud-low > * { pointer-events: auto; }
+.hud-sq .dice-row { display: flex; justify-content: center; min-height: 0; gap: 0; }
+.hud-sq .dice-row .die { display: none; }
+.hud-sq .dice-sum { position: static; margin: 0; font-size: clamp(16px, 5cqw, 34px); background: rgba(255,255,255,.92); border-radius: 99px; padding: 0 .45em; box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+.hud-sq .turn-info { font-size: clamp(12px, 3.1cqw, 20px); padding: .35em 1em; background: rgba(255,255,255,.94); box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+.hud-sq .turn-info .who svg { width: 1em; height: 1em; }
+.hud-sq .timer { width: 38cqw; height: clamp(4px, .9cqw, 8px); background: rgba(255,255,255,.7); }
+.hud-sq .bank-stock { font-size: clamp(11px, 2.5cqw, 16px); padding: .2em .8em; border-width: 2px; box-shadow: 0 2px 0 var(--ink); gap: .6em; }
+.hud-sq .bs-l { font-size: .62em; } .hud-sq .bs-house { width: 1em; height: 1em; } .hud-sq .bs-hotel { width: 1.5em; height: 1em; }
+.hud-sq .landing { font-size: clamp(11px, 2.5cqw, 16px); max-width: 86cqw; border-width: 2px; border-left-width: .5em; box-shadow: 0 3px 0 var(--ink); border-radius: .7em; padding: .35em .8em; gap: .6em; }
+.hud-sq .landing .l-pic { width: 2.6em; height: 2em; min-width: 0; min-height: 0; }
+.hud-sq .landing ul { max-height: 2.7em; }
+.hud-sq .hud-low:has(.mini-deed) ~ * .landing, .hud-sq:has(.mini-deed) .landing { display: none; }
+.hud-sq .mini-deed { min-width: 34cqw; margin: 0; border-width: 2px; border-radius: .6em; box-shadow: 0 4px 0 var(--ink); }
+.hud-sq .mini-deed .mh { font-size: clamp(14px, 4cqw, 24px); padding: .3em .7em; }
+.hud-sq .mini-deed .mb { font-size: clamp(11px, 2.7cqw, 16px); padding: .35em .8em; }
+.hud-sq .actions { gap: .5em; font-size: clamp(13px, 3.3cqw, 19px); }
+.hud-sq .actions .btn { font-size: 1em; padding: .5em 1em; border-width: 2px; box-shadow: 0 3px 0 var(--ink); white-space: nowrap; }
+.hud-sq .debt-box, .hud-sq .auction-box { font-size: clamp(12px, 2.9cqw, 16px); border-width: 2px; border-radius: .8em; padding: .6em .9em; gap: .4em; max-width: 92cqw; }
+.hud-sq .auction-box h4 { font-size: 1.15em; } .hud-sq .auction-box .bid { font-size: 1.9em; } .hud-sq .auction-box .gavel { width: 1.3em; height: 1.3em; }
+.hud-sq .auction-box .btn { font-size: .9em; padding: .35em .7em; }
+.hud-sq .auction-box input { width: 7em; min-width: 0; font-size: 16px; padding: .2em; }
+.hud-sq .pot { left: 22%; top: 50%; }
+.hud-sq .card-pop { left: 22%; width: 56%; top: 26%; height: 34%; }
+.stamp3d { position: fixed; z-index: 47; transform: translate(-50%, -50%) rotate(-12deg); pointer-events: none; font-weight: 900; font-size: 18px; letter-spacing: .06em; color: var(--sc); border: 3px solid var(--sc); background: rgba(255,255,255,.92); border-radius: 8px; padding: 2px 10px; animation: stamp3d 1.9s ease forwards; }
+@keyframes stamp3d { 0% { transform: translate(-50%, -50%) rotate(-12deg) scale(2.4); opacity: 0; } 15% { transform: translate(-50%, -50%) rotate(-12deg) scale(1); opacity: 1; } 80% { opacity: 1; } 100% { transform: translate(-50%, -120%) rotate(-12deg) scale(1); opacity: 0; } }
+
+/* oyuncular dört köşede */
+#playerList.p-corners { position: absolute; inset: 0; margin: 0; padding: 0; list-style: none; pointer-events: none; z-index: 4; display: block; }
+#playerList.p-corners li { position: absolute; pointer-events: auto; width: 220px; display: grid !important; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; padding: 8px 12px; border-radius: 16px; background: rgba(255,255,255,.96); border: 2px solid rgba(0,0,0,.08); box-shadow: 0 4px 0 rgba(0,0,0,.25), 0 10px 22px rgba(0,0,0,.15); }
+#playerList.p-corners li:hover { transform: translateY(-2px); }
+#playerList.p-corners li > .token-chip { grid-row: 1 / 4; width: 40px; height: 40px; }
+#playerList.p-corners li > div { min-width: 0; }
+#playerList.p-corners .pname { font-size: 15px; }
+#playerList.p-corners .cash { grid-column: 2; font-size: 18px; line-height: 1.1; }
+#playerList.p-corners li.turn { border-color: var(--ink); box-shadow: 0 4px 0 var(--ink), 0 0 0 4px var(--gold), 0 10px 22px rgba(0,0,0,.2); }
+#playerList.p-corners li:nth-child(1) { left: calc(10px + var(--sal)); bottom: calc(10px + var(--sab)); }
+#playerList.p-corners li:nth-child(2) { left: calc(10px + var(--sal)); top: calc(10px + var(--sat)); }
+#playerList.p-corners li:nth-child(3) { right: calc(10px + var(--sar)); top: calc(10px + var(--sat)); }
+#playerList.p-corners li:nth-child(4) { right: calc(10px + var(--sar)); bottom: calc(10px + var(--sab)); }
+#playerList.p-corners li:nth-child(5) { left: 50%; margin-left: -110px; top: calc(10px + var(--sat)); }
+#playerList.p-corners li:nth-child(6) { left: 50%; margin-left: -110px; bottom: calc(10px + var(--sab)); }
+
+/* yan araç çubukları */
+.tb { position: absolute; top: 50%; transform: translateY(-50%); z-index: 4; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.tb-left { left: calc(10px + var(--sal)); }
+.tb-right { right: calc(10px + var(--sar)); }
+.tbb { position: relative; width: 48px; height: 44px; border-radius: 12px; border: 2px solid var(--ink); background: #fff; color: var(--ink); box-shadow: 0 3px 0 var(--ink); font: 800 18px 'Nunito', sans-serif; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.tbb:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.tbb.off { opacity: .5; }
+.tbb.wide { width: 70px; height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 20px; line-height: 1; }
+.tbb.wide span { font-size: 11px; font-weight: 800; }
+.tbb.wide b { font-weight: 900; }
+.tbb .badge { position: absolute; top: -7px; right: -7px; }
+.tb .room-tag { font-size: 11px; font-weight: 700; background: rgba(255,255,255,.9); border-radius: 8px; padding: 2px 6px; max-width: 70px; text-align: center; line-height: 1.2; overflow: hidden; }
+.tb .room-tag span { display: none; }
+
+/* küçük ekran (telefon) */
+#game.g-small #playerList.p-corners li { width: 150px; padding: 4px 8px; column-gap: 7px; border-radius: 12px; }
+#game.g-small #playerList.p-corners li > .token-chip { width: 28px; height: 28px; padding: 3px; }
+#game.g-small #playerList.p-corners .pname { font-size: 12px; }
+#game.g-small #playerList.p-corners .cash { font-size: 14px; }
+#game.g-small #playerList.p-corners .mini { display: none; }
+#game.g-small #playerList.p-corners li:nth-child(n+5) { margin-left: -75px; }
+#game.g-small .tbb { width: 40px; height: 36px; font-size: 15px; border-radius: 10px; }
+#game.g-small .tbb.wide { width: 54px; height: 46px; font-size: 16px; }
+#game.g-small .tbb.wide span { font-size: 9.5px; }
+#game.g-small .tb { gap: 6px; }
+#game.g-small .tb .room-tag { display: none; }
+/* dikey ekran: araç çubukları yatay, köşe kartlarının iç tarafında */
+#game.g-portrait .tb { flex-direction: row; transform: none; top: auto; }
+#game.g-portrait .tb-left { top: calc(var(--sat) + 62px); left: 50%; transform: translateX(-50%); }
+#game.g-portrait .tb-right { bottom: calc(var(--sab) + 62px); left: 50%; right: auto; transform: translateX(-50%); }
+#game.g-portrait:not(.g-small) .tb-left { top: calc(var(--sat) + 86px); }
+#game.g-portrait:not(.g-small) .tb-right { bottom: calc(var(--sab) + 86px); }
+.tb .room-tag small { display: block; font-size: 9px; letter-spacing: .12em; color: var(--muted); }
+.tb .room-tag b { font-size: 12px; letter-spacing: .06em; }

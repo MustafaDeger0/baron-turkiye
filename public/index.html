@@ -14,6 +14,7 @@
 <meta name="description" content="Türkiye'nin illerini satın al, ev ve otel dik, rakiplerini iflas ettir. Arkadaşlarınla oda kur ya da rastgele oyuncularla eşleş.">
 <link rel="stylesheet" href="fonts.css">
 <link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "/3d/vendor/three.module.min.js" } }</script>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 </head>
 <body>
@@ -195,73 +196,73 @@
 </section>
 
 <!-- ============ OYUN ============ -->
-<section id="game" class="screen hidden">
-  <div class="game-wrap">
-    <div id="leftStrip" class="left-strip"></div>
-    <div class="board-frame">
-      <div id="board" class="board">
-        <div class="center" id="center">
-          <svg class="map" id="map" viewBox="-60 -90 1630 860" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
-          <div class="deck chance" id="deckChance"><div class="deck-card"><b>?</b><span>ŞANS</span></div></div>
-          <div class="deck chest" id="deckChest"><div class="deck-card"><i id="deckChestIcon"></i><span>KAMU FONU</span></div></div>
-          <div class="center-inner">
-            <div class="logo-ribbon"><span>BARON</span><small>TÜRKİYE</small></div>
-            <div class="dice-row" id="diceRow"><div class="die" id="die1"></div><div class="die" id="die2"></div><div class="dice-sum hidden" id="diceSum"></div></div>
-            <div class="turn-info" id="turnInfo"></div>
-            <div class="timer"><div id="timerBar"></div></div>
-            <div class="bank-stock" id="bankStock" title="Bankada kalan ev ve otel sayısı"></div>
-            <div class="landing hidden" id="landing"></div>
-            <div class="actions" id="actions"></div>
-            <div class="debt-box hidden" id="debtBox"></div>
-            <div class="auction-box hidden" id="auctionBox"></div>
-          </div>
-          <div class="pot hidden" id="pot" title="Ücretsiz Otopark kasası: otoparka gelen hepsini alır"><div class="pot-notes" id="potNotes"></div><div class="pot-label"><small>OTOPARK KASASI</small><b id="potAmount"></b></div></div>
-          <div class="card-pop hidden" id="cardPop"></div>
-          <div class="announce hidden" id="announce"></div>
-          <div class="jail-fx hidden" id="jailFx"><div class="siren"><i></i><i></i></div><div class="bars"></div><div class="jail-text" id="jailText"></div></div>
-          <div class="banner hidden" id="banner"></div>
-        </div>
-        <div id="tokenLayer" class="token-layer"></div>
-      </div>
-    </div>
+<section id="game" class="screen hidden g3d">
+  <canvas id="gl3d" class="gl3d"></canvas>
+  <!-- klasik DOM tahta: oyun kodu kare bilgilerini burada tutar, ekranda görünmez -->
+  <div class="board-dom" aria-hidden="true">
+    <div class="board-frame"><div id="board" class="board">
+      <div class="center" id="centerDom"><svg class="map" id="map" viewBox="-60 -90 1630 860" preserveAspectRatio="xMidYMid meet"></svg></div>
+      <div id="tokenLayer" class="token-layer"></div>
+    </div></div>
+    <div class="deck chance" id="deckChance"></div><div class="deck chest" id="deckChest"><i id="deckChestIcon"></i></div>
+  </div>
 
-    <aside class="side">
-      <div class="side-top">
-        <div class="room-tag"><span id="gameRoomName"></span> · <b id="gameCode"></b></div>
-        <div class="side-top-btns">
-          <button class="btn ghost sm menu-btn" id="menuBtn" title="Sohbet, olaylar ve teklifler">💬 Sohbet<i id="menuBadge" class="badge hidden"></i></button>
-          <button class="btn ghost sm snd" data-snd="music" title="Müzik aç/kapat">♪</button>
-          <button class="btn ghost sm snd" data-snd="sfx" title="Ses efektleri aç/kapat">🔊</button>
-          <button id="fsBtn" class="btn ghost sm" title="Tam ekran (F)">Tam ekran</button>
-          <button id="leaveGameBtn" class="btn ghost sm">Çık</button>
-        </div>
-      </div>
-      <div id="mobileBar" class="mobile-bar"></div>
-      <ul id="playerList" class="player-list"></ul>
-      <div class="side-buttons">
-        <button id="myPropsBtn" class="btn">Mülklerim</button>
-        <button id="tradeBtn" class="btn">Takas</button>
-      </div>
-      <div class="tabs">
-        <button class="tab active" data-tab="log">Olaylar</button>
-        <button class="tab" data-tab="chat">Sohbet <i id="chatBadge" class="badge hidden"></i></button>
-        <button class="tab" data-tab="trades">Teklifler <i id="tradeBadge" class="badge hidden"></i></button>
-      </div>
-      <div class="tab-body" data-body="log"><ul id="logList" class="log-list"></ul></div>
-      <div class="tab-body hidden" data-body="chat">
-        <ul id="gameChat" class="chat-list"></ul>
-        <form class="chat-form" data-chat><input maxlength="200" placeholder="Mesaj yaz…"><button class="btn">Gönder</button></form>
-      </div>
-      <div class="tab-body hidden" data-body="trades"><ul id="tradeList" class="trade-list"></ul></div>
-    </aside>
+  <!-- tahtanın üstündeki göstergeler (ekranın ortasında, tahtayla birlikte ölçeklenir) -->
+  <div class="hud-sq" id="center">
+    <div class="hud-top">
+      <div class="dice-row" id="diceRow"><div class="die" id="die1"></div><div class="die" id="die2"></div><div class="dice-sum hidden" id="diceSum"></div></div>
+      <div class="turn-info" id="turnInfo"></div>
+      <div class="timer"><div id="timerBar"></div></div>
+      <div class="bank-stock" id="bankStock" title="Bankada kalan ev ve otel sayısı"></div>
+      <div class="landing hidden" id="landing"></div>
+    </div>
+    <div class="hud-low">
+      <div class="actions" id="actions"></div>
+      <div class="debt-box hidden" id="debtBox"></div>
+      <div class="auction-box hidden" id="auctionBox"></div>
+    </div>
+    <div class="pot hidden" id="pot" title="Ücretsiz Otopark kasası: otoparka gelen hepsini alır"><div class="pot-notes" id="potNotes"></div><div class="pot-label"><small>OTOPARK KASASI</small><b id="potAmount"></b></div></div>
+    <div class="card-pop hidden" id="cardPop"></div>
+    <div class="announce hidden" id="announce"></div>
+    <div class="jail-fx hidden" id="jailFx"><div class="siren"><i></i><i></i></div><div class="bars"></div><div class="jail-text" id="jailText"></div></div>
+    <div class="banner hidden" id="banner"></div>
+  </div>
+
+  <!-- oyuncular ekranın köşelerinde -->
+  <ul id="playerList" class="player-list p-corners"></ul>
+
+  <div class="tb tb-left">
+    <div class="room-tag"><span id="gameRoomName"></span><small>ODA</small><b id="gameCode"></b></div>
+    <button class="tbb snd" data-snd="music" title="Müzik aç/kapat">♪</button>
+    <button class="tbb snd" data-snd="sfx" title="Ses efektleri aç/kapat">🔊</button>
+    <button class="tbb" id="camBtn" title="Kamera: yakın / tüm tahta">🔍</button>
+    <button class="tbb" id="fsBtn" title="Tam ekran (F)">⛶</button>
+    <button class="tbb" id="leaveGameBtn" title="Oyundan çık">Çık</button>
+  </div>
+  <div class="tb tb-right">
+    <button class="tbb wide" id="menuBtn" title="Sohbet, olaylar ve teklifler">💬<span>Sohbet</span><i id="menuBadge" class="badge hidden"></i></button>
+    <button class="tbb wide" id="myPropsBtn"><b>🏠</b><span>Mülklerim</span></button>
+    <button class="tbb wide" id="tradeBtn"><b>⇄</b><span>Takas</span></button>
   </div>
 </section>
 
-<!-- oyun içi açılır menü (telefonda olaylar/sohbet/takas burada) -->
+<!-- sohbet / olaylar / teklifler -->
 <div id="drawerBackdrop" class="drawer-backdrop hidden"></div>
 <aside id="gameDrawer" class="game-drawer" aria-hidden="true">
   <div class="gd-head"><b>Sohbet ve olaylar</b><button class="btn ghost sm" id="drawerClose">✕</button></div>
-  <div class="gd-body" id="gameDrawerBody"></div>
+  <div class="gd-body" id="gameDrawerBody">
+    <div class="tabs">
+      <button class="tab" data-tab="log">Olaylar</button>
+      <button class="tab active" data-tab="chat">Sohbet <i id="chatBadge" class="badge hidden"></i></button>
+      <button class="tab" data-tab="trades">Teklifler <i id="tradeBadge" class="badge hidden"></i></button>
+    </div>
+    <div class="tab-body hidden" data-body="log"><ul id="logList" class="log-list"></ul></div>
+    <div class="tab-body" data-body="chat">
+      <ul id="gameChat" class="chat-list"></ul>
+      <form class="chat-form" data-chat><input maxlength="200" placeholder="Mesaj yaz…"><button class="btn">Gönder</button></form>
+    </div>
+    <div class="tab-body hidden" data-body="trades"><ul id="tradeList" class="trade-list"></ul></div>
+  </div>
 </aside>
 
 <!-- ============ MODALLAR ============ -->

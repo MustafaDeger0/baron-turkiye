@@ -157,42 +157,27 @@
     const cs = getComputedStyle(safeProbe);
     return { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
   }
-  let layoutMode = 'desktop';
+  // ---------- 3D görünüm (three.js) ----------
+  let V3 = null, v3Loading = null;
   function fitLayout() {
     const sa = safeArea(), root = document.documentElement.style;
     const fullW = window.innerWidth, fullH = window.innerHeight;
     root.setProperty('--vh', `${fullH}px`);
-    const W = fullW - sa.l - sa.r, H = fullH - sa.t - sa.b;   // çentik dışında kalan alan
-    const landscape = W > H * 1.05;
-    const mode = !landscape ? 'portrait' : H < 560 ? 'compact' : 'desktop';
-    // Her ekranda bilgisayardaki düzen: tahta + yan panel; telefonda sadece ölçek küçülür
-    let side, sideW, leftW = 0;
-    if (mode === 'portrait') {
-      side = Math.min(W - 8, H - 8 - 200);
-      sideW = side;
-    } else {
-      const pad = mode === 'compact' ? 4 : 10, gap = mode === 'compact' ? 8 : 12;
-      if (mode === 'compact') {
-        // yan telefon: tahta tüm yüksekliği kullanır, kalan genişliğin hepsi panele
-        side = Math.min(H - pad * 2, W - 220 - gap - pad * 2);
-        sideW = Math.min(420, W - side - gap - pad * 2);
-      } else {
-        sideW = Math.round(Math.min(360, Math.max(260, W * 0.22)));
-        side = Math.min(H - pad * 2, W - sideW - gap - pad * 2);
-      }
-    }
-    side = Math.max(220, Math.floor(side));
-    root.setProperty('--side', `${side}px`);
-    root.setProperty('--sideW', `${Math.floor(sideW)}px`);
-    root.setProperty('--leftW', `${leftW}px`);
     root.setProperty('--sat', `${sa.t}px`); root.setProperty('--sar', `${sa.r}px`); root.setProperty('--sab', `${sa.b}px`); root.setProperty('--sal', `${sa.l}px`);
+    const W = fullW - sa.l - sa.r, H = fullH - sa.t - sa.b;   // çentik dışında kalan alan
+    const portrait = H > W * 1.05, small = Math.min(W, H) < 560;
+    // tahta üstü göstergelerin karesi: tahtayla birlikte büyür/küçülür
+    const hs = Math.round(portrait ? Math.min(W, H * 0.6) : Math.min(H, W * 0.62));
+    root.setProperty('--hs', `${hs}px`);
     const gm = $('#game');
+    gm.classList.toggle('g-portrait', portrait);
+    gm.classList.toggle('g-small', small);
+    if (V3) {
+      // köşe kartları ve yan araç çubukları tahtanın üstüne binmesin
+      const side = small ? 58 : 74;
+      V3.setMargins(portrait ? { top: sa.t + (small ? 64 : 80), bottom: sa.b + (small ? 64 : 80), left: sa.l + 4, right: sa.r + 4 } : { top: sa.t + 6, bottom: sa.b + 6, left: sa.l + side, right: sa.r + side });
+    }
     if (document.body.classList.contains('ingame') && (window.scrollX || window.scrollY)) window.scrollTo(0, 0);
-    gm.classList.toggle('m-portrait', mode === 'portrait');
-    gm.classList.toggle('m-land', mode === 'compact');
-    if (!fitLayout.done) arrange();
-    layoutMode = mode; fitLayout.done = true;
-    if (boardBuilt) requestAnimationFrame(() => { layoutPawns(false); fitNames(); });
     fitHome();
   }
   // Bilgisayarda ana sayfa kaydırma gerektirmeden ekrana sığsın
@@ -206,14 +191,31 @@
     h.style.marginBottom = k < 1 ? `${-(natural * (1 - k))}px` : '';
   }
   if (window.ResizeObserver) new ResizeObserver(() => fitHome()).observe($('#home2'));
-  // Ögeleri ekran türüne göre yerleştir
-  function arrange() {
-    const aside = $('.side');
-    [$('#game .tabs, #gameDrawerBody .tabs'), ...$$('.tab-body')].forEach((el) => el && aside.appendChild(el));
-    aside.insertBefore($('#playerList'), $('.side-buttons'));
-    closeDrawer();
+  // 3D görünümü yükle ve oyunun o anki hâliyle eşitle
+  function load3D() {
+    if (v3Loading) return v3Loading;
+    v3Loading = import('/3d/view.js').then(async (mod) => {
+      V3 = await mod.createView($('#gl3d'), { squares: BOARD.squares, groups: BOARD.groups, ART, ICON, onPick: (i) => openDeed(i) });
+      if (location.hostname === 'localhost') window.__V3 = V3;
+      const portrait = innerHeight > innerWidth * 1.05;
+      V3.setCamMode(portrait ? 'follow' : 'all'); renderCamBtn();
+      fitLayout();
+      const g = game(); if (g) sync3D(g);
+    }).catch((e) => { console.error(e); toast('3D görünüm yüklenemedi: ' + (e && e.message), 'err'); });
+    return v3Loading;
   }
-  function fitNames() { /* tahta her ekranda bilgisayardaki gibi ölçeklenir */ }
+  function sync3D(g) {
+    if (!V3 || !g) return;
+    g.players.forEach((p) => V3.ensurePawn(p.id, p.token, p.color));
+    BOARD.squares.forEach((s, i) => { const pr = g.props[i]; if (!pr) return; const o = pr.owner && playerById(pr.owner); V3.setProp(i, o ? o.color : null, s.type === 'prop' ? pr.houses : 0, pr.mortgaged); });
+    styleOfPawns(g); layoutPawns(false);
+    if (g.rollId) V3.setDice(g.dice, false);
+    const mv = g.moves && g.moves.length ? g.moves[g.moves.length - 1] : null;
+    V3.landed(mv && g.phase !== 'gameover' ? mv.to : null);
+  }
+  function renderCamBtn() { const b = $('#camBtn'); if (b && V3) { const f = V3.camMode === 'follow'; b.textContent = f ? '🗺' : '🔍'; b.title = f ? 'Tüm tahtayı göster' : 'Sırası geleni yakından izle'; } }
+  $('#camBtn').onclick = () => { if (!V3) return; V3.setCamMode(V3.camMode === 'follow' ? 'all' : 'follow'); renderCamBtn(); };
+  function fitNames() { /* 3D'de gerekmiyor */ }
   // Oyun içi açılır menü
   function openDrawer() { const t = $(`.tab[data-tab="${incomingTrades ? 'trades' : 'chat'}"]`); if (t) t.click(); $('#gameDrawer').classList.add('open'); $('#drawerBackdrop').classList.remove('hidden'); if (latest) renderChat(latest); updateMenuBadge(); }
   function closeDrawer() { $('#gameDrawer').classList.remove('open'); $('#drawerBackdrop').classList.add('hidden'); }
@@ -243,7 +245,7 @@
     ['loading', 'auth', 'home', 'lobby', 'game'].forEach((s) => $(`#${s}`).classList.toggle('hidden', s !== id));
     if (id === 'home' && token) loadLeaderboard();
     document.body.classList.toggle('ingame', id === 'game');
-    if (id === 'game') requestAnimationFrame(() => { if (boardBuilt) { layoutPawns(false); fitNames(); } });
+    if (id === 'game') requestAnimationFrame(() => { fitLayout(); if (V3) V3.resize(); if (boardBuilt) layoutPawns(false); });
     if (id === 'home') requestAnimationFrame(fitHome);
   }
   function saveSession(res) {
@@ -769,7 +771,7 @@
     });
     buildMap();
     $('#die1').innerHTML = cubeHTML(); $('#die2').innerHTML = cubeHTML();
-    boardBuilt = true; requestAnimationFrame(fitNames);
+    boardBuilt = true; load3D();
   }
   const sqEl = (i) => $(`.sq[data-idx="${i}"]`);
 
@@ -798,6 +800,8 @@
           if (city) { city.classList.remove('flash'); void city.getBBox(); city.classList.add('flash'); }
         }
       } else if (flag) flag.remove();
+      if (V3) V3.setProp(i, owner ? owner.color : null, s.type === 'prop' ? pr.houses : 0, pr.mortgaged);
+      if (V3 && !fast && pp && s.type === 'prop' && pr.houses > pp.houses) V3.popBuilding(i);
       if (s.type === 'prop') {
         const band = $('.band', el);
         band.innerHTML = pr.houses === 5 ? '<i class="hotel"></i>' : pr.houses ? '<i class="house"></i>'.repeat(pr.houses) + `<b class="hcount">${pr.houses}</b>` : '';
@@ -807,6 +811,13 @@
     });
   }
   function stamp(i, color, text) {
+    if (V3) {   // 3D tahtada karenin üstünde damga
+      const pt = V3.squareScreen(i), st = document.createElement('div');
+      st.className = 'stamp3d'; st.style.setProperty('--sc', color); st.textContent = text;
+      st.style.left = `${pt.x}px`; st.style.top = `${pt.y}px`;
+      $('#fx').appendChild(st); setTimeout(() => st.remove(), 1900);
+      return;
+    }
     const st = document.createElement('div');
     st.className = 'stamp';
     st.style.setProperty('--sc', color);
@@ -815,6 +826,7 @@
     setTimeout(() => st.remove(), 1900);
   }
   function pulseSquare(i) {
+    if (V3) V3.pulse(i);
     const el = sqEl(i); if (!el) return;
     el.classList.remove('highlight'); void el.offsetWidth; el.classList.add('highlight');
     setTimeout(() => el.classList.remove('highlight'), 1900);
@@ -832,6 +844,7 @@
         $('#tokenLayer').appendChild(d);
         pawnEls[p.id] = d;
       }
+      if (V3) V3.ensurePawn(p.id, p.token, p.color);
       if (shownPos[p.id] === undefined) shownPos[p.id] = p.pos;
     });
   }
@@ -840,7 +853,9 @@
       const el = pawnEls[p.id]; if (!el) return;
       el.style.display = p.bankrupt ? 'none' : '';
       el.classList.toggle('cur', g.turn === p.id && g.phase !== 'gameover');
+      if (V3) V3.setVisible(p.id, !p.bankrupt);
     });
+    if (V3) V3.setTurn(g.phase !== 'gameover' ? g.turn : null);
   }
   function layoutPawns(animate = true) {
     const g = game(); if (!g || !boardBuilt) return;
@@ -850,6 +865,7 @@
       const key = pos === 10 && p.inJail && p.pos === 10 ? 'jail' : String(pos);
       (groups[key] ||= []).push(p.id);
     });
+    if (V3) V3.layout(groups, animate);
     for (const [key, ids] of Object.entries(groups)) {
       const el = sqEl(key === 'jail' ? 10 : key); if (!el) continue;
       let cx = el.offsetLeft + el.offsetWidth / 2, cy = el.offsetTop + el.offsetHeight / 2;
@@ -875,6 +891,7 @@
     const from = sqEl(pe.dataset.at || pos), to = sqEl(pos);
     if (from && to) pe.style.setProperty('--lean', `${Math.sign(to.offsetLeft - from.offsetLeft) * 9 || Math.sign(from.offsetTop - to.offsetTop) * 4}deg`);
     pe.dataset.at = pos;
+    if (V3) V3.step(pid, mode, dur);
     pe.classList.remove('hop', 'jump');
     if (mode === 'hop') { pe.style.transition = `left ${dur}ms ease, top ${dur}ms ease`; pe.style.setProperty('--hd', `${dur}ms`); void pe.offsetWidth; pe.classList.add('hop'); }
     else if (mode === 'jump') { pe.style.transition = ''; void pe.offsetWidth; pe.classList.add('jump'); }
@@ -912,7 +929,7 @@
         continue;
       }
       const path = pathOf(m), step = stepFor(path.length);
-      path.forEach((pos, k) => after(t + k * step, () => { setPawn(m.pid, pos, 'hop', step); sqEl(pos).classList.remove('path'); if (path.length <= 12) sfx('step'); }));
+      path.forEach((pos, k) => after(t + k * step, () => { setPawn(m.pid, pos, 'hop', step); sqEl(pos).classList.remove('path'); if (V3) V3.removeStep(pos); if (path.length <= 12) sfx('step'); }));
       t += path.length * step;
       const to = m.to;
       after(t, () => pulseSquare(to));
@@ -930,8 +947,9 @@
     const to = m.kind === 'jail' ? 10 : m.to;
     if (m.kind !== 'jail') pathOf(m).slice(0, -1).forEach((i, k) => after(k * 40, () => sqEl(i).classList.add('path')));
     const el = sqEl(to); el.classList.add('target');
+    if (V3) V3.preview(m.kind !== 'jail' ? pathOf(m).slice(0, -1) : [], to);
     const clear = holdMs ? holdMs + movesDuration(moves) + 150 : movesDuration(moves) + PREVIEW_MS + 200;
-    setTimeout(() => $$('.sq.target, .sq.path').forEach((x) => x.classList.remove('target', 'path')), clear);
+    setTimeout(() => { $$('.sq.target, .sq.path').forEach((x) => x.classList.remove('target', 'path')); if (V3) V3.clearPreview(); }, clear);
   }
   function snapTokens(g) {
     g.players.forEach((p) => { shownPos[p.id] = p.pos; });
@@ -946,6 +964,7 @@
     return `<div class="cube">${[1, 2, 3, 4, 5, 6].map((n) => `<div class="face f${n}">${Array.from({ length: 9 }, (_, i) => `<i class="${PIPS[n].includes(i) ? 'on' : ''}"></i>`).join('')}</div>`).join('')}</div>`;
   }
   function setDice([a, b], roll) {
+    if (V3) V3.setDice([a, b], roll, DICE_MS || 1000);
     [a, b].forEach((n, i) => {
       const die = $(`#die${i + 1}`), cube = $('.cube', die);
       if (!cube) return;
@@ -993,15 +1012,15 @@
     $('#jailText').innerHTML = `${esc(p ? p.name : '')}<small>HAPSE GİRDİ!</small>`;
     fx.classList.remove('hidden');
     const frame = $('.board-frame');
-    after(550, () => { frame.classList.remove('shake'); void frame.offsetWidth; frame.classList.add('shake'); });
+    after(550, () => { if (V3) V3.shake(); frame.classList.remove('shake'); void frame.offsetWidth; frame.classList.add('shake'); });
     after(1400, () => { const j = sqEl(10); j.classList.remove('slam'); void j.offsetWidth; j.classList.add('slam'); });
     clearTimeout(jailFx.t);
     jailFx.t = setTimeout(() => fx.classList.add('hidden'), 2450);
   }
   const centerOf = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
   function rowPoint(pid) { const li = $(`#playerList li[data-pid="${pid}"]`); return li ? centerOf($('.cash', li) || li) : null; }
-  function pawnPoint(pid) { const pe = pawnEls[pid]; return pe && pe.style.display !== 'none' ? centerOf(pe) : null; }
-  const bankPoint = () => centerOf($('#diceRow'));
+  function pawnPoint(pid) { if (V3) return V3.pawnScreen(pid); const pe = pawnEls[pid]; return pe && pe.style.display !== 'none' ? centerOf(pe) : null; }
+  const bankPoint = () => (V3 ? V3.centerScreen() : centerOf($('#diceRow')));
   function flyNotes(from, to, amount) {
     if (!from || !to || REDUCED) return;
     const count = Math.min(5, 1 + Math.floor(Math.log10(Math.max(1, amount / K)) * 1.4));
@@ -1030,7 +1049,7 @@
     el.innerHTML = html;
     el.style.left = `${pt.x}px`; el.style.top = `${pt.y}px`;
     $('#fx').appendChild(el);
-    const b = $('#game').classList.contains('hidden') ? null : $('#board').getBoundingClientRect();
+    const b = $('#game').classList.contains('hidden') ? null : $('#gl3d').getBoundingClientRect();
     const w = el.offsetWidth / 2 + 4, inBoard = b && pt.x >= b.left && pt.x <= b.right && pt.y >= b.top && pt.y <= b.bottom;
     const lo = inBoard ? b.left + w : w, hi = inBoard ? b.right - w : window.innerWidth - w;
     if (hi > lo) el.style.left = `${Math.min(hi, Math.max(lo, pt.x))}px`;
@@ -1125,6 +1144,7 @@
     const deck = ch ? $('#deckChance') : $('#deckChest');
     sfx('card');
     deck.classList.remove('draw'); void deck.offsetWidth; deck.classList.add('draw');
+    if (V3) V3.drawDeck(g.card.deck);
     el.className = `card-pop ${g.card.deck}`;
     el.style.setProperty('--ox', ch ? '34cqw' : '-34cqw');
     el.style.setProperty('--oy', '-24cqw');
@@ -1260,6 +1280,7 @@
     const el = $('#landing');
     const mv = g.moves && g.moves.length ? g.moves[g.moves.length - 1] : null;
     $$('.sq.landed').forEach((x) => x.classList.remove('landed'));
+    if (V3) V3.landed(mv && g.phase !== 'gameover' ? mv.to : null);
     if (!mv || g.phase === 'gameover') { el.classList.add('hidden'); return; }
     const p = playerById(mv.pid), s = sq(mv.to);
     sqEl(mv.to).classList.add('landed');
