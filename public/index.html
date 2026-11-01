@@ -15,6 +15,10 @@
 <link rel="stylesheet" href="fonts.css">
 <link rel="stylesheet" href="style.css">
 <script type="importmap">{ "imports": { "three": "/3d/vendor/three.module.min.js" } }</script>
+<link rel="modulepreload" href="/3d/vendor/three.module.min.js">
+<link rel="modulepreload" href="/3d/vendor/RoundedBoxGeometry.js">
+<link rel="modulepreload" href="/3d/tokens.js">
+<link rel="modulepreload" href="/3d/view.js">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 </head>
 <body>
@@ -228,15 +232,19 @@
     <div class="banner hidden" id="banner"></div>
   </div>
 
+  <div class="countdown hidden" id="countdown"><b id="countNum"></b><small>Oyun başlıyor</small></div>
   <!-- oyuncular ekranın köşelerinde -->
   <ul id="playerList" class="player-list p-corners"></ul>
 
   <div class="tb tb-left">
     <div class="room-tag"><span id="gameRoomName"></span><small>ODA</small><b id="gameCode"></b></div>
-    <button class="tbb snd" data-snd="music" title="Müzik aç/kapat">♪</button>
-    <button class="tbb snd" data-snd="sfx" title="Ses efektleri aç/kapat">🔊</button>
+    <button class="tbb" id="tbMoreBtn" title="Ayarlar: müzik, ses, tam ekran">⚙</button>
+    <div class="tb-more hidden" id="tbMore">
+      <button class="tbb snd" data-snd="music" title="Müzik aç/kapat">♪</button>
+      <button class="tbb snd" data-snd="sfx" title="Ses efektleri aç/kapat">🔊</button>
+      <button class="tbb" id="fsBtn" title="Tam ekran (F)">⛶</button>
+    </div>
     <button class="tbb" id="camBtn" title="Kamera: yakın / tüm tahta">🔍</button>
-    <button class="tbb" id="fsBtn" title="Tam ekran (F)">⛶</button>
     <button class="tbb" id="leaveGameBtn" title="Oyundan çık">Çık</button>
   </div>
   <div class="tb tb-right">

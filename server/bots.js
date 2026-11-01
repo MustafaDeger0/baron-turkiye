@@ -213,6 +213,7 @@ function driveBots(game, now) {
   for (const bot of game.players) {
     if (!bot.isBot || bot.bankrupt || game.phase === 'gameover') continue;
     if (bot.nextAt && now < bot.nextAt) continue;
+    if (game.startsAt && now < game.startsAt + 300) continue;   // 3-2-1 geri sayımı bitsin
     const a = decide(game, bot);
     if (!a) continue;
     if (a.type === '_resolveDebt') {

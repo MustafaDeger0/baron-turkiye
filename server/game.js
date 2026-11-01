@@ -31,6 +31,7 @@ class Game {
     this.startMoney = opts.startMoney || 1500 * K;
     this.roundLimit = opts.roundLimit === 0 ? 0 : (opts.roundLimit || 40);
     this.turnCount = 0;
+    this.startDelay = opts.startDelay || 0;   // ekranda 3-2-1 geri sayımı için bekleme
     this.players = shuffle(players.map((p) => ({
       id: p.id, name: p.name, color: p.color, token: p.token, isBot: !!p.isBot,
       cash: this.startMoney, pos: 0, inJail: false, jailTurns: 0, jailCards: [],
@@ -60,6 +61,7 @@ class Game {
     this.cardSeq = 0;
     this.winner = null;
     this.startedAt = Date.now();
+    this.startsAt = this.startedAt + this.startDelay;
     this.addLog(`Oyun başladı! Sıra: ${this.players.map((p) => p.name).join(' → ')}`);
     this.resetDeadline();
   }
@@ -75,7 +77,7 @@ class Game {
   isCurrent(p) { return this.current() === p; }
   resetDeadline() {
     const cur = this.current();
-    this.deadline = Date.now() + (cur && cur.connected ? TIMING.TURN_MS : TIMING.OFFLINE_TURN_MS);
+    this.deadline = Math.max(Date.now(), this.startsAt || 0) + (cur && cur.connected ? TIMING.TURN_MS : TIMING.OFFLINE_TURN_MS);
   }
   ownsGroup(pid, group) { return GROUP_MEMBERS[group].every((i) => this.props[i].owner === pid); }
   groupHasBuildings(group) { return GROUP_MEMBERS[group].some((i) => this.props[i].houses > 0); }
@@ -120,6 +122,7 @@ class Game {
     if (!p) return 'Oyuncu bulunamadı.';
     if (p.bankrupt) return 'İflas ettin, artık yalnızca izleyebilirsin.';
     if (!a || typeof a.type !== 'string') return 'Geçersiz eylem.';
+    if (Date.now() < this.startsAt) return 'Oyun başlamak üzere…';
     const idx = a.idx;
     let err;
     switch (a.type) {
@@ -749,6 +752,7 @@ class Game {
       winner: this.winner,
       housesLeft: this.housesLeft,
       hotelsLeft: this.hotelsLeft,
+      startsAt: this.startsAt,
       buildLimit: BUILD_LIMIT,
       deadline: this.deadline,
       extraRoll: this.extraRoll,

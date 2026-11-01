@@ -1425,3 +1425,54 @@ body.ingame { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: 
 #game.g-portrait:not(.g-small) .tb-right { bottom: calc(var(--sab) + 86px); }
 .tb .room-tag small { display: block; font-size: 9px; letter-spacing: .12em; color: var(--muted); }
 .tb .room-tag b { font-size: 12px; letter-spacing: .06em; }
+
+/* ================= v19 ================= */
+/* ortadaki "gelinen kare" kutusu kaldırıldı (olaylar sohbet penceresinde) */
+.hud-sq .landing { display: none !important; }
+.hud-low { top: 62cqw; }
+
+/* ayarlar açılır kutusu */
+.tb-left { position: absolute; }
+.tb-more { position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; padding: 6px; background: rgba(255,255,255,.95); border-radius: 14px; box-shadow: 0 4px 0 rgba(0,0,0,.25), 0 10px 20px rgba(0,0,0,.2); }
+.tb-more.hidden { display: none; }
+#game.g-portrait .tb-more, #game.many .tb-more { left: 50%; top: auto; bottom: calc(100% + 8px); transform: translateX(-50%); flex-direction: row; }
+#game.g-portrait .tb-left .tb-more { bottom: auto; top: calc(100% + 8px); }
+
+/* oyuncu kartları kendi renginde */
+#playerList.p-corners li { background: linear-gradient(140deg, color-mix(in srgb, var(--c) 88%, #fff) 0%, var(--c) 45%, color-mix(in srgb, var(--c) 72%, #000) 100%); border-color: color-mix(in srgb, var(--c) 60%, #000); color: #fff; box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 55%, #000), 0 10px 22px rgba(0,0,0,.18); }
+#playerList.p-corners li .pname, #playerList.p-corners li .cash { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+#playerList.p-corners li .pname b { color: #fff !important; }
+#playerList.p-corners li > .token-chip { background: #fff; border-color: #fff; box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+#playerList.p-corners li .mini i { border-color: rgba(255,255,255,.85); }
+#playerList.p-corners li .badge-s { background: rgba(255,255,255,.95); color: var(--ink); }
+#playerList.p-corners li.turn { border-color: #fff; box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 55%, #000), 0 0 0 4px var(--gold), 0 12px 24px rgba(0,0,0,.25); transform: scale(1.04); }
+#playerList.p-corners li.dead { filter: grayscale(1); }
+
+/* 5-6 oyuncu: kartlar iki yanda üst üste, araç çubukları alt köşelerde */
+#game.many #playerList.p-corners li { --ch: 62px; width: 200px; height: var(--ch); padding: 4px 10px; }
+#game.many #playerList.p-corners li > .token-chip { width: 34px; height: 34px; }
+#game.many #playerList.p-corners .pname { font-size: 13px; } #game.many #playerList.p-corners .cash { font-size: 16px; }
+#game.many #playerList.p-corners .mini { display: none; }
+#game.many #playerList.p-corners li:nth-child(n) { left: auto; right: auto; top: auto; bottom: auto; margin: 0; }
+#game.many #playerList.p-corners li:nth-child(-n+3) { left: calc(10px + var(--sal)); }
+#game.many #playerList.p-corners li:nth-child(n+4) { right: calc(10px + var(--sar)); }
+#game.many #playerList.p-corners li:nth-child(1), #game.many #playerList.p-corners li:nth-child(4) { top: calc(10px + var(--sat)); }
+#game.many #playerList.p-corners li:nth-child(2), #game.many #playerList.p-corners li:nth-child(5) { top: calc(10px + var(--sat) + var(--ch) + 8px); }
+#game.many #playerList.p-corners li:nth-child(3), #game.many #playerList.p-corners li:nth-child(6) { top: calc(10px + var(--sat) + 2 * (var(--ch) + 8px)); }
+#game.many .tb { top: auto; bottom: calc(10px + var(--sab)); transform: none; flex-direction: row; }
+#game.many .tb .room-tag { display: none; }
+#game.many.g-small #playerList.p-corners li { --ch: 44px; width: 140px; padding: 2px 8px; }
+#game.many.g-small #playerList.p-corners li > .token-chip { width: 26px; height: 26px; }
+#game.many.g-small #playerList.p-corners .pname { font-size: 11px; } #game.many.g-small #playerList.p-corners .cash { font-size: 13px; }
+#game.many.g-portrait #playerList.p-corners li { --ch: 40px; width: 46vw; }
+#game.many.g-portrait .tb-left { top: auto; left: calc(10px + var(--sal)); transform: none; }
+#game.many.g-portrait .tb-right { bottom: calc(10px + var(--sab)); left: auto; right: calc(10px + var(--sar)); transform: none; }
+
+/* 3-2-1 geri sayım */
+.countdown { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(10,30,50,.35); pointer-events: auto; }
+.countdown.hidden { display: none; }
+.countdown b { font-family: var(--display, 'Nunito'), sans-serif; font-weight: 900; font-size: min(34vh, 220px); line-height: 1; color: #fff; -webkit-text-stroke: 6px var(--ink); paint-order: stroke; text-shadow: 0 10px 0 var(--ink), 0 20px 40px rgba(0,0,0,.4); }
+.countdown b.go { color: var(--gold); font-size: min(22vh, 140px); }
+.countdown b.pop { animation: cdPop .9s cubic-bezier(.2,1.6,.4,1) both; }
+.countdown small { margin-top: 8px; color: #fff; font-weight: 800; letter-spacing: .2em; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,.5); }
+@keyframes cdPop { 0% { transform: scale(2.2); opacity: 0; } 30% { transform: scale(.9); opacity: 1; } 55% { transform: scale(1.05); } 100% { transform: scale(1); opacity: 1; } }

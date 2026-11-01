@@ -208,7 +208,7 @@ async function startGame(room) {
     room.status = 'playing';
     room.autoStartAt = null;
     room.game = new Game(room.players.map((p) => ({ id: p.id, name: p.name, color: p.color, token: p.icon, isBot: p.isBot })),
-      { startMoney: room.startMoney, roundLimit: room.roundLimit });
+      { startMoney: room.startMoney, roundLimit: room.roundLimit, startDelay: 3600 });
     room.players.forEach((p) => { if (!p.connected) room.game.setConnected(p.id, false); });
     sysChat(room, room.pot ? `Oyun başladı! Masadaki ödül: ${room.pot} çip.` : 'Oyun başladı, bol şans!');
     return null;

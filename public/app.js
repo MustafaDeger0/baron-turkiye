@@ -214,6 +214,8 @@
     V3.landed(mv && g.phase !== 'gameover' ? mv.to : null);
   }
   function renderCamBtn() { const b = $('#camBtn'); if (b && V3) { const f = V3.camMode === 'follow'; b.textContent = f ? '🗺' : '🔍'; b.title = f ? 'Tüm tahtayı göster' : 'Sırası geleni yakından izle'; } }
+  $('#tbMoreBtn').onclick = (e) => { e.stopPropagation(); $('#tbMore').classList.toggle('hidden'); };
+  document.addEventListener('pointerdown', (e) => { if (!e.target.closest('#tbMore, #tbMoreBtn')) $('#tbMore').classList.add('hidden'); });
   $('#camBtn').onclick = () => { if (!V3) return; V3.setCamMode(V3.camMode === 'follow' ? 'all' : 'follow'); renderCamBtn(); };
   function fitNames() { /* 3D'de gerekmiyor */ }
   // Oyun içi açılır menü
@@ -1177,9 +1179,27 @@
   }
 
   // ---------- oyun ekranı ----------
+  // oyun başlarken 3-2-1
+  let countFor = null;
+  function countdown(g) {
+    const left = (g.startsAt || 0) - now();
+    if (left <= 150 || countFor === g.startsAt) return;
+    countFor = g.startsAt;
+    const el = $('#countdown'), num = $('#countNum');
+    el.classList.remove('hidden');
+    const tick = () => {
+      const ms = g.startsAt - now();
+      const n = Math.ceil(ms / 1000);
+      if (ms <= 0) { num.textContent = 'BAŞLA!'; num.className = 'go'; sfx('turn'); setTimeout(() => el.classList.add('hidden'), 700); return; }
+      if (num.textContent !== String(Math.min(3, n))) { num.textContent = String(Math.min(3, n)); num.className = ''; void num.offsetWidth; num.className = 'pop'; sfx('step'); }
+      setTimeout(tick, Math.min(250, ms));
+    };
+    tick();
+  }
   function applyGame(s, fast) {
     room = s;
     const g = s.game;
+    countdown(g);
     const prev = prevGame;
     prevGame = g;
     showScreen('game');
@@ -1247,6 +1267,7 @@
   }
 
   function renderPlayers(g, fast) {
+    $('#game').classList.toggle('many', g.players.length > 4);
     $('#playerList').innerHTML = g.players.map((p) => {
       const owned = Object.entries(g.props).filter(([, pr]) => pr.owner === p.id).map(([i]) => +i).sort((a, b) => a - b);
       const mini = owned.map((i) => `<i style="background:${groupColor(sq(i))};${g.props[i].mortgaged ? 'opacity:.3' : ''}" title="${esc(sq(i).name)}"></i>`).join('');
@@ -1566,7 +1587,11 @@
   }
 
   // ---------- başlat ----------
-  fetch('/api/board').then((r) => r.json()).then((b) => { BOARD = b; K = b.K || 1000; opt.startMoney = 1500 * K; renderSegs(); notesBackground(); pump(); });
+  fetch('/api/board').then((r) => r.json()).then((b) => {
+    BOARD = b; K = b.K || 1000; opt.startMoney = 1500 * K; renderSegs(); notesBackground(); pump();
+    // 3D tahtayı oyuna girmeden önce hazırla: oyun ekranı beklemeden açılsın
+    (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(() => load3D(), { timeout: 1500 });
+  });
   // ana sayfa vitrin: 3D piyonlar ve dönen zarlar
   (function heroArt() {
     $('#heroPawns').innerHTML = ['#e63946', '#1d7cf2', '#f4a261', '#2a9d8f'].map((c, k) => `<div class="hp hp${k}">${pawnSVG(c, `hero${k}`)}</div>`).join('');

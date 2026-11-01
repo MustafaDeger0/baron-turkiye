@@ -79,9 +79,9 @@ async function paintBoard(S, squares, groups, ART, ICON) {
     if (s.type === 'prop') { band(0.012, 0.22, groupColor(s)); band(0.012, 0.06, 'rgba(255,255,255,.28)'); }
     if (amount) band(0.76, 0.988, s.type === 'tax' ? '#fde3e3' : '#ffeaa6');
     const yTop = flip ? 0.84 : 0.16;
-    if (amount) drawText(short(amount), 0, y0 + h * (flip ? 0.12 : 0.88), w - 12, 110, s.type === 'tax' ? '#b3122b' : '#14202b', 900);
+    if (amount) drawText(short(amount), 0, y0 + h * (flip ? 0.12 : 0.88), w - 10, 124, s.type === 'tax' ? '#b3122b' : '#14202b', 900);
     if (s.type === 'prop') {
-      drawText(s.name.toUpperCase(), 0, y0 + h * (flip ? 0.66 : 0.33), w - 18, 66, '#14202b', 900);
+      drawText(s.name.toUpperCase(), 0, y0 + h * (flip ? 0.66 : 0.33), w - 14, 80, '#14202b', 900);
       const im = imgs['art:' + s.name]; if (im) g.drawImage(im, -w * 0.3, y0 + h * (flip ? 0.34 : 0.58) - w * 0.225, w * 0.6, w * 0.45);
     } else if (s.type === 'chance') {
       drawText('ŞANS', 0, y0 + h * yTop, w - 20, 62, '#a24f00', 900);
@@ -90,7 +90,7 @@ async function paintBoard(S, squares, groups, ART, ICON) {
       drawText('KAMU FONU', 0, y0 + h * yTop, w - 16, 62, '#1d4fb3', 900);
       icon('chest', 0, y0 + h * 0.52, w * 0.62, w * 0.62);
     } else {
-      drawText(s.name.toUpperCase(), 0, y0 + h * (flip ? 0.81 : 0.19), w - 16, 58, '#14202b', 900);
+      drawText(s.name.toUpperCase(), 0, y0 + h * (flip ? 0.81 : 0.19), w - 12, 72, '#14202b', 900);
       icon(iconKey(s), 0, y0 + h * 0.5, w * 0.5, w * 0.5);
     }
     g.restore();
@@ -143,7 +143,7 @@ const dieQuat = (v, yaw) => new THREE.Quaternion().setFromAxisAngle(new THREE.Ve
 export async function createView(canvas, { squares, groups, ART, ICON, onPick }) {
   const small = Math.min(screen.width, screen.height) < 700;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, small ? 2 : 1.75));
+  renderer.setPixelRatio(Math.min(2.5, Math.max(1.5, devicePixelRatio)));   // 1x ekranlarda da kenar yumuşatma için 1.5x çiz
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -152,7 +152,7 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   scene.add(new THREE.HemisphereLight('#ffffff', '#8aa4b8', 1.1));
   const sun = new THREE.DirectionalLight('#fff4e0', 1.9);
   sun.position.set(-8, 16, 10); sun.castShadow = true;
-  sun.shadow.mapSize.set(small ? 1024 : 2048, small ? 1024 : 2048);
+  sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 50 });
   sun.shadow.bias = -0.0006;
   scene.add(sun);
@@ -164,7 +164,8 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   slab.position.y = -THICK / 2 - 0.02; slab.castShadow = true; slab.receiveShadow = true; scene.add(slab);
   const base = new THREE.Mesh(new RoundedBoxGeometry(B + 0.7, 0.35, B + 0.7, 4, 0.12), new THREE.MeshStandardMaterial({ color: '#1d4a6e', roughness: 0.6 }));
   base.position.y = -THICK - 0.15; base.castShadow = true; scene.add(base);
-  const tcv = await paintBoard(small ? 2048 : 4096, squares, groups, ART, ICON);
+  const maxTex = renderer.capabilities.maxTextureSize || 4096;
+  const tcv = await paintBoard(Math.min(4096, maxTex), squares, groups, ART, ICON);
   const tex = new THREE.CanvasTexture(tcv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const top = new THREE.Mesh(new THREE.PlaneGeometry(B, B), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75 }));
   top.rotation.x = -Math.PI / 2; top.receiveShadow = true; scene.add(top);
@@ -421,6 +422,8 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   });
   addEventListener('resize', () => requestAnimationFrame(resize));
   resize();
+  // gölgelendiricileri şimdiden derle: oyun ekranı açılınca ilk kare beklemesin
+  try { const hold = makeToken('araba', '#888'); scene.add(hold); renderer.compile(scene, camera); scene.remove(hold); } catch { /* sorun değil */ }
 
   const debugPawns = () => Object.fromEntries(Object.entries(pawns).map(([k, p]) => [k, { pos: p.root.position.toArray().map((v) => +v.toFixed(2)), vis: p.root.visible, anim: !!p.anim }]));
   return { debugPawns, ensurePawn, setVisible, setTurn, layout, step, setProp, popBuilding, preview, clearPreview, removeStep, landed, pulse, setDice, drawDeck, setCamMode, get camMode() { return view.mode; }, setMargins, resize, pawnScreen, squareScreen, centerScreen, shake, pick };
