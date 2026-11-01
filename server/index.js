@@ -30,7 +30,14 @@ const QUICK_AUTOSTART_MS = 25_000;
 const QUICK_MAX = 4;
 
 app.use(express.json({ limit: '10kb' }));
-app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h' }));
+// Sayfa, kod ve stil dosyaları her açılışta sunucuya sorulur (değişmediyse 304 ile hızlıca gelir);
+// böylece yeni sürüm yüklenir yüklenmez telefonda da görünür. Yazı tipi ve görseller uzun süre saklanır.
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  setHeaders(res, file) {
+    if (/\.(html|js|css|webmanifest)$/.test(file)) res.setHeader('Cache-Control', 'no-cache');
+    else res.setHeader('Cache-Control', 'public, max-age=604800');
+  },
+}));
 app.get('/health', (_req, res) => res.json({
   ok: !dbError, rooms: rooms.size, players: io.engine.clientsCount,
   db: dbError ? 'hata' : db.kind,
