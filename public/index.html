@@ -36,7 +36,8 @@
         <button class="tab" data-auth="register">Kayıt Ol</button>
       </div>
       <form id="authForm" class="create-form" style="border:none;padding:0">
-        <label class="field"><span>Kullanıcı adı</span><input id="authUser" maxlength="16" autocomplete="username" required></label>
+        <label class="field"><span id="authUserLabel">Kullanıcı adı veya e-posta</span><input id="authUser" maxlength="120" autocomplete="username" required></label>
+        <label class="field hidden" id="authEmailField"><span>E-posta</span><input id="authEmail" type="email" maxlength="120" autocomplete="email" placeholder="ornek@mail.com"></label>
         <label class="field"><span>Şifre</span><input id="authPass" type="password" maxlength="100" autocomplete="current-password" required></label>
         <p class="muted small" id="authHint">Yeni hesaplar <b class="chipv">1.000</b> çiple başlar.</p>
         <button class="btn big primary" type="submit" id="authBtn">Giriş Yap</button>

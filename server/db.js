@@ -15,7 +15,7 @@ function publicUser(u) {
   const yesterday = dayStr(Date.now() - 864e5);
   const nextStreak = u.last_daily === yesterday ? u.streak + 1 : 1;
   return {
-    id: u.id, name: u.display, chips: u.chips, games: u.games, wins: u.wins,
+    id: u.id, name: u.display, email: u.email || null, chips: u.chips, games: u.games, wins: u.wins,
     streak: u.last_daily === today || u.last_daily === yesterday ? u.streak : 0,
     dailyAvailable: u.last_daily !== today,
     nextDaily: dailyReward(u.last_daily === today ? u.streak + 1 : nextStreak),
@@ -52,14 +52,23 @@ function pgStore(url) {
         last_daily TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )`);
+      // eski tablolar için sütun ekle (göç)
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT');
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS session_key TEXT');
+      await pool.query("UPDATE users SET session_key = md5(random()::text || id::text) WHERE session_key IS NULL");
+      await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS users_email_uq ON users (email)');
       await pool.query('CREATE INDEX IF NOT EXISTS users_chips_idx ON users (chips DESC)');
     },
-    async create({ username, display, passHash }) {
+    async create({ username, email, display, passHash, sessionKey }) {
       try {
-        return await one('INSERT INTO users (username, display, pass_hash) VALUES ($1, $2, $3) RETURNING *', [username, display, passHash]);
-      } catch (e) { if (e.code === '23505') return null; throw e; }
+        return { user: await one('INSERT INTO users (username, email, display, pass_hash, session_key) VALUES ($1, $2, $3, $4, $5) RETURNING *', [username, email, display, passHash, sessionKey]) };
+      } catch (e) {
+        if (e.code === '23505') return { conflict: /email/.test(e.constraint || e.detail || '') ? 'email' : 'username' };
+        throw e;
+      }
     },
     byName: (username) => one('SELECT * FROM users WHERE username = $1', [username]),
+    byEmail: (email) => one('SELECT * FROM users WHERE email = $1', [email]),
     byId: (id) => one('SELECT * FROM users WHERE id = $1', [id]),
     debit: (id, amt) => one('UPDATE users SET chips = chips - $2 WHERE id = $1 AND chips >= $2 RETURNING *', [id, amt]),
     credit: (id, amt) => one('UPDATE users SET chips = chips + $2 WHERE id = $1 RETURNING *', [id, amt]),
@@ -103,13 +112,15 @@ function jsonStore(file) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       if (fs.existsSync(file)) data = JSON.parse(fs.readFileSync(file, 'utf8'));
     },
-    async create({ username, display, passHash }) {
-      if (find((u) => u.username === username)) return null;
-      const u = { id: ++data.seq, username, display, pass_hash: passHash, chips: START_CHIPS, games: 0, wins: 0, streak: 0, last_daily: null, created_at: new Date().toISOString() };
+    async create({ username, email, display, passHash, sessionKey }) {
+      if (find((u) => u.username === username)) return { conflict: 'username' };
+      if (email && find((u) => u.email === email)) return { conflict: 'email' };
+      const u = { id: ++data.seq, username, email, display, pass_hash: passHash, session_key: sessionKey, chips: START_CHIPS, games: 0, wins: 0, streak: 0, last_daily: null, created_at: new Date().toISOString() };
       data.users[u.id] = u; save();
-      return { ...u };
+      return { user: { ...u } };
     },
     byName: async (username) => { const u = find((x) => x.username === username); return u && { ...u }; },
+    byEmail: async (email) => { const u = find((x) => x.email === email); return u && { ...u }; },
     byId: async (id) => (data.users[id] ? { ...data.users[id] } : null),
     debit: async (id, amt) => (data.users[id] && data.users[id].chips >= amt ? upd(id, (u) => { u.chips -= amt; }) : null),
     credit: async (id, amt) => upd(id, (u) => { u.chips += amt; }),

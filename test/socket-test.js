@@ -26,21 +26,27 @@ const uniq = Date.now() % 100000;
 (async () => {
   await ready;
   // --- hesaplar
-  const bad = await api('/api/register', { username: 'a', password: '123456' });
+  const bad = await api('/api/register', { username: 'a', email: 'a@b.co', password: '123456' });
   assert(bad.status === 400, 'kısa kullanıcı adı reddedildi');
-  const A = await api('/api/register', { username: `Ali${uniq}`, password: 'gizli123' });
+  const noMail = await api('/api/register', { username: `Ali${uniq}`, email: 'yanlis', password: 'gizli123' });
+  assert(noMail.status === 400, 'geçersiz e-posta reddedildi');
+  const A = await api('/api/register', { username: `Ali${uniq}`, email: `Ali${uniq}@Test.com`, password: 'gizli123' });
   assert(A.token && A.user.chips === 1000, 'kayıt: 1000 başlangıç çipi');
-  const dup = await api('/api/register', { username: `ali${uniq}`, password: 'gizli123' });
+  const dupMail = await api('/api/register', { username: `Baska${uniq}`, email: `ali${uniq}@test.com`, password: 'gizli123' });
+  assert(dupMail.status === 409 && /e-posta/.test(dupMail.error), 'aynı e-posta ikinci kez kullanılamaz');
+  const dup = await api('/api/register', { username: `ali${uniq}`, email: `x${uniq}@test.com`, password: 'gizli123' });
   assert(dup.status === 409, 'aynı ad (büyük/küçük harf farkı) reddedildi');
   const wrong = await api('/api/login', { username: `Ali${uniq}`, password: 'yanlis' });
   assert(wrong.status === 401, 'yanlış şifre reddedildi');
   const L = await api('/api/login', { username: `ALİ${uniq}`.replace('İ', 'I').toLowerCase(), password: 'gizli123' });
-  assert(L.token, 'giriş başarılı');
+  assert(L.token, 'kullanıcı adıyla giriş başarılı');
+  const LE = await api('/api/login', { login: ` ALI${uniq}@test.COM `, password: 'gizli123' });
+  assert(LE.token && LE.user.name === `Ali${uniq}`, 'e-posta ile giriş başarılı');
   const d1 = await api('/api/daily', {}, A.token);
   assert(d1.reward === 100 && d1.user.chips === 1100 && !d1.user.dailyAvailable, 'günlük ödül: +100 çip');
   const d2 = await api('/api/daily', {}, A.token);
   assert(d2.status === 409, 'aynı gün ikinci ödül verilmez');
-  const B = await api('/api/register', { username: `Veli${uniq}`, password: 'gizli123' });
+  const B = await api('/api/register', { username: `Veli${uniq}`, email: `veli${uniq}@test.com`, password: 'gizli123' });
   let noAuth = false; try { await client('sahte'); } catch { noAuth = true; }
   assert(noAuth, 'geçersiz anahtarla soket bağlantısı reddedildi');
 
@@ -71,7 +77,7 @@ const uniq = Date.now() % 100000;
   await emit(a, 'room:leave');
 
   // --- yetersiz çip
-  const C = await api('/api/register', { username: `Can${uniq}`, password: 'gizli123' });
+  const C = await api('/api/register', { username: `Can${uniq}`, email: `can${uniq}@test.com`, password: 'gizli123' });
   const c = await client(C.token);
   const rc = await emit(c, 'room:create', { stake: 500 }); // 1000 çip var, yeterli
   assert(rc.ok, '500 çiplik oda kurulabildi');
@@ -110,6 +116,12 @@ const uniq = Date.now() % 100000;
   assert(room.game.phase === 'gameover', `botlu oyun bitti (${room.game.rollId} zar)`);
   await wait(1200);
   assert(c.state.result, `sonuç hesaplandı (kazanan ${c.state.result.winner === human.id ? 'insan' : 'bot'}, ödül ${c.state.result.prize})`);
+
+  // tablo sıfırlansa bile eski anahtar yeni hesabı açamaz (session_key kontrolü)
+  const forged = await api('/api/me', null, (() => { const [p] = A.token.split('.'); return A.token; })());
+  assert(forged.user, 'geçerli anahtar çalışıyor');
+  const fakeKey = Buffer.from(JSON.stringify({ uid: B.user.id, k: 'baskasi', exp: Date.now() + 1e9 })).toString('base64url') + '.' + A.token.split('.')[1];
+  assert((await api('/api/me', null, fakeKey)).status === 401, 'sahte/eski anahtar reddedildi');
 
   const lb = await api('/api/leaderboard');
   assert(lb.top.length >= 3 && lb.top[0].chips >= lb.top[1].chips, 'sıralama tablosu');

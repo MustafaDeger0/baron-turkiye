@@ -303,6 +303,12 @@
       $$('[data-auth]').forEach((x) => x.classList.toggle('active', x === t));
       $('#authBtn').textContent = authMode === 'login' ? 'Giriş Yap' : 'Hesap Oluştur';
       $('#authPass').autocomplete = authMode === 'login' ? 'current-password' : 'new-password';
+      const reg = authMode === 'register';
+      $('#authEmailField').classList.toggle('hidden', !reg);
+      $('#authEmail').required = reg;
+      $('#authUserLabel').textContent = reg ? 'Kullanıcı adı' : 'Kullanıcı adı veya e-posta';
+      $('#authUser').maxLength = reg ? 16 : 120;
+      $('#authUser').placeholder = reg ? 'Örn. Baron_34' : '';
       $('#authHint').innerHTML = authMode === 'login' ? 'Yeni hesaplar <b class="chipv">1.000</b> çiple başlar.' : 'Kullanıcı adı 3–16 karakter (harf, rakam, _). Şifre en az 6 karakter.';
     };
   });
@@ -314,7 +320,10 @@
   $('#authForm').onsubmit = async (e) => {
     e.preventDefault();
     const btn = $('#authBtn'); btn.disabled = true;
-    const r = await api(authMode === 'login' ? '/api/login' : '/api/register', { username: $('#authUser').value.trim(), password: $('#authPass').value });
+    const body = authMode === 'login'
+      ? { login: $('#authUser').value.trim(), password: $('#authPass').value }
+      : { username: $('#authUser').value.trim(), email: $('#authEmail').value.trim(), password: $('#authPass').value };
+    const r = await api(authMode === 'login' ? '/api/login' : '/api/register', body);
     btn.disabled = false;
     if (!r.ok) return toast(r.error || 'Bir hata oluştu.', 'err');
     token = r.token; store.set('baron_token', token);
@@ -343,6 +352,8 @@
     token = null; user = null; store.set('baron_token', null);
     socket.disconnect();
     session = null; room = null;
+    $('[data-auth="login"]').click();   // çıkıştan sonra giriş sekmesi açık olsun
+    $('#authUser').value = ''; $('#authPass').value = '';
     showScreen('auth');
   }
   $('#logoutBtn').onclick = () => confirmBox('Çıkış yapmak istiyor musun?', 'Çıkış Yap', logout);

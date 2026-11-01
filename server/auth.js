@@ -32,8 +32,10 @@ function verifyPassword(pw, stored) {
 
 const b64 = (x) => Buffer.from(x).toString('base64url');
 const sign = (payload) => crypto.createHmac('sha256', SECRET).update(payload).digest('base64url');
-function makeToken(userId) {
-  const payload = b64(JSON.stringify({ uid: userId, exp: Date.now() + TOKEN_DAYS * 864e5 }));
+// Anahtar, kullanıcının kendine özel session_key değerini de taşır: tablo sıfırlansa ve
+// numaralar yeniden başlasa bile eski bir anahtar başkasının hesabını açamaz.
+function makeToken(user) {
+  const payload = b64(JSON.stringify({ uid: user.id, k: user.session_key, exp: Date.now() + TOKEN_DAYS * 864e5 }));
   return `${payload}.${sign(payload)}`;
 }
 function readToken(token) {
@@ -43,14 +45,24 @@ function readToken(token) {
   const want = sign(payload);
   if (want.length !== sig.length || !crypto.timingSafeEqual(Buffer.from(want), Buffer.from(sig))) return null;
   try {
-    const { uid, exp } = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    return exp > Date.now() ? uid : null;
+    const { uid, k, exp } = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    return exp > Date.now() && uid && k ? { uid, k } : null;
   } catch { return null; }
 }
 
 // Kullanıcı adı: 3–16 karakter, harf (Türkçe dahil), rakam, alt çizgi
 const NAME_RE = /^[A-Za-z0-9_çğıöşüÇĞİÖŞÜ]{3,16}$/;
 const normName = (n) => String(n || '').trim().toLocaleLowerCase('tr-TR');
+const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@.]{2,24}$/;
+const normEmail = (e) => String(e || '').trim().toLowerCase();
+const newSessionKey = () => crypto.randomBytes(16).toString('hex');
+// Anahtarı doğrula ve kullanıcıyı getir (session_key eşleşmeli)
+async function userFromToken(db, token) {
+  const t = readToken(token);
+  if (!t) return null;
+  const u = await db.byId(t.uid);
+  return u && u.session_key === t.k ? u : null;
+}
 
 // Basit IP başına deneme sınırı
 const attempts = new Map();
@@ -63,4 +75,4 @@ function rateLimited(ip, max = 12, windowMs = 60_000) {
 }
 setInterval(() => { const now = Date.now(); for (const [k, v] of attempts) if (v.every((t) => now - t > 60_000)) attempts.delete(k); }, 60_000).unref();
 
-module.exports = { hashPassword, verifyPassword, makeToken, readToken, NAME_RE, normName, rateLimited };
+module.exports = { hashPassword, verifyPassword, makeToken, readToken, userFromToken, NAME_RE, normName, EMAIL_RE, normEmail, newSessionKey, rateLimited };

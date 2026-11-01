@@ -38,27 +38,30 @@ const ipOf = (req) => (req.headers['x-forwarded-for'] || req.socket.remoteAddres
 const wrap = (fn) => (req, res) => fn(req, res).catch((e) => { console.error(e); res.status(500).json({ error: 'Sunucu hatası.' }); });
 async function userFromReq(req) {
   const m = /^Bearer (.+)$/.exec(req.headers.authorization || '');
-  const uid = m && auth.readToken(m[1]);
-  return uid ? db.byId(uid) : null;
+  return m ? auth.userFromToken(db, m[1]) : null;
 }
 
 app.post('/api/register', wrap(async (req, res) => {
   if (auth.rateLimited(ipOf(req))) return res.status(429).json({ error: 'Çok fazla deneme. Biraz bekle.' });
-  const { username, password } = req.body || {};
+  const { username, email, password } = req.body || {};
   const display = String(username || '').trim();
+  const mail = auth.normEmail(email);
   if (!auth.NAME_RE.test(display)) return res.status(400).json({ error: 'Kullanıcı adı 3–16 karakter olmalı; harf, rakam ve _ kullanabilirsin.' });
+  if (!auth.EMAIL_RE.test(mail)) return res.status(400).json({ error: 'Geçerli bir e-posta adresi gir.' });
   if (typeof password !== 'string' || password.length < 6 || password.length > 100) return res.status(400).json({ error: 'Şifre en az 6 karakter olmalı.' });
-  const u = await db.create({ username: auth.normName(display), display, passHash: auth.hashPassword(password) });
-  if (!u) return res.status(409).json({ error: 'Bu kullanıcı adı alınmış.' });
-  res.json({ token: auth.makeToken(u.id), user: publicUser(u) });
+  const r = await db.create({ username: auth.normName(display), email: mail, display, passHash: auth.hashPassword(password), sessionKey: auth.newSessionKey() });
+  if (r.conflict) return res.status(409).json({ error: r.conflict === 'email' ? 'Bu e-posta ile zaten bir hesap var.' : 'Bu kullanıcı adı alınmış.' });
+  res.json({ token: auth.makeToken(r.user), user: publicUser(r.user) });
 }));
 
 app.post('/api/login', wrap(async (req, res) => {
   if (auth.rateLimited(ipOf(req))) return res.status(429).json({ error: 'Çok fazla deneme. Biraz bekle.' });
-  const { username, password } = req.body || {};
-  const u = await db.byName(auth.normName(username));
-  if (!u || typeof password !== 'string' || !auth.verifyPassword(password, u.pass_hash)) return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı.' });
-  res.json({ token: auth.makeToken(u.id), user: publicUser(u) });
+  // kullanıcı adı veya e-posta ile giriş
+  const { login, username, password } = req.body || {};
+  const id = String(login || username || '').trim();
+  const u = id.includes('@') ? await db.byEmail(auth.normEmail(id)) : await db.byName(auth.normName(id));
+  if (!u || typeof password !== 'string' || !auth.verifyPassword(password, u.pass_hash)) return res.status(401).json({ error: 'Kullanıcı adı/e-posta veya şifre hatalı.' });
+  res.json({ token: auth.makeToken(u), user: publicUser(u) });
 }));
 
 app.get('/api/me', wrap(async (req, res) => {
@@ -263,8 +266,7 @@ function roomOfUser(uid) {
 // ---------- soket ----------
 io.use(async (socket, next) => {
   try {
-    const uid = auth.readToken(socket.handshake.auth && socket.handshake.auth.token);
-    const u = uid && await db.byId(uid);
+    const u = await auth.userFromToken(db, socket.handshake.auth && socket.handshake.auth.token);
     if (!u) return next(new Error('auth'));
     socket.data = { uid: u.id, uname: u.display };
     next();
