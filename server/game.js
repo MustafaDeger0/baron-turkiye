@@ -123,7 +123,6 @@ class Game {
       case 'pass': err = this.passAuction(p); break;
       case 'endTurn': err = this.endTurn(p); break;
       case 'build': err = this.build(p, idx); break;
-      case 'buildHotel': err = this.buildHotel(p, idx); break;
       case 'sell': err = this.sell(p, idx); break;
       case 'mortgage': err = this.mortgage(p, idx); break;
       case 'unmortgage': err = this.unmortgage(p, idx); break;
@@ -465,28 +464,6 @@ class Game {
       this.addLog(`${p.name}, ${sq.name} üzerine ev yaptı (${pr.houses}).`);
     }
     p.cash -= cost;
-    return null;
-  }
-  // Doğrudan otel: kalan evlerin bedeli + otel bedeli (toplam 4 ev + otel)
-  hotelCost(idx) {
-    const sq = SQUARES[idx], pr = this.props[idx];
-    return (4 - Math.min(4, pr.houses)) * GROUPS[sq.group].house + GROUPS[sq.group].house;
-  }
-  buildHotel(p, idx) {
-    const e = this.ownProp(p, idx); if (e) return e;
-    if (this.phase === 'auction') return 'Açık artırma sırasında inşaat yapılamaz.';
-    const sq = SQUARES[idx], pr = this.props[idx];
-    if (sq.type !== 'prop') return 'Buraya otel yapılamaz.';
-    if (!this.ownsGroup(p.id, sq.group)) return 'Önce bu renk grubunun tamamına sahip olmalısın.';
-    if (GROUP_MEMBERS[sq.group].some((i) => this.props[i].mortgaged)) return 'Grupta ipotekli mülk var.';
-    if (pr.houses >= 5) return 'Zaten otel var.';
-    if (this.hotelsLeft <= 0) return 'Bankada otel kalmadı.';
-    const cost = this.hotelCost(idx);
-    if (p.cash < cost) return `Otel için ${tl(cost)} gerekli.`;
-    this.housesLeft += pr.houses;
-    pr.houses = 5; this.hotelsLeft--;
-    p.cash -= cost;
-    this.addLog(`${p.name}, ${sq.name} üzerine otel dikti (${tl(cost)}).`);
     return null;
   }
   sell(p, idx) {

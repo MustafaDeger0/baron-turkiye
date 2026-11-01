@@ -14,7 +14,7 @@
   // ---------- para biçimi: çizgili B ----------
   const CUR = '<span class="cur">B</span>';
   const num = (n) => Math.abs(Math.round(n)).toLocaleString('tr-TR');
-  const money = (n) => `${n < 0 ? '−' : ''}${CUR}${num(n)}`;
+  const money = (n) => `<span class="mny">${n < 0 ? '−' : ''}${CUR}${num(n)}</span>`;
   const fmtText = (s) => esc(s).replace(/B(?=\d)/g, CUR);
   const moneyShort = (n) => `${CUR}${n >= 1e6 ? `${(n / 1e6).toLocaleString('tr-TR')}M` : `${Math.round(n / 1000)}K`}`;
 
@@ -73,7 +73,7 @@
   };
 
   // ---------- çip (kalıcı puan) ----------
-  const CHIP_SVG = '<svg class="chip-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#d7263d"/><g fill="#fff"><rect x="10.6" y="1" width="2.8" height="4" rx=".6"/><rect x="10.6" y="19" width="2.8" height="4" rx=".6"/><rect x="1" y="10.6" width="4" height="2.8" rx=".6"/><rect x="19" y="10.6" width="4" height="2.8" rx=".6"/><rect x="3.6" y="4.9" width="2.8" height="4" rx=".6" transform="rotate(-45 5 6.9)"/><rect x="17.6" y="15.1" width="2.8" height="4" rx=".6" transform="rotate(-45 19 17.1)"/><rect x="15.1" y="3.6" width="4" height="2.8" rx=".6" transform="rotate(-45 17.1 5)"/><rect x="4.9" y="17.6" width="4" height="2.8" rx=".6" transform="rotate(-45 6.9 19)"/></g><circle cx="12" cy="12" r="6.6" fill="#fff"/><circle cx="12" cy="12" r="5.2" fill="none" stroke="#d7263d" stroke-width="1" stroke-dasharray="2 1.4"/><text x="12" y="15.2" text-anchor="middle" font-size="8" font-weight="900" fill="#d7263d" font-family="Baloo 2,Rubik,sans-serif">B</text></svg>';
+  const CHIP_SVG = '<svg class="chip-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#d7263d"/><g fill="#fff"><rect x="10.6" y="1" width="2.8" height="4" rx=".6"/><rect x="10.6" y="19" width="2.8" height="4" rx=".6"/><rect x="1" y="10.6" width="4" height="2.8" rx=".6"/><rect x="19" y="10.6" width="4" height="2.8" rx=".6"/><rect x="3.6" y="4.9" width="2.8" height="4" rx=".6" transform="rotate(-45 5 6.9)"/><rect x="17.6" y="15.1" width="2.8" height="4" rx=".6" transform="rotate(-45 19 17.1)"/><rect x="15.1" y="3.6" width="4" height="2.8" rx=".6" transform="rotate(-45 17.1 5)"/><rect x="4.9" y="17.6" width="4" height="2.8" rx=".6" transform="rotate(-45 6.9 19)"/></g><circle cx="12" cy="12" r="6.6" fill="#fff"/><circle cx="12" cy="12" r="5.2" fill="none" stroke="#d7263d" stroke-width="1" stroke-dasharray="2 1.4"/><text x="12" y="15.2" text-anchor="middle" font-size="8" font-weight="900" fill="#d7263d" font-family="Nunito,sans-serif">B</text></svg>';
   const chips = (n) => `<span class="chips">${CHIP_SVG}${Math.round(n).toLocaleString('tr-TR')}</span>`;
 
   // ---------- Baron Doları banknotları ----------
@@ -89,11 +89,11 @@
       <rect x="8" y="8" width="144" height="64" rx="4" fill="none" stroke="${ink}" stroke-width="1.2" stroke-dasharray="4 2" opacity=".55"/>
       <path d="M8 40 Q 40 22 80 40 T 152 40 M8 46 Q 40 28 80 46 T 152 46" stroke="${ink}" stroke-width="1" fill="none" opacity=".25"/>
       <circle cx="80" cy="42" r="21" fill="#fff" opacity=".6" stroke="${ink}" stroke-width="1.5"/>
-      <text x="80" y="53" text-anchor="middle" font-size="31" font-weight="900" fill="${ink}" font-family="Rubik,Arial,sans-serif">B</text>
+      <text x="80" y="53" text-anchor="middle" font-size="31" font-weight="900" fill="${ink}" font-family="Nunito,Arial,sans-serif">B</text>
       <rect x="78" y="29" width="2.6" height="27" rx="1.2" fill="${ink}"/>
-      <text x="80" y="17" text-anchor="middle" font-size="7.5" letter-spacing="2.5" fill="${ink}" font-weight="800" font-family="Rubik,Arial,sans-serif">BARON BANKASI</text>
-      <text x="14" y="28" font-size="11" font-weight="900" fill="${ink}" font-family="Rubik,Arial,sans-serif">${lbl}</text>
-      <text x="146" y="69" text-anchor="end" font-size="11" font-weight="900" fill="${ink}" font-family="Rubik,Arial,sans-serif">${lbl}</text>
+      <text x="80" y="17" text-anchor="middle" font-size="7.5" letter-spacing="2.5" fill="${ink}" font-weight="800" font-family="Nunito,Arial,sans-serif">BARON BANKASI</text>
+      <text x="14" y="28" font-size="11" font-weight="900" fill="${ink}" font-family="Nunito,Arial,sans-serif">${lbl}</text>
+      <text x="146" y="69" text-anchor="end" font-size="11" font-weight="900" fill="${ink}" font-family="Nunito,Arial,sans-serif">${lbl}</text>
     </svg>`;
   }
   const noteFor = (amt) => NOTE_DEN().find((n) => n <= amt) || NOTE_DEN().at(-1);
@@ -221,6 +221,28 @@
   const sq = (i) => BOARD.squares[i];
   const groupColor = (s) => (s.group ? BOARD.groups[s.group].color : s.type === 'station' ? '#3b4046' : '#8a8a8a');
   const tokenSVG = (t) => TOKENS[t] || TOKENS.araba;
+  // 3D görünümlü oyun piyonu (oyuncu renginde ışık-gölge)
+  function mixHex(a, b, t) {
+    const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+    const ch = (sh) => Math.round(((pa >> sh) & 255) * (1 - t) + ((pb >> sh) & 255) * t);
+    return `#${((ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).padStart(6, '0')}`;
+  }
+  function pawnSVG(c, id) {
+    const L = mixHex(c, '#ffffff', 0.55), D = mixHex(c, '#000000', 0.5), DD = mixHex(c, '#000000', 0.7);
+    const g = `pg${id}`;
+    return `<svg viewBox="0 0 40 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+      <radialGradient id="${g}h" cx=".36" cy=".3" r=".78"><stop offset="0" stop-color="#fff"/><stop offset=".16" stop-color="${L}"/><stop offset=".58" stop-color="${c}"/><stop offset="1" stop-color="${D}"/></radialGradient>
+      <linearGradient id="${g}b" x1="0" x2="1"><stop offset="0" stop-color="${D}"/><stop offset=".28" stop-color="${L}"/><stop offset=".5" stop-color="${c}"/><stop offset="1" stop-color="${DD}"/></linearGradient>
+      <linearGradient id="${g}t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${L}"/><stop offset="1" stop-color="${c}"/></linearGradient></defs>
+      <path d="M4 52v4a16 6 0 0 0 32 0v-4z" fill="url(#${g}b)"/>
+      <ellipse cx="20" cy="52" rx="16" ry="6" fill="url(#${g}t)"/>
+      <path d="M8.5 52C10.5 41 15 34 16 27.5h8C25 34 29.5 41 31.5 52c-3 2.2-20 2.2-23 0z" fill="url(#${g}b)"/>
+      <ellipse cx="20" cy="27.5" rx="8.6" ry="3" fill="url(#${g}b)"/>
+      <circle cx="20" cy="15" r="10" fill="url(#${g}h)"/>
+      <ellipse cx="16.2" cy="10.8" rx="3.2" ry="2.1" fill="#fff" opacity=".75"/>
+      <path d="M12 44c2-6 4-10 5-14" stroke="#fff" stroke-opacity=".35" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    </svg>`;
+  }
   const chip = (p, extra = '') => `<span class="token-chip" style="--c:${p.color};${extra}">${tokenSVG(p.token || p.icon)}</span>`;
 
   // ---------- modal ----------
@@ -638,7 +660,7 @@
       if (!pawnEls[p.id]) {
         const d = document.createElement('div');
         d.className = 'pawn';
-        d.innerHTML = `<div class="pb">${tokenSVG(p.token)}</div>`;
+        d.innerHTML = `<div class="p-shadow"></div><div class="p-ring"></div><div class="p-fig">${pawnSVG(p.color, p.id)}</div>`;
         d.style.setProperty('--c', p.color);
         d.title = p.name;
         $('#tokenLayer').appendChild(d);
@@ -675,6 +697,7 @@
         if (!animate) pe.style.transition = 'none';
         pe.style.left = `${cx + Math.cos(a) * rad}px`;
         pe.style.top = `${cy + Math.sin(a) * rad}px`;
+        pe.style.zIndex = String(Math.round(cy + Math.sin(a) * rad)); // önde duran piyon üstte görünsün
         if (!animate) { void pe.offsetWidth; pe.style.transition = ''; }
       });
     }
@@ -682,6 +705,10 @@
   function setPawn(pid, pos, mode, dur) {
     shownPos[pid] = pos;
     const pe = pawnEls[pid]; if (!pe) return;
+    // gidiş yönüne doğru eğilsin
+    const from = sqEl(pe.dataset.at || pos), to = sqEl(pos);
+    if (from && to) pe.style.setProperty('--lean', `${Math.sign(to.offsetLeft - from.offsetLeft) * 9 || Math.sign(from.offsetTop - to.offsetTop) * 4}deg`);
+    pe.dataset.at = pos;
     pe.classList.remove('hop', 'jump');
     if (mode === 'hop') { pe.style.transition = `left ${dur}ms ease, top ${dur}ms ease`; pe.style.setProperty('--hd', `${dur}ms`); void pe.offsetWidth; pe.classList.add('hop'); }
     else if (mode === 'jump') { pe.style.transition = ''; void pe.offsetWidth; pe.classList.add('jump'); }
@@ -1128,7 +1155,7 @@
       rows = s.rent.map((r, k) => `<tr class="${pr.houses === k && pr.owner ? 'cur' : ''}"><td>${labels[k]}</td><td>${money(r)}</td></tr>`).join('')
         + '<tr><td colspan="2" class="muted" style="font-size:13px">Renk grubunun tamamına sahipsen boş arsa kirası 2 kat</td></tr>'
         + `<tr><td>Ev başına</td><td>${money(BOARD.groups[s.group].house)}</td></tr>`
-        + `<tr><td>Otel (4 ev + otel)</td><td>${money(BOARD.groups[s.group].house * 5)}</td></tr>`;
+        + `<tr><td>Otel (4 evden sonra)</td><td>${money(BOARD.groups[s.group].house)}</td></tr>`;
     } else if (s.type === 'station') {
       rows = [1, 2, 3, 4].map((n) => `<tr><td>${n} ulaşım noktası</td><td>${money(25 * K * 2 ** (n - 1))}</td></tr>`).join('');
     } else if (s.type === 'utility') {
@@ -1145,9 +1172,7 @@
     const b = [];
     if (s.type === 'prop') {
       const h = BOARD.groups[s.group].house;
-      const full = BOARD.squares.filter((x) => x.group === s.group).every((x) => g.props[x.index].owner === m.id);
-      if (pr.houses < 4) b.push(`<button class="btn sm green" data-pa="build" data-i="${i}">Ev kur ${money(h)}</button>`);
-      if (pr.houses < 5 && full) b.push(`<button class="btn sm green" data-pa="buildHotel" data-i="${i}" title="${pr.houses ? `Kalan ${4 - pr.houses} ev + otel` : '4 ev + otel'}">Otel kur ${money((4 - Math.min(4, pr.houses)) * h + h)}</button>`);
+      if (pr.houses < 5) b.push(`<button class="btn sm green" data-pa="build" data-i="${i}" ${pr.houses === 4 ? 'title="4 evin yerine otel"' : ''}>${pr.houses === 4 ? 'Otel' : 'Ev'} kur ${money(h)}</button>`);
       if (pr.houses) b.push(`<button class="btn sm" data-pa="sell" data-i="${i}">Bina sat +${money(h / 2)}</button>`);
     }
     if (!pr.mortgaged) b.push(`<button class="btn sm gold" data-pa="mortgage" data-i="${i}">İpotek +${money(s.mortgage)}</button>`);

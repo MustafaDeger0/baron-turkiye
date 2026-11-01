@@ -26,8 +26,13 @@ function publicUser(u) {
 // ---------------- PostgreSQL ----------------
 function pgStore(url) {
   const { Pool } = require('pg');
-  const ssl = /localhost|127\.0\.0\.1/.test(url) || process.env.PGSSL === 'off' ? false : { rejectUnauthorized: false };
-  const pool = new Pool({ connectionString: url, ssl, max: 5 });
+  // Bağlantı adresindeki sslmode / channel_binding gibi parametreleri temizle; SSL'i kendimiz ayarlayalım
+  const u = new URL(url);
+  ['sslmode', 'channel_binding', 'sslrootcert'].forEach((k) => u.searchParams.delete(k));
+  const host = u.hostname;
+  const internal = host === 'localhost' || host === '127.0.0.1' || !host.includes('.'); // Render iç adresi: dpg-xxxx-a
+  const ssl = internal || process.env.PGSSL === 'off' ? false : { rejectUnauthorized: false };
+  const pool = new Pool({ connectionString: u.toString(), ssl, max: 5 });
   const one = async (q, args) => (await pool.query(q, args)).rows[0] || null;
   return {
     kind: 'postgres',
