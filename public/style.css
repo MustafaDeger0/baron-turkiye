@@ -1221,3 +1221,50 @@ input, select { font: inherit; }
 #game.portrait .side > .player-list li > div { min-width: 0; }
 #game.portrait .side > .player-list .cash { grid-column: 2; line-height: 1.15; }
 #game.portrait .side > .player-list .badge-s { display: none; }
+
+/* ================= v14: telefonda da bilgisayardaki düzen (tahta aynen ölçeklenir) ================= */
+.menu-btn, .left-strip { display: none !important; }
+#game:is(.m-land, .m-portrait) .game-wrap { padding: 4px; gap: 8px; }
+#game:is(.m-land, .m-portrait) .side { padding: 8px; gap: 6px; border-radius: 12px; }
+#game:is(.m-land, .m-portrait) .side-top .room-tag { display: none; }
+#game:is(.m-land, .m-portrait) .side-top { justify-content: flex-end; }
+#game:is(.m-land, .m-portrait) .side-top-btns { gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+#game:is(.m-land, .m-portrait) .side-top-btns .btn { padding: 3px 8px; font-size: 12px; }
+#game:is(.m-land, .m-portrait) .player-list { gap: 4px; }
+#game:is(.m-land, .m-portrait) .player-list li { padding: 4px 8px; gap: 7px; border-radius: 9px; }
+#game:is(.m-land, .m-portrait) .player-list .token-chip { width: 26px; height: 26px; padding: 3px; border-width: 2px; }
+#game:is(.m-land, .m-portrait) .player-list .pname { font-size: 13px; }
+#game:is(.m-land, .m-portrait) .player-list .cash { font-size: 14px; }
+#game:is(.m-land, .m-portrait) .player-list .mini { display: none; }
+#game:is(.m-land, .m-portrait) .player-list li:hover { transform: none; }
+#game:is(.m-land, .m-portrait) .side-buttons { gap: 6px; }
+#game:is(.m-land, .m-portrait) .side-buttons .btn { font-size: 13px; padding: 6px; }
+#game:is(.m-land, .m-portrait) .tab { font-size: 12px; padding: 4px 8px; }
+#game:is(.m-land, .m-portrait) .tab-body { flex: 1 1 0; height: auto; min-height: 40px; }
+#game:is(.m-land, .m-portrait) .log-list { font-size: 12px; }
+#game:is(.m-land, .m-portrait) .chat-list { font-size: 13px; min-height: 30px; }
+#game:is(.m-land, .m-portrait) .chat-form input { font-size: 14px; padding: 5px 8px; }
+#game:is(.m-land, .m-portrait) .chat-form .btn { font-size: 13px; padding: 5px 10px; }
+/* yan çevrilmiş telefon: panel tahtanın yanında, tahtadan dar */
+#game.m-land .side { width: var(--sideW); height: var(--side); max-height: var(--side); }
+/* dikey telefon: panel tahtanın altında */
+#game.m-portrait .game-wrap { flex-direction: column; justify-content: flex-start; align-items: center; }
+#game.m-portrait .side { width: var(--side); max-height: none; flex: 1 1 auto; min-height: 0; }
+#game.m-portrait .player-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* telefonda tahta ortası: bilgisayardaki oranlar, piksel alt sınırları yok */
+#game:is(.m-land, .m-portrait) .turn-info { font-size: 2.2cqw; }
+#game:is(.m-land, .m-portrait) .landing { font-size: 2cqw; }
+#game:is(.m-land, .m-portrait) .landing .l-pic { min-width: 0; min-height: 0; }
+#game:is(.m-land, .m-portrait) .landing ul { max-height: 5.4cqw; }
+#game:is(.m-land, .m-portrait) .actions { gap: 1cqw; }
+#game:is(.m-land, .m-portrait) .actions .btn { font-size: max(11px, 2.5cqw); padding: 1cqw 2cqw; border-width: .3cqw; }
+#game:is(.m-land, .m-portrait) .debt-box { font-size: 2.1cqw; }
+#game:is(.m-land, .m-portrait) .auction-box .btn { font-size: max(10px, 2cqw); padding: .8cqw 1.4cqw; }
+#game:is(.m-land, .m-portrait) .auction-box input { min-width: 0; width: 14cqw; font-size: 2.2cqw; padding: .5cqw; border-width: .25cqw; }
+#game:is(.m-land, .m-portrait) .actions .btn { font-size: max(9px, 2.2cqw); padding: .9cqw 1.6cqw; }
+#game:is(.m-land, .m-portrait) .center-inner:has(.mini-deed) .landing { display: none; }
+#game.m-portrait .player-list li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; }
+#game.m-portrait .player-list li > .token-chip { grid-row: 1 / 3; }
+#game.m-portrait .player-list li > div { min-width: 0; }
+#game.m-portrait .player-list .cash { grid-column: 2; line-height: 1.15; }
+#game.m-portrait .player-list .badge-s { display: none; }

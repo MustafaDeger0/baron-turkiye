@@ -165,22 +165,15 @@
     const W = fullW - sa.l - sa.r, H = fullH - sa.t - sa.b;   // çentik dışında kalan alan
     const landscape = W > H * 1.05;
     const mode = !landscape ? 'portrait' : H < 560 ? 'compact' : 'desktop';
+    // Her ekranda bilgisayardaki düzen: tahta + yan panel; telefonda sadece ölçek küçülür
     let side, sideW, leftW = 0;
-    if (mode === 'compact') {
-      // yan çevrilmiş telefon: [oyuncu paraları] [tahta — tüm yükseklik] [dar düğme sütunu]
-      side = H - 8;
-      const BTN = 112;
-      let rem = W - side - 20;
-      if (rem < BTN) { side = W - BTN - 20; rem = BTN; }
-      if (rem - BTN >= 140) { sideW = BTN; leftW = Math.min(230, rem - BTN); }
-      else sideW = rem;
-    } else if (mode === 'desktop') {
-      sideW = Math.round(Math.min(360, Math.max(260, W * 0.22)));
-      side = Math.min(H - 20, W - sideW - 32);
-    } else {
-      // dikey telefon: tahta tam genişlikte, altında paralar ve düğmeler
-      side = Math.min(W - 8, H - 8 - 170);
+    if (mode === 'portrait') {
+      side = Math.min(W - 8, H - 8 - 200);
       sideW = side;
+    } else {
+      const pad = mode === 'compact' ? 4 : 10, gap = mode === 'compact' ? 8 : 12;
+      sideW = mode === 'compact' ? Math.round(Math.min(320, Math.max(220, W * 0.3))) : Math.round(Math.min(360, Math.max(260, W * 0.22)));
+      side = Math.min(H - pad * 2, W - sideW - gap - pad * 2);
     }
     side = Math.max(220, Math.floor(side));
     root.setProperty('--side', `${side}px`);
@@ -188,10 +181,9 @@
     root.setProperty('--leftW', `${leftW}px`);
     root.setProperty('--sat', `${sa.t}px`); root.setProperty('--sar', `${sa.r}px`); root.setProperty('--sab', `${sa.b}px`); root.setProperty('--sal', `${sa.l}px`);
     const gm = $('#game');
-    gm.classList.toggle('portrait', mode === 'portrait');
-    gm.classList.toggle('compact', mode === 'compact');
-    gm.classList.toggle('has-strip', leftW > 0);
-    if (mode !== layoutMode || !fitLayout.done) arrange(mode, leftW > 0);
+    gm.classList.toggle('m-portrait', mode === 'portrait');
+    gm.classList.toggle('m-land', mode === 'compact');
+    if (!fitLayout.done) arrange();
     layoutMode = mode; fitLayout.done = true;
     if (boardBuilt) requestAnimationFrame(() => { layoutPawns(false); fitNames(); });
     fitHome();
@@ -208,29 +200,13 @@
   }
   if (window.ResizeObserver) new ResizeObserver(() => fitHome()).observe($('#home2'));
   // Ögeleri ekran türüne göre yerleştir
-  function arrange(mode, strip) {
-    const small = mode !== 'desktop';
-    const aside = $('.side'), drawer = $('#gameDrawerBody'), players = $('#playerList');
-    // oyun düğmeleri (zar, satın al…) her ekranda tahtanın ortasında kalır;
-    // telefonda yalnız Olaylar / Sohbet / Teklifler açılır menüye taşınır
-    const tabs = [$('#game .tabs, #gameDrawerBody .tabs'), ...$$('.tab-body')];
-    if (small) tabs.forEach((el) => el && drawer.appendChild(el));
-    else tabs.forEach((el) => el && aside.appendChild(el));
-    if (strip) $('#leftStrip').appendChild(players);
-    else aside.insertBefore(players, $('.side-buttons'));
-    if (!small) closeDrawer();
+  function arrange() {
+    const aside = $('.side');
+    [$('#game .tabs, #gameDrawerBody .tabs'), ...$$('.tab-body')].forEach((el) => el && aside.appendChild(el));
+    aside.insertBefore($('#playerList'), $('.side-buttons'));
+    closeDrawer();
   }
-  // Telefonda il adlarını kareye sığdır
-  function fitNames() {
-    const on = $('#game').classList.contains('portrait') || $('#game').classList.contains('compact');
-    $$('#board .sq .nm').forEach((el) => {
-      el.style.fontSize = '';
-      if (!on || !el.offsetParent) return;
-      let f = parseFloat(getComputedStyle(el).fontSize), guard = 0;
-      const lh = parseFloat(getComputedStyle(el).lineHeight) || f * 1.1;
-      while ((el.scrollWidth > el.clientWidth + 0.5 || el.scrollHeight > lh * 2 + 1) && f > 6 && guard++ < 24) { f -= 0.5; el.style.fontSize = `${f}px`; }
-    });
-  }
+  function fitNames() { /* tahta her ekranda bilgisayardaki gibi ölçeklenir */ }
   // Oyun içi açılır menü
   function openDrawer() { const t = $(`.tab[data-tab="${incomingTrades ? 'trades' : 'chat'}"]`); if (t) t.click(); $('#gameDrawer').classList.add('open'); $('#drawerBackdrop').classList.remove('hidden'); if (latest) renderChat(latest); updateMenuBadge(); }
   function closeDrawer() { $('#gameDrawer').classList.remove('open'); $('#drawerBackdrop').classList.add('hidden'); }
@@ -726,15 +702,15 @@
   const icon = (k, cls = '') => `<div class="icon ${cls}">${ICON[k]}</div>`;
   function squareHTML(s) {
     switch (s.type) {
-      case 'prop': return `<div class="band"></div><div class="ct art-ct"><div class="art">${ART[s.name] || ''}</div><div class="txt"><div class="${nameCls(s.name)}">${hyph(s.name)}</div><div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div></div>`;
+      case 'prop': return `<div class="band"></div><div class="ct art-ct"><div class="art">${ART[s.name] || ''}</div><div class="txt"><div class="${nameCls(s.name)}">${esc(s.name)}</div><div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div></div>`;
       case 'station': {
         const k = s.name.includes('Liman') ? 'ship' : s.name.includes('Havalimanı') ? 'plane' : 'train';
-        return `<div class="ct"><div class="${nameCls(s.name)}">${hyph(s.name)}</div>${icon(k)}<div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div>`;
+        return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(k)}<div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div>`;
       }
-      case 'utility': return `<div class="ct"><div class="${nameCls(s.name)}">${hyph(s.name)}</div>${icon(s.icon, s.icon)}<div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div>`;
+      case 'utility': return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(s.icon, s.icon)}<div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div>`;
       case 'chance': return '<div class="ct"><div class="nm">Şans</div><div class="q">?</div><div></div></div>';
       case 'chest': return `<div class="ct"><div class="nm">Kamu Fonu</div>${icon('chest')}<div></div></div>`;
-      case 'tax': return `<div class="ct"><div class="${nameCls(s.name)}">${hyph(s.name)}</div>${icon(s.icon)}<div class="pr">${money(s.amount)} öde</div><div class="prc">${moneyShort(s.amount)}</div></div>`;
+      case 'tax': return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(s.icon)}<div class="pr">${money(s.amount)} öde</div><div class="prc">${moneyShort(s.amount)}</div></div>`;
       case 'go': return `<div class="corner-in"><div class="s">Her geçişte ${money(200 * K)} al</div><div class="t">BAŞLANGIÇ</div></div><div class="go-arrow">${ICON.arrow}</div>`;
       case 'jail': return '<div class="jail-cell"><div class="barsv"></div><div class="t">HAPİS</div></div><div class="visit v1"><span>SADECE</span></div><div class="visit v2">ZİYARET</div>';
       case 'parking': return `<div class="corner-in"><div class="t">ÜCRETSİZ</div>${icon('car')}<div class="t">OTOPARK</div></div>`;
