@@ -4,11 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0c1f2b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Baron">
 <title>Baron Türkiye — Çevrimiçi Emlak Oyunu</title>
 <meta name="description" content="Türkiye'nin illerini satın al, ev ve otel dik, rakiplerini iflas ettir. Arkadaşlarınla oda kur ya da rastgele oyuncularla eşleş.">
 <link rel="stylesheet" href="fonts.css">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%231b2228' d='M7 3h10v11H7z'/><path fill='%23d7263d' d='M7 11h10v2H7z'/><ellipse fill='%231b2228' cx='12' cy='16' rx='10' ry='3'/></svg>">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 </head>
 <body>
 
@@ -49,59 +55,93 @@
 <!-- ============ ANA MENÜ ============ -->
 <section id="home" class="screen hidden">
   <div id="notesBg" class="notes-bg" aria-hidden="true"></div>
-  <div class="home-wrap">
-    <div class="user-bar card">
-      <div class="ub-name"><span class="avatar" id="ubAvatar"></span><div><b id="ubName"></b><small id="ubStats" class="muted"></small></div></div>
-      <div class="chip-pill" id="ubChips" title="Çiplerin"></div>
-      <button class="btn sm gold" id="dailyBtn">Günlük Ödül</button>
-      <button class="btn sm" id="lbBtn">Sıralama</button>
-      <button class="btn sm ghost snd" data-snd="music" title="Müzik aç/kapat">♪</button>
-      <button class="btn sm ghost" id="logoutBtn">Çıkış</button>
-    </div>
-    <header class="brand compact">
-      <h1>BARON<small>TÜRKİYE</small></h1>
-    </header>
-
-    <div class="card home-card">
-      <button id="quickBtn" class="btn big primary">Hızlı Eşleş <small>Rastgele rakipler · giriş <span class="chipv">100</span> çip</small></button>
-
-      <div class="row two">
-        <button id="showBotsBtn" class="btn big">Botlarla Oyna</button>
-        <button id="showCreateBtn" class="btn big">Oda Kur</button>
-      </div>
-      <div class="join-box">
-        <input id="codeInput" maxlength="5" placeholder="ODA KODU" autocomplete="off">
-        <button id="joinBtn" class="btn">Katıl</button>
-      </div>
-
-      <form id="botsForm" class="create-form hidden">
-        <div class="field"><span>Bot sayısı</span><div class="seg" id="botCountSeg"></div></div>
-        <div class="field"><span>Tur sınırı</span><div class="seg" id="botRoundSeg"></div></div>
-        <p class="muted small">Botlara karşı giriş ücreti yok. Kazanırsan bot başına <b class="chipv">25</b> çip!</p>
-        <button class="btn primary" type="submit">Oyunu Başlat</button>
-      </form>
-
-      <form id="createForm" class="create-form hidden">
-        <label class="field"><span>Oda adı</span><input id="roomNameInput" maxlength="30" placeholder="Cuma akşamı"></label>
-        <div class="row three">
-          <label class="field"><span>Oyuncu sayısı</span>
-            <select id="maxPlayersSel"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label>
-          <div class="field"><span>Başlangıç parası</span>
-            <div class="seg" id="startMoneySeg"></div></div>
-          <label class="field"><span>Görünürlük</span>
-            <select id="publicSel"><option value="0">Özel (kodla)</option><option value="1">Herkese açık</option></select></label>
+  <div class="home2">
+    <div class="h-main">
+      <header class="hero">
+        <div class="hero-art" aria-hidden="true">
+          <div class="hero-pawns" id="heroPawns"></div>
+          <div class="hero-dice"><div class="die" id="heroDie1"></div><div class="die" id="heroDie2"></div></div>
         </div>
-        <div class="field"><span>Giriş ücreti (kazanan masadaki tüm çipleri alır)</span><div class="seg five" id="stakeSeg"></div></div>
-        <div class="field"><span>Tur sınırı (dolunca en zengin kazanır)</span><div class="seg" id="roundSeg"></div></div>
-        <button class="btn primary" type="submit">Odayı Oluştur</button>
-      </form>
+        <div class="hero-text">
+          <h1>BARON<small>TÜRKİYE</small></h1>
+          <p>İlleri kap, ev ve otel dik, rakiplerini iflas ettir. <b>Baron sen ol!</b></p>
+        </div>
+      </header>
+
+      <div class="modes">
+        <button class="mode m-quick" id="quickBtn">
+          <span class="m-ic"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M13.5 2 4 14h6.5L9 22l11-13h-7z"/></svg></span>
+          <span class="m-t">Hızlı Eşleş</span><span class="m-d">Rastgele rakipler · giriş <span class="chipv">100</span></span>
+        </button>
+        <button class="mode m-bots" id="showBotsBtn">
+          <span class="m-ic"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M11 2h2v3h4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-1l-4 3-4-3H7a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h4zm-2.5 8a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3m7 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M9 15.5h6v1.5H9zM1 10h2v5H1zm20 0h2v5h-2z"/></svg></span>
+          <span class="m-t">Botlarla Oyna</span><span class="m-d">Ücretsiz · kazanınca çip</span>
+        </button>
+        <button class="mode m-create" id="showCreateBtn">
+          <span class="m-ic"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 3 2 11h3v9h5v-6h4v6h5v-9h3z"/></svg></span>
+          <span class="m-t">Oda Kur</span><span class="m-d">Arkadaşlarınla özel masa</span>
+        </button>
+        <div class="mode m-join">
+          <span class="m-ic"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4zm11 0v2h2V7zm0 4v2h2v-2zm0 4v2h2v-2z"/></svg></span>
+          <span class="m-t">Kodla Katıl</span>
+          <div class="join-box"><input id="codeInput" maxlength="5" placeholder="KOD" autocomplete="off"><button id="joinBtn" class="btn sm">Katıl</button></div>
+        </div>
+      </div>
+
+      <div class="card rooms-card">
+        <div class="card-head"><h3>Açık Masalar</h3><span class="live-dot">canlı</span></div>
+        <ul id="publicRooms" class="room-list"><li class="muted">Şu an açık oda yok. İlk odayı sen kur!</li></ul>
+      </div>
     </div>
 
-    <div class="card rooms-card">
-      <div class="card-head"><h3>Açık Odalar</h3></div>
-      <ul id="publicRooms" class="room-list"><li class="muted">Şu an açık oda yok. İlk odayı sen kur!</li></ul>
-    </div>
-    <p class="foot">Para birimi: <b>Baron Doları (<span class="cur">B</span>)</b> · Kalıcı puan: <b>çip</b></p>
+    <aside class="h-side">
+      <div class="card profile">
+        <div class="p-top">
+          <span class="avatar" id="ubAvatar"></span>
+          <div class="p-name"><b id="ubName"></b><small id="ubStats" class="muted"></small></div>
+          <div class="p-btns">
+            <button class="btn sm ghost snd" data-snd="music" title="Müzik aç/kapat">♪</button>
+            <button class="btn sm ghost" id="logoutBtn" title="Çıkış yap">Çıkış</button>
+          </div>
+        </div>
+        <div class="p-chips"><small>ÇİPLERİN</small><div id="ubChips"></div></div>
+      </div>
+
+      <div class="card daily-card">
+        <div class="card-head"><h3>Günlük Ödül</h3><small class="muted" id="dailyInfo"></small></div>
+        <div class="daily-strip" id="dailyStrip"></div>
+        <button class="btn primary daily-go" id="dailyBtn">Günlük Ödül</button>
+      </div>
+
+      <div class="card lb-card">
+        <div class="card-head"><h3>En Zengin Baronlar</h3><button class="btn sm ghost" id="lbBtn">Tümü</button></div>
+        <ol class="lb mini" id="lbMini"><li class="muted">Yükleniyor…</li></ol>
+      </div>
+      <p class="foot">Para birimi: <b>Baron Doları (<span class="cur">B</span>)</b> · Kalıcı puan: <b>çip</b></p>
+    </aside>
+  </div>
+
+  <!-- pencerede açılan formlar burada saklanır -->
+  <div id="formStash" class="hidden">
+    <form id="botsForm" class="create-form">
+      <div class="field"><span>Bot sayısı</span><div class="seg five" id="botCountSeg"></div></div>
+      <div class="field"><span>Tur sınırı</span><div class="seg" id="botRoundSeg"></div></div>
+      <p class="muted small">Botlara karşı giriş ücreti yok. Kazanırsan bot başına <b class="chipv">25</b> çip!</p>
+      <button class="btn big primary" type="submit">Oyunu Başlat</button>
+    </form>
+    <form id="createForm" class="create-form">
+      <label class="field"><span>Oda adı</span><input id="roomNameInput" maxlength="30" placeholder="Cuma akşamı"></label>
+      <div class="row two-eq">
+        <label class="field"><span>Oyuncu sayısı</span>
+          <select id="maxPlayersSel"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label>
+        <label class="field"><span>Görünürlük</span>
+          <select id="publicSel"><option value="0">Özel (kodla)</option><option value="1">Herkese açık</option></select></label>
+      </div>
+      <div class="field"><span>Başlangıç parası</span><div class="seg" id="startMoneySeg"></div></div>
+      <div class="field"><span>Giriş ücreti (kazanan masadaki tüm çipleri alır)</span><div class="seg five" id="stakeSeg"></div></div>
+      <div class="field"><span>Tur sınırı (dolunca en zengin kazanır)</span><div class="seg" id="roundSeg"></div></div>
+      <button class="btn big primary" type="submit">Odayı Oluştur</button>
+    </form>
   </div>
 </section>
 

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1d4a6e"/><stop offset="1" stop-color="#0b2034"/></linearGradient></defs>
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+  <rect x="20" y="20" width="472" height="472" rx="94" fill="none" stroke="#e3b448" stroke-width="10"/>
+  <path fill="#fdfcf7" d="M170 120h172l-12 196H182Z"/>
+  <path fill="#d7263d" d="M177 258h158l-3 42H180Z"/>
+  <ellipse cx="256" cy="330" rx="170" ry="44" fill="#fdfcf7"/>
+  <text x="256" y="440" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="78" fill="#fdfcf7" letter-spacing="6">BARON</text>
+</svg>

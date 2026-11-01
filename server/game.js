@@ -293,6 +293,7 @@ class Game {
     const card = list[id];
     if (!card.jailFree) this.decks[deck].push(id);
     this.card = { deck, text: card.text, seq: ++this.cardSeq, player: p.id };
+    this.cardRollId = this.rollId;
     this.addLog(`${p.name} ${deck === 'chance' ? 'Şans' : 'Kamu Fonu'} kartı çekti: "${card.text}"`);
 
     if (card.move !== undefined) return this.moveTo(p, card.move);
@@ -727,7 +728,7 @@ class Game {
 
   toJSON() {
     return {
-      players: this.players.map(({ debtSince, offlineSince, ...rest }) => ({ ...rest, inDebt: !!debtSince, debtSince })),
+      players: this.players.map(({ debtSince, offlineSince, tradeMemory, nextAt, lastTradeTurn, ...rest }) => ({ ...rest, inDebt: !!debtSince, debtSince })),
       props: this.props,
       turn: this.current().id,
       phase: this.phase,

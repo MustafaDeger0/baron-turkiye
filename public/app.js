@@ -153,9 +153,15 @@
     const W = window.innerWidth, H = window.innerHeight, root = document.documentElement.style;
     root.setProperty('--vh', `${H}px`);
     const pad = 10, gap = 12;
-    const landscape = W >= H * 1.18 && W > 700;
+    const landscape = W > H * 1.05;
+    const compact = landscape && H < 560;          // yan çevrilmiş telefon
     let side, sideW;
-    if (landscape) {
+    if (compact) {
+      // tahta tüm yüksekliği kullanır, yan panel kalan genişliği
+      side = H - 8;
+      sideW = Math.min(440, W - side - 14);
+      if (sideW < 230) { sideW = 230; side = W - sideW - 14; }
+    } else if (landscape) {
       sideW = Math.round(Math.min(360, Math.max(260, W * 0.22)));
       side = Math.min(H - pad * 2, W - sideW - gap - pad * 2);
     } else {
@@ -166,7 +172,8 @@
     root.setProperty('--side', `${side}px`);
     root.setProperty('--sideW', `${sideW}px`);
     $('#game').classList.toggle('portrait', !landscape);
-    placeControls(!landscape);
+    $('#game').classList.toggle('compact', compact);
+    placeControls(!landscape || compact);
     if (boardBuilt) requestAnimationFrame(() => layoutPawns(false));
   }
   function placeControls(portrait) {
@@ -179,6 +186,8 @@
     }
   }
   window.addEventListener('resize', fitLayout);
+  window.addEventListener('orientationchange', () => setTimeout(fitLayout, 250));
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', fitLayout);
   fitLayout();
 
   // ---------- yardımcılar ----------
@@ -191,6 +200,7 @@
   }
   function showScreen(id) {
     ['loading', 'auth', 'home', 'lobby', 'game'].forEach((s) => $(`#${s}`).classList.toggle('hidden', s !== id));
+    if (id === 'home' && token) loadLeaderboard();
     document.body.classList.toggle('ingame', id === 'game');
   }
   function saveSession(res) {
@@ -210,7 +220,7 @@
   }
   const handle = (res) => {
     if (res && res.error) { toast(res.error, 'err'); return false; }
-    if (res && res.pid) saveSession(res);
+    if (res && res.pid) { saveSession(res); if ($('#modalBody').querySelector('#botsForm, #createForm')) closeModal(); }
     return true;
   };
   function act(type, extra = {}) {
@@ -254,7 +264,11 @@
     renderFn($('#modalBody'));
     $('#modal').classList.remove('hidden');
   }
-  function closeModal() { modalRender = null; $('#modal').classList.add('hidden'); }
+  function closeModal() {
+    modalRender = null;
+    ['#botsForm', '#createForm'].forEach((f) => { const el = $(f); if (el && !$('#formStash').contains(el)) $('#formStash').appendChild(el); });
+    $('#modal').classList.add('hidden');
+  }
   $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal' || e.target.closest('[data-close]')) closeModal(); });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
@@ -268,12 +282,17 @@
   }
 
   // ---------- tam ekran ----------
+  const standalone = () => matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
   function toggleFullscreen() {
-    const d = document;
-    if (!d.fullscreenElement && !d.webkitFullscreenElement) {
-      const el = d.documentElement;
-      (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el);
-    } else (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    const d = document, el = d.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (d.fullscreenElement || d.webkitFullscreenElement) return (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    if (!req) {
+      // iPhone Safari tam ekran API'sini desteklemiyor: ana ekrana eklenince tam ekran açılır
+      if (standalone()) return toast('Oyun zaten tam ekran modunda.');
+      return openModal((m) => { m.innerHTML = `<h3>Tam ekran (iPhone)</h3><p>iPhone'da Safari sitelerin tam ekran olmasına izin vermiyor. Bunun yerine oyunu ana ekrana ekle; oradan açınca <b>tam ekran</b> ve uygulama gibi çalışır:</p><ol><li>Safari'de alttaki <b>Paylaş</b> (kare ve yukarı ok) düğmesine dokun.</li><li><b>Ana Ekrana Ekle</b>'yi seç.</li><li>Ana ekrandaki <b>Baron</b> simgesinden aç.</li></ol>`; });
+    }
+    Promise.resolve(req.call(el, { navigationUI: 'hide' })).catch(() => toast('Tarayıcı tam ekrana izin vermedi.', 'err'));
   }
   $('#fsBtn').onclick = toggleFullscreen;
   function renderSoundBtns() {
@@ -355,11 +374,32 @@
     user = u;
     $('#ubName').textContent = u.name;
     $('#ubAvatar').textContent = u.name.slice(0, 1).toLocaleUpperCase('tr-TR');
-    $('#ubStats').textContent = `${u.games} oyun · ${u.wins} galibiyet`;
+    $('#ubStats').textContent = `${u.games} oyun · ${u.wins} galibiyet${u.games ? ` · %${Math.round((u.wins / u.games) * 100)}` : ''}`;
+    renderDailyCard(u);
     $('#ubChips').innerHTML = chips(u.chips);
     if (prev && prev.chips !== u.chips) { const el = $('#ubChips'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
-    $('#dailyBtn').classList.toggle('glow', u.dailyAvailable);
-    $('#dailyBtn').innerHTML = u.dailyAvailable ? `Günlük Ödül <b>+${u.nextDaily}</b>` : 'Günlük Ödül ✓';
+  }
+  function renderDailyCard(u) {
+    const today = u.dailyAvailable ? u.streak + 1 : u.streak;
+    $('#dailyStrip').innerHTML = u.dailyRewards.map((r, k) => {
+      const day = k + 1, done = day < today || (!u.dailyAvailable && day === today), now = u.dailyAvailable && day === Math.min(today, 7);
+      return `<div class="ds ${done ? 'done' : ''} ${now ? 'now' : ''}" title="${day}. gün: ${r} çip"><i>${done ? '✓' : day}</i><small>${r}</small></div>`;
+    }).join('');
+    $('#dailyInfo').textContent = u.streak ? `${u.streak} günlük seri` : 'Seriye başla!';
+    const b = $('#dailyBtn');
+    b.disabled = false;
+    if (u.dailyAvailable) { b.innerHTML = `Ödülü Al +${chips(u.nextDaily)}`; b.classList.add('glow'); b.classList.remove('ghost'); }
+    else {
+      // Türkiye saatine göre gece yarısına kalan süre
+      const n = new Date(Date.now() + 3 * 3600e3), left = 86400 - (n.getUTCHours() * 3600 + n.getUTCMinutes() * 60 + n.getUTCSeconds());
+      b.innerHTML = `Yarın tekrar gel · ${Math.floor(left / 3600)} sa ${Math.floor((left % 3600) / 60)} dk`;
+      b.classList.remove('glow'); b.classList.add('ghost');
+    }
+  }
+  async function loadLeaderboard() {
+    const r = await api('/api/leaderboard').catch(() => null);
+    if (!r || !r.top) return;
+    $('#lbMini').innerHTML = r.top.slice(0, 5).map((u, k) => `<li class="${user && u.name === user.name ? 'me' : ''}"><span class="rk">${k + 1}</span><b>${esc(u.name)}</b>${chips(u.chips)}</li>`).join('') || '<li class="muted">Henüz kimse yok.</li>';
   }
   function startSocket() {
     if (socket.connected) socket.disconnect();
@@ -415,7 +455,18 @@
       ], { duration: 900, delay: k * 50, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' }).onfinish = () => el.remove();
     }
   }
-  $('#dailyBtn').onclick = openDaily;
+  $('#dailyBtn').onclick = async () => {
+    if (!user) return;
+    if (!user.dailyAvailable) return openDaily();
+    const b = $('#dailyBtn'); b.disabled = true;
+    const r = await api('/api/daily', {});
+    if (!r.ok) { toast(r.error || 'Alınamadı.', 'err'); if (r.user) setUser(r.user); b.disabled = false; return; }
+    const from = centerOf(b);
+    setUser(r.user);
+    chipBurst(from, centerOf($('#ubChips')), r.reward);
+    toast(`+${r.reward} çip hesabına eklendi!`);
+    loadLeaderboard();
+  };
   $('#lbBtn').onclick = async () => {
     const r = await api('/api/leaderboard');
     openModal((el) => {
@@ -441,7 +492,12 @@
   }
   renderSegs();
 
-  const toggleForm = (id) => ['#createForm', '#botsForm'].forEach((f) => $(f).classList.toggle('hidden', f !== id || !$(f).classList.contains('hidden')));
+  // Formlar pencerede açılır; kapanınca saklandıkları yere döner
+  function openFormModal(id, title) {
+    openModal((el) => { el.innerHTML = `<h3>${title}</h3>`; el.appendChild($(id)); });
+    modalRender = null;
+  }
+  const toggleForm = (id) => openFormModal(id, id === '#botsForm' ? 'Botlarla Oyna' : 'Oda Kur');
   $('#quickBtn').onclick = () => socket.emit('room:quick', {}, handle);
   $('#showCreateBtn').onclick = () => toggleForm('#createForm');
   $('#showBotsBtn').onclick = () => toggleForm('#botsForm');
@@ -761,12 +817,24 @@
   }
   const stepFor = (len) => (len > 12 ? Math.max(70, Math.round(2400 / len)) : STEP_MS);
   const JAIL_MS = 2500;
-  function movesDuration(moves) {
-    return (moves || []).reduce((t, m) => t + (m.kind === 'jail' ? JAIL_MS : pathOf(m).length * stepFor(pathOf(m).length) + 80), 0);
+  // Şans / Kamu Fonu karesine gelindiyse: önce kart gösterilsin, sonra kartın hareketi yapılsın
+  const CARD_PAUSE = REDUCED ? 0 : 2600, CARD_PAUSE_END = REDUCED ? 0 : 1500;
+  function cardStopIndex(moves, g, prev) {
+    if (!g.card || !prev || (prev.card && prev.card.seq === g.card.seq)) return -1;
+    return (moves || []).findIndex((m) => m.kind !== 'jail' && m.pid === g.card.player && ['chance', 'chest'].includes(sq(m.to).type));
   }
-  function animateMoves(moves, g) {
+  const pauseFor = (moves, stop) => (stop < 0 ? 0 : stop < moves.length - 1 ? CARD_PAUSE : CARD_PAUSE_END);
+  function movesDuration(moves, stop = -1) {
+    return (moves || []).reduce((t, m) => t + (m.kind === 'jail' ? JAIL_MS : pathOf(m).length * stepFor(pathOf(m).length) + 80), 0) + pauseFor(moves || [], stop);
+  }
+  function animateMoves(moves, g, stop = -1, prev = null) {
     let t = 0;
-    for (const m of moves) {
+    for (const [mi, m] of moves.entries()) {
+      if (mi > 0 && mi === stop + 1) {
+        // kartın götürdüğü yeri de kısaca göster
+        const nm = m;
+        after(t - 450, () => previewTarget([nm], 450));
+      }
       if (m.kind === 'jail') {
         after(t, () => { jailFx(m.pid); sfx('jail'); after(600, () => setPawn(m.pid, 10, 'jump')); });
         t += JAIL_MS;
@@ -778,19 +846,20 @@
       const to = m.to;
       after(t, () => pulseSquare(to));
       t += 80;
+      if (mi === stop) { after(t, () => showCard(g, prev)); t += pauseFor(moves, stop); }
     }
     after(t, () => snapTokens(g));
     return t;
   }
   // Piyon yola çıkmadan önce gideceği kare (ve yol) parlasın
-  function previewTarget(moves) {
+  function previewTarget(moves, holdMs) {
     const m = moves.find((x) => x.kind !== 'jail') || moves[0];
     $$('.sq.target, .sq.path').forEach((x) => x.classList.remove('target', 'path'));
     if (!m) return;
     const to = m.kind === 'jail' ? 10 : m.to;
     if (m.kind !== 'jail') pathOf(m).slice(0, -1).forEach((i, k) => after(k * 40, () => sqEl(i).classList.add('path')));
     const el = sqEl(to); el.classList.add('target');
-    const clear = movesDuration(moves) + PREVIEW_MS + 200;
+    const clear = holdMs ? holdMs + movesDuration(moves) + 150 : movesDuration(moves) + PREVIEW_MS + 200;
     setTimeout(() => $$('.sq.target, .sq.path').forEach((x) => x.classList.remove('target', 'path')), clear);
   }
   function snapTokens(g) {
@@ -970,8 +1039,11 @@
   }
 
   let cardHide = null;
+  let shownCardSeq = 0;
   function showCard(g, prev) {
     if (!g.card || !prev || (prev.card && prev.card.seq === g.card.seq)) return;
+    if (shownCardSeq === g.card.seq) return;   // hareket sırasında zaten gösterildi
+    shownCardSeq = g.card.seq;
     const p = playerById(g.card.player);
     const el = $('#cardPop');
     const ch = g.card.deck === 'chance';
@@ -1027,7 +1099,8 @@
     const animate = !fast && rolled;
     const diceT = animate ? DICE_MS : 0;
     const hasMoves = animate && g.moves && g.moves.length;
-    const moveT = hasMoves ? PREVIEW_MS + movesDuration(g.moves) : 0;
+    const stop = hasMoves ? cardStopIndex(g.moves, g, prev) : -1;
+    const moveT = hasMoves ? PREVIEW_MS + movesDuration(g.moves, stop) : 0;
     if (animate) sfx('dice');
     setDice(g.dice, animate);
     if (animate && g.dice[0] === g.dice[1]) after(diceT - 150, () => burst('ÇİFT!', '50%', '28%'));
@@ -1035,7 +1108,7 @@
     if (g.rollId) { after(animate ? diceT - 250 : 0, () => { ds.textContent = `= ${g.dice[0] + g.dice[1]}`; ds.classList.remove('hidden', 'pop'); void ds.offsetWidth; if (animate) ds.classList.add('pop'); }); }
     else ds.classList.add('hidden');
     after(diceT, () => {
-      if (hasMoves) { previewTarget(g.moves); after(PREVIEW_MS, () => animateMoves(g.moves, g)); }
+      if (hasMoves) { previewTarget(g.moves); after(PREVIEW_MS, () => animateMoves(g.moves, g, stop, prev)); }
       else snapTokens(g);
       after(moveT, () => renderMain(g, prev, fast));
     });
@@ -1392,6 +1465,24 @@
 
   // ---------- başlat ----------
   fetch('/api/board').then((r) => r.json()).then((b) => { BOARD = b; K = b.K || 1000; opt.startMoney = 1500 * K; renderSegs(); notesBackground(); pump(); });
+  // ana sayfa vitrin: 3D piyonlar ve dönen zarlar
+  (function heroArt() {
+    $('#heroPawns').innerHTML = ['#e63946', '#1d7cf2', '#f4a261', '#2a9d8f'].map((c, k) => `<div class="hp hp${k}">${pawnSVG(c, `hero${k}`)}</div>`).join('');
+    $('#heroDie1').innerHTML = cubeHTML(); $('#heroDie2').innerHTML = cubeHTML();
+    let n = 0;
+    const spinHero = () => {
+      if ($('#home').classList.contains('hidden')) return;
+      [$('#heroDie1'), $('#heroDie2')].forEach((d, i) => {
+        const c = $('.cube', d); if (!c) return;
+        const f = 1 + ((n * 3 + i * 4) % 6), [fx, fy] = FACE_ROT[f];
+        c.style.transition = 'transform 1.1s cubic-bezier(.12,.75,.28,1)';
+        c.style.transform = `rotateX(${720 * (n + 1) + fx - 18}deg) rotateY(${720 * (n + 1) + fy + 24}deg)`;
+      });
+      n++;
+    };
+    spinHero(); setInterval(spinHero, 3200);
+  })();
+
   (async () => {
     if (!token) return showScreen('auth');
     let r = null;

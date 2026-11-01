@@ -154,7 +154,7 @@
   }
   function startMusic() {
     if (!musicOn || playing || !init()) return;
-    if (ctx.state === 'suspended') ctx.resume();
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     playing = true;
     musicBus.gain.cancelScheduledValues(ctx.currentTime);
     musicBus.gain.setValueAtTime(0.0001, ctx.currentTime);
@@ -191,9 +191,16 @@
     try { SFX[name](); } catch { /* sessizce geç */ }
   }
 
-  // tarayıcılar sesi ilk dokunuşa kadar başlatmaz
-  const unlock = () => { if (musicOn) startMusic(); else init(); };
-  ['pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, unlock, { once: false, passive: true }));
+  // Müzik site açılır açılmaz başlasın. Tarayıcı izin vermezse (otomatik oynatma engeli)
+  // sayfadaki ilk dokunuş/tıklama/tuşta kendiliğinden devam eder.
+  const unlock = () => {
+    if (!init()) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    if (musicOn && !playing) startMusic();
+  };
+  ['pointerdown', 'touchstart', 'click', 'keydown'].forEach((ev) => window.addEventListener(ev, unlock, { passive: true, capture: true }));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && ctx && musicOn && ctx.state === 'suspended') ctx.resume().catch(() => {}); });
+  if (musicOn) { try { startMusic(); } catch { /* izin yoksa ilk dokunuşta */ } }
 
   window.BaronAudio = {
     sfx,

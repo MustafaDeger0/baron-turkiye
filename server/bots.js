@@ -1,44 +1,155 @@
-// Bot oyuncular: sunucuda çalışan basit ama makul bir yapay zekâ.
+// Bot oyuncular: sunucuda çalışan yapay zekâ.
+// Takaslar, "takas olursa kim hangi seti tamamlar?" sorusu simüle edilerek değerlendirilir.
 const crypto = require('crypto');
 const { SQUARES, GROUPS, GROUP_MEMBERS, K } = require('./board');
 
 const BOT_NAMES = ['Bot Kemal', 'Bot Ayşe', 'Bot Mehmet', 'Bot Elif', 'Bot Cem', 'Bot Zehra'];
 const RESERVE = 100 * K;          // elde tutulmaya çalışılan nakit
-const STEP_MS = 210, DICE_MS = 1050;
+const STEP_MS = 210, DICE_MS = 1050, PREVIEW_MS = 750, CARD_PAUSE_MS = 2600;
+const TRADE_COOLDOWN_TURNS = 6;   // bir bot en sık bu kadar turda bir teklif yapar
+const REPEAT_BLOCK_TURNS = 24;    // aynı teklif bu kadar tur tekrarlanmaz
 
 const rand = (a, b) => a + crypto.randomInt(Math.max(1, b - a));
+const groupOf = (i) => (SQUARES[i].type === 'prop' ? SQUARES[i].group : null);
+const groupValue = (g) => GROUP_MEMBERS[g].reduce((t, i) => t + SQUARES[i].price, 0);
+const hasBuildings = (game, i) => { const g = groupOf(i); return !!g && GROUP_MEMBERS[g].some((j) => game.props[j].houses > 0); };
 
-// Bir mülk, alan kişi için grubu tamamlar mı?
+// Bir mülk, alan kişi için (şu anki duruma göre) grubu tamamlar mı?
 function completesGroup(game, pid, idx) {
-  const s = SQUARES[idx];
-  if (s.type !== 'prop') return false;
-  return GROUP_MEMBERS[s.group].every((i) => i === idx || game.props[i].owner === pid);
+  const g = groupOf(idx);
+  return !!g && GROUP_MEMBERS[g].every((i) => i === idx || game.props[i].owner === pid);
 }
-function propValue(game, pid, idx) {
-  const s = SQUARES[idx];
-  return s.price * (completesGroup(game, pid, idx) ? 2.2 : 1);
+
+// ---------- takas simülasyonu ----------
+function ownersAfter(game, t) {
+  const own = {};
+  for (const [i, pr] of Object.entries(game.props)) own[i] = pr.owner;
+  t.giveProps.forEach((i) => { own[i] = t.to; });
+  t.getProps.forEach((i) => { own[i] = t.from; });
+  return own;
+}
+const fullGroups = (own, pid) => Object.keys(GROUPS).filter((g) => GROUP_MEMBERS[g].every((i) => own[i] === pid));
+function ownersNow(game) { const o = {}; for (const [i, pr] of Object.entries(game.props)) o[i] = pr.owner; return o; }
+// Bir grupta tamamlanmaya yakınlık (2/3, 1/2 gibi) — yakın setleri bozmayalım
+function nearGroups(own, pid) {
+  return Object.keys(GROUPS).filter((g) => {
+    const m = GROUP_MEMBERS[g], mine = m.filter((i) => own[i] === pid).length;
+    return mine === m.length - 1 && mine > 0;
+  });
+}
+
+// pid açısından takasın değeri (pozitif = iyi)
+function tradeValueFor(game, pid, t) {
+  const before = ownersNow(game), after = ownersAfter(game, t);
+  const other = pid === t.from ? t.to : t.from;
+  let v = 0;
+  const gets = pid === t.from ? t.getProps : t.giveProps;
+  const gives = pid === t.from ? t.giveProps : t.getProps;
+  gets.forEach((i) => { v += SQUARES[i].price * (game.props[i].mortgaged ? 0.5 : 1); });
+  gives.forEach((i) => { v -= SQUARES[i].price * (game.props[i].mortgaged ? 0.5 : 1); });
+  v += pid === t.from ? (t.getCash - t.giveCash) : (t.giveCash - t.getCash);
+  v += (pid === t.from ? (t.getJail - t.giveJail) : (t.giveJail - t.getJail)) * 50 * K;
+  // set kazanımı / kaybı
+  const myNew = fullGroups(after, pid).filter((g) => !fullGroups(before, pid).includes(g));
+  const myLost = fullGroups(before, pid).filter((g) => !fullGroups(after, pid).includes(g));
+  const theirNew = fullGroups(after, other).filter((g) => !fullGroups(before, other).includes(g));
+  myNew.forEach((g) => { v += groupValue(g) * 1.3; });
+  myLost.forEach((g) => { v -= groupValue(g) * 1.5; });
+  theirNew.forEach((g) => { v -= groupValue(g) * (myNew.length ? 0.9 : 1.6); });
+  // tamamlanmaya yakın setimi bozuyorsa ceza
+  const nearBefore = nearGroups(before, pid), nearAfter = nearGroups(after, pid);
+  nearBefore.filter((g) => !nearAfter.includes(g) && !fullGroups(after, pid).includes(g)).forEach((g) => { v -= groupValue(g) * 0.4; });
+  return v;
+}
+
+// Takas mantıklı mı? (aynı gruptan karşılıklı değiş tokuş gibi anlamsız takaslar elenir)
+function sensible(t) {
+  const gGive = new Set(t.giveProps.map(groupOf).filter(Boolean));
+  if (t.getProps.some((i) => groupOf(i) && gGive.has(groupOf(i)))) return false;
+  return t.giveProps.length + t.getProps.length + (t.giveCash ? 1 : 0) + (t.getCash ? 1 : 0) > 1;
+}
+
+function evaluateTrade(game, bot, t) {
+  if (!sensible(t)) return false;
+  if (t.getCash > bot.cash - RESERVE / 2) return false;
+  const v = tradeValueFor(game, bot.id, t);
+  const size = [...t.giveProps, ...t.getProps].reduce((s, i) => s + SQUARES[i].price, 0) + t.giveCash + t.getCash;
+  return v > size * 0.05;
+}
+
+// Seti tamamlamak için eksik mülkü isteyen teklif üret
+function proposeTrade(game, bot) {
+  if (game.trades.some((t) => t.from === bot.id)) return null;
+  if ((bot.lastTradeTurn ?? -99) > game.turnCount - TRADE_COOLDOWN_TURNS) return null;
+  bot.tradeMemory ||= {};
+  const now = ownersNow(game);
+  // önce en değerli setler
+  const targets = Object.keys(GROUPS)
+    .filter((g) => {
+      const m = GROUP_MEMBERS[g], mine = m.filter((i) => now[i] === bot.id).length;
+      return mine > 0 && mine === m.length - 1 && !m.some((i) => game.props[i].houses > 0);
+    })
+    .sort((a, b) => groupValue(b) - groupValue(a));
+
+  for (const g of targets) {
+    const want = GROUP_MEMBERS[g].find((i) => now[i] !== bot.id);
+    const owner = now[want];
+    if (!owner) continue;
+    const op = game.player(owner);
+    if (!op || op.bankrupt) continue;
+
+    const offers = [];
+    // a) Karşılıklı set takası: karşı tarafın da setini tamamlayan, FARKLI gruptan bir mülkümü ver
+    Object.keys(game.props).map(Number).forEach((i) => {
+      if (now[i] !== bot.id || groupOf(i) === g || hasBuildings(game, i)) return;
+      offers.push({ giveProps: [i], getProps: [want], giveCash: 0 });
+    });
+    // b) İşime yaramayan bir mülk + para
+    Object.keys(game.props).map(Number).forEach((i) => {
+      if (now[i] !== bot.id || groupOf(i) === g || hasBuildings(game, i)) return;
+      const extra = Math.max(0, Math.round((SQUARES[want].price * 1.3 - SQUARES[i].price) / (10 * K)) * 10 * K);
+      if (extra > 0 && extra <= Math.min(bot.cash - RESERVE, bot.cash * 0.55)) offers.push({ giveProps: [i], getProps: [want], giveCash: extra });
+    });
+    // c) Sadece para: setin değerine göre cömert
+    [1.5, 2.0, 2.5, 3.0, 3.5].forEach((f) => {
+      const cash = Math.round((SQUARES[want].price * f) / (10 * K)) * 10 * K;
+      if (cash <= Math.min(bot.cash - RESERVE, bot.cash * 0.55)) offers.push({ giveProps: [], getProps: [want], giveCash: cash }); // parasının yarısından fazlasını vermez
+    });
+
+    // Bot için iyi + karşı taraf için de kabul edilebilir olanı seç
+    const scored = offers.map((o) => {
+      const t = { from: bot.id, to: owner, giveCash: o.giveCash || 0, getCash: 0, giveProps: o.giveProps, getProps: o.getProps, giveJail: 0, getJail: 0 };
+      return { o, t, mine: tradeValueFor(game, bot.id, t), theirs: tradeValueFor(game, owner, t) };
+    }).filter((x) => sensible(x.t) && x.mine > SQUARES[want].price * 0.1)
+      .filter((x) => { const key = `${owner}:${x.o.getProps}:${x.o.giveProps}:${x.o.giveCash}`; return (x.key = key) && !(bot.tradeMemory[key] > game.turnCount - REPEAT_BLOCK_TURNS); })
+      .sort((a, b) => (b.theirs - a.theirs) || (b.mine - a.mine)); // kendisi için kârlı olanlar içinde karşı tarafa en cömert olanı
+    if (!scored.length) continue;
+    const best = scored[0];
+    bot.lastTradeTurn = game.turnCount;
+    bot.tradeMemory[best.key] = game.turnCount;
+    return { type: 'tradePropose', to: owner, giveProps: best.o.giveProps, getProps: best.o.getProps, giveCash: best.o.giveCash || 0 };
+  }
+  return null;
 }
 
 // Hareket animasyonunun istemcide süreceği yaklaşık süre (bot beklesin ki izlenebilsin)
 function animDelay(game) {
-  let t = DICE_MS + 600 + 750; // + hedef kare önizlemesi
+  let t = DICE_MS + 600 + PREVIEW_MS;
   for (const m of game.moves || []) {
     if (m.kind === 'jail') { t += 2500; continue; }
     const n = m.kind === 'back' ? (m.from - m.to + 40) % 40 : (m.to - m.from + 40) % 40;
     t += n > 12 ? 2400 : n * STEP_MS;
   }
-  if (game.card) t += 1500;
+  if (game.cardRollId === game.rollId) t += CARD_PAUSE_MS;
   return t + 700;
 }
 
 function chooseManagement(game, bot) {
-  // ipotek kaldır
   for (const [i, pr] of Object.entries(game.props)) {
     if (pr.owner !== bot.id || !pr.mortgaged) continue;
     const cost = Math.ceil(SQUARES[i].mortgage * 1.1);
     if (bot.cash - cost > RESERVE * 3) return { type: 'unmortgage', idx: +i };
   }
-  // ev / otel dik
   let best = null;
   for (const g of Object.keys(GROUPS)) {
     if (!game.ownsGroup(bot.id, g)) continue;
@@ -51,47 +162,9 @@ function chooseManagement(game, bot) {
     if (bot.cash - cost < RESERVE) continue;
     if (min < 4 && game.housesLeft <= 0) continue;
     if (min === 4 && game.hotelsLeft <= 0) continue;
-    if (!best || SQUARES[idx].rent[min + 1] > SQUARES[best].rent[game.props[best].houses + 1]) best = idx;
+    if (best === null || SQUARES[idx].rent[min + 1] > SQUARES[best].rent[game.props[best].houses + 1]) best = idx;
   }
-  if (best !== null) return { type: 'build', idx: best };
-  return null;
-}
-
-// Tekel için eksik tek mülkü başka bir oyuncudan istemek (takas veya para teklifi)
-function proposeTrade(game, bot) {
-  if (game.trades.some((t) => t.from === bot.id)) return null;
-  if ((bot.lastTradeTurn || -99) > game.turnCount - 6) return null;
-  for (const g of Object.keys(GROUPS)) {
-    const mem = GROUP_MEMBERS[g];
-    const mine = mem.filter((i) => game.props[i].owner === bot.id);
-    const missing = mem.filter((i) => game.props[i].owner !== bot.id);
-    if (missing.length !== 1 || mine.length === 0) continue;
-    const want = missing[0], owner = game.props[want].owner;
-    if (!owner || game.player(owner).bankrupt) continue;
-    if (mem.some((i) => game.props[i].houses > 0)) continue;
-    bot.lastTradeTurn = game.turnCount;
-    // karşı tarafa tekel tamamlatacak bir mülküm varsa takas öner
-    const swap = Object.keys(game.props).map(Number).find((i) => game.props[i].owner === bot.id && completesGroup(game, owner, i)
-      && !(SQUARES[i].type === 'prop' && GROUP_MEMBERS[SQUARES[i].group].some((j) => game.props[j].houses > 0)));
-    if (swap !== undefined) return { type: 'tradePropose', to: owner, giveProps: [swap], getProps: [want] };
-    const cash = Math.min(Math.round((SQUARES[want].price * 1.8) / K) * K, bot.cash - RESERVE);
-    if (cash >= SQUARES[want].price) return { type: 'tradePropose', to: owner, giveCash: cash, getProps: [want] };
-  }
-  return null;
-}
-
-function evaluateTrade(game, bot, t) {
-  const other = t.from;
-  let give = t.getCash, get = t.giveCash;
-  const gainsMonopoly = t.giveProps.some((i) => completesGroup(game, bot.id, i));
-  for (const i of t.getProps) {
-    give += SQUARES[i].price;
-    if (completesGroup(game, other, i)) give += SQUARES[i].price * (gainsMonopoly ? 0.8 : 3); // rakibe tekel verme
-  }
-  for (const i of t.giveProps) get += propValue(game, bot.id, i);
-  give += t.getJail * 50 * K; get += t.giveJail * 50 * K;
-  if (t.getCash > bot.cash - RESERVE) return false;
-  return get > give * 1.1;
+  return best !== null ? { type: 'build', idx: best } : null;
 }
 
 // Botun şu an yapacağı tek eylem (yoksa null)
@@ -151,10 +224,10 @@ function driveBots(game, now) {
     const prevRoll = game.rollId;
     const err = game.act(bot.id, a);
     if (err) {
-      // geçersizse güvenli bir eyleme düş
       if (a.type === 'buy') game.act(bot.id, { type: 'decline' });
       else if (a.type === 'bid') game.act(bot.id, { type: 'pass' });
-      else if (a.type === 'build' || a.type === 'unmortgage') game.act(bot.id, { type: 'endTurn' });
+      else if (a.type === 'tradeAccept') game.act(bot.id, { type: 'tradeReject', id: a.id });
+      else if (['build', 'unmortgage', 'tradePropose'].includes(a.type)) game.act(bot.id, { type: 'endTurn' });
     }
     changed = true;
     bot.nextAt = now + (game.rollId !== prevRoll ? animDelay(game) : rand(700, 1300));
@@ -162,4 +235,4 @@ function driveBots(game, now) {
   return changed;
 }
 
-module.exports = { BOT_NAMES, driveBots, decide };
+module.exports = { BOT_NAMES, driveBots, decide, evaluateTrade, proposeTrade, tradeValueFor, sensible };
