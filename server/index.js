@@ -378,6 +378,8 @@ io.on('connection', (socket) => {
     const u = await db.byId(uid);
     const room = createRoom({ roomName: 'Botlarla Oyun', isPublic: false, maxPlayers: n + 1, startMoney: opts.startMoney, roundLimit: opts.roundLimit, botGame: true });
     const p = addPlayer(room, u);
+    if (ICONS.includes(opts.icon)) p.icon = opts.icon;          // oyuncunun seçtiği karakter ve renk
+    if (COLORS.includes(opts.color)) p.color = opts.color;
     for (let i = 0; i < n; i++) addBot(room);
     attach(room, p);
     await startGame(room);

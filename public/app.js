@@ -542,6 +542,17 @@
     el.innerHTML = values.map((v) => `<button type="button" class="${v === opt[key] ? 'sel' : ''}" data-v="${v}">${label(v)}</button>`).join('');
     $$('button', el).forEach((b) => { b.onclick = () => { opt[key] = +b.dataset.v; seg(id, key, values, label); }; });
   }
+  // karakter ve renk seçimi (botlu oyun) — tercih hatırlanır
+  const TOKEN_NAMES = { araba: 'Araba', sapka: 'Şapka', gemi: 'Gemi', cay: 'Çay', nazar: 'Nazar', ucak: 'Uçak', tac: 'Taç', roket: 'Roket' };
+  const PICK_COLORS = ['#e63946', '#1d7cf2', '#2a9d8f', '#f4a261', '#9b5de5', '#ff4fa3'];
+  const look = { icon: store.get('baron_icon') || 'araba', color: store.get('baron_color') || '#e63946' };
+  function renderLookPick() {
+    const tp = $('#botTokPick'), cp = $('#botColPick'); if (!tp) return;
+    tp.innerHTML = Object.keys(TOKEN_NAMES).map((k) => `<button type="button" class="${k === look.icon ? 'sel' : ''}" data-k="${k}" style="--c:${look.color}" title="${TOKEN_NAMES[k]}">${TOKENS[k]}<small>${TOKEN_NAMES[k]}</small></button>`).join('');
+    cp.innerHTML = PICK_COLORS.map((c) => `<button type="button" class="${c === look.color ? 'sel' : ''}" data-c="${c}" style="--c:${c}" aria-label="renk"></button>`).join('');
+    $$('button', tp).forEach((b) => { b.onclick = () => { look.icon = b.dataset.k; store.set('baron_icon', look.icon); renderLookPick(); }; });
+    $$('button', cp).forEach((b) => { b.onclick = () => { look.color = b.dataset.c; store.set('baron_color', look.color); renderLookPick(); }; });
+  }
   const roundLabel = (v) => (v ? `${v} tur` : 'Sınırsız');
   function renderSegs() {
     seg('#startMoneySeg', 'startMoney', [1000, 1500, 2000, 2500].map((x) => x * K), money);
@@ -560,8 +571,8 @@
   const toggleForm = (id) => openFormModal(id, id === '#botsForm' ? 'Botlarla Oyna' : 'Oda Kur');
   $('#quickBtn').onclick = () => socket.emit('room:quick', {}, handle);
   $('#showCreateBtn').onclick = () => toggleForm('#createForm');
-  $('#showBotsBtn').onclick = () => toggleForm('#botsForm');
-  $('#botsForm').onsubmit = (e) => { e.preventDefault(); socket.emit('room:bots', { bots: opt.bots, roundLimit: opt.botRounds, startMoney: 1500 * K }, handle); };
+  $('#showBotsBtn').onclick = () => { renderLookPick(); toggleForm('#botsForm'); };
+  $('#botsForm').onsubmit = (e) => { e.preventDefault(); socket.emit('room:bots', { bots: opt.bots, roundLimit: opt.botRounds, startMoney: 1500 * K, icon: look.icon, color: look.color }, handle); };
   $('#createForm').onsubmit = (e) => {
     e.preventDefault();
     socket.emit('room:create', {

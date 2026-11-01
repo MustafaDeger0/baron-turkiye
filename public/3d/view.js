@@ -6,7 +6,7 @@ import { makeToken } from './tokens.js';
 const CUR = '฿';
 const mix = (a, b, t) => { const ca = new THREE.Color(a), cb = new THREE.Color(b); return '#' + ca.lerp(cb, t).getHexString(); };
 const short = (n) => `${n >= 1e6 ? (n / 1e6).toLocaleString('tr-TR') + 'M' : Math.round(n / 1000) + 'K'}`;
-const B = 10, U = B / 12.6, C = 1.8 * U;                 // tahta kenarı, kare genişliği, köşe kare
+const B = 10, U = B / 12.6, C = 1.8 * U, ROAD = 0.3;                 // tahta kenarı, kare genişliği, köşe kare
 const sideOf = (i) => (i < 10 ? 0 : i < 20 ? 1 : i < 30 ? 2 : 3); // 0 alt(+z) 1 sol(-x) 2 üst(-z) 3 sağ(+x)
 const INWARD = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
@@ -49,6 +49,15 @@ async function paintBoard(S, squares, groups, ART, ICON) {
   const grd = g.createRadialGradient(L / 2, L / 2 * 0.9, 50, L / 2, L / 2, cw * 0.75);
   grd.addColorStop(0, '#e9f6fb'); grd.addColorStop(0.5, '#cfe9f4'); grd.addColorStop(1, '#9fd0e6');
   g.fillStyle = grd; g.fillRect(ci, ci, cw, cw);
+  // karelerle deniz arasında asfalt yol (beyaz kesikli şeritli, kaldırımlı)
+  const RW = ROAD * px;
+  g.fillStyle = '#d9dee3'; g.fillRect(ci, ci, cw, cw);
+  g.fillStyle = '#5b646c'; g.fillRect(ci + 10, ci + 10, cw - 20, cw - 20);
+  g.fillStyle = grd; g.fillRect(ci + RW, ci + RW, cw - 2 * RW, cw - 2 * RW);
+  g.fillStyle = '#d9dee3'; g.fillRect(ci + RW - 10, ci + RW - 10, cw - 2 * RW + 20, 10); g.fillRect(ci + RW - 10, L - ci - RW, cw - 2 * RW + 20, 10); g.fillRect(ci + RW - 10, ci + RW - 10, 10, cw - 2 * RW + 20); g.fillRect(L - ci - RW, ci + RW - 10, 10, cw - 2 * RW + 20);
+  g.fillStyle = grd; g.fillRect(ci + RW, ci + RW, cw - 2 * RW, cw - 2 * RW);
+  g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 9; g.setLineDash([44, 34]);
+  g.strokeRect(ci + RW / 2, ci + RW / 2, cw - RW, cw - RW); g.setLineDash([]);
   g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = 6;
   for (let y = ci + 120; y < ci + cw; y += 150) { g.beginPath(); for (let x = ci; x <= ci + cw; x += 40) g.lineTo(x, y + Math.sin(x / 70) * 14); g.stroke(); }
   // BARON şeridi (izleyiciye dönük: 45° eğik)
@@ -115,33 +124,108 @@ async function paintBoard(S, squares, groups, ART, ICON) {
     g.fillStyle = bg; g.fillRect(cx - CP / 2 + 4, cy - CP / 2 + 4, CP - 8, CP - 8);
     g.save(); g.translate(cx, cy); g.rotate(-Math.PI / 4); draw(); g.restore();
   };
-  corner(0, '#ffe6e6', () => { drawText('BAŞLANGIÇ', 0, -50, CP * 1.12, 115, '#d7263d', 900); drawText(`geçişte ${CUR}200K al`, 0, 45, CP * 1.1, 60, '#5b2a2a', 800); icon('arrow', 0, 140, 170, 120); });
-  corner(10, '#fff3d6', () => { // parmaklıklı hücre köşenin iç tarafında (tahta ortasına doğru), ziyaretçiler dış kenarda
-    g.fillStyle = '#f28c28'; g.fillRect(-10, -190, 250, 250); g.fillStyle = '#3b2412'; for (let k = 15; k <= 220; k += 50) g.fillRect(k - 8, -190, 16, 250);
-    drawText('HAPİS', 115, 120, 300, 100, '#3b2412', 900); drawText('ZİYARET', -150, 40, 260, 64, '#7a5a3a', 800); });
-  corner(20, '#e3f7e8', () => { icon('car', 0, -30, 220, 170); drawText('ÜCRETSİZ OTOPARK', 0, 120, CP * 1.12, 100, '#1f7a43', 900); });
-  corner(30, '#e8eef5', () => { icon('cuffs', 0, -30, 200, 160); drawText('HAPSE GİR', 0, 120, CP * 1.05, 100, '#1d4fb3', 900); });
+  // köşe kare 45° döndürülmüş yazılır; satırın genişliği köşegene olan uzaklığa göre daralır
+  const cText = (text, x, y, size, color, weight = 900, half = false) => {
+    const room = CP * Math.SQRT2 - 2 * (Math.abs(y) + size * 0.55) - 60;
+    drawText(text, x, y, Math.max(60, half ? room / 2 - 20 : room), size, color, weight);
+  };
+  corner(0, '#ffe6e6', () => { cText('BAŞLANGIÇ', 0, 110, 84, '#d7263d'); cText(`geçişte ${CUR}200K al`, 0, 180, 42, '#5b2a2a', 800); });
+  corner(10, '#fff3d6', () => { cText('HAPİS', 105, 120, 66, '#3b2412', 900, true); cText('ZİYARET', -105, 120, 46, '#7a5a3a', 800, true); });
+  corner(20, '#e3f7e8', () => { cText('ÜCRETSİZ', 0, 100, 66, '#1f7a43'); cText('OTOPARK', 0, 175, 66, '#1f7a43'); });
+  corner(30, '#e8eef5', () => { cText('HAPSE', 0, 100, 76, '#1d4fb3'); cText('GİR', 0, 180, 76, '#1d4fb3'); });
   g.strokeStyle = '#22384b'; g.lineWidth = 8; g.strokeRect(CP, CP, L - 2 * CP, L - 2 * CP);
   return cv;
 }
 
 // ---------------------------------------------------------------- binalar
-function houseMesh() {
+const M = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.55, ...o });
+function roofGeo(w, d, h) {          // üçgen çatı (iki eğimli)
+  const sh = new THREE.Shape(); sh.moveTo(-w / 2, 0); sh.lineTo(w / 2, 0); sh.lineTo(0, h); sh.closePath();
+  const g = new THREE.ExtrudeGeometry(sh, { depth: d, bevelEnabled: false }); g.translate(0, 0, -d / 2); return g;
+}
+function houseMesh(roof = '#d1453b', k = 0) {
   const grp = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.2), new THREE.MeshStandardMaterial({ color: '#1aa34d', roughness: 0.5 })); body.position.y = 0.08;
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.13, 4), new THREE.MeshStandardMaterial({ color: '#b3402a', roughness: 0.6 })); roof.position.y = 0.225; roof.rotation.y = Math.PI / 4;
-  [body, roof].forEach((m) => { m.castShadow = true; grp.add(m); });
+  const walls = ['#fff7e8', '#f4ead2', '#eef3f7'][k % 3];
+  const put = (geo, mat, x, y, z, ry = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = true; m.receiveShadow = true; grp.add(m); return m; };
+  put(new THREE.BoxGeometry(0.17, 0.13, 0.15), M(walls), 0, 0.065, 0);
+  put(roofGeo(0.21, 0.19, 0.1), M(roof, { roughness: 0.45 }), 0, 0.13, 0);
+  put(new THREE.BoxGeometry(0.03, 0.06, 0.03), M('#8a5a44'), 0.05, 0.215, -0.03);                 // baca
+  put(new THREE.BoxGeometry(0.04, 0.065, 0.005), M('#7b4a2e'), 0, 0.034, 0.076);                   // kapı
+  const glass = M('#9fd8ff', { emissive: '#3a6f9a', emissiveIntensity: 0.15, roughness: 0.2 });
+  put(new THREE.BoxGeometry(0.035, 0.035, 0.005), glass, -0.05, 0.08, 0.076);
+  put(new THREE.BoxGeometry(0.035, 0.035, 0.005), glass, 0.05, 0.08, 0.076);
+  grp.scale.setScalar(1.15);
   return grp;
 }
-function hotelMesh() {
+function hotelMesh(roof = '#d1453b') {
   const grp = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.26), new THREE.MeshStandardMaterial({ color: '#d91e2a', roughness: 0.45 })); body.position.y = 0.21; body.castShadow = true; grp.add(body);
-  const win = new THREE.MeshStandardMaterial({ color: '#ffe9a8', emissive: '#ffd25e', emissiveIntensity: 0.4 });
-  for (const zs of [1, -1]) for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.01), win); w.position.set(-0.18 + c * 0.12, 0.14 + r * 0.14, 0.131 * zs); grp.add(w); }
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.05, 0.3), new THREE.MeshStandardMaterial({ color: '#7a0f18' })); roof.position.y = 0.445; grp.add(roof);
+  const put = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; grp.add(m); return m; };
+  put(new THREE.BoxGeometry(0.5, 0.06, 0.3), M('#d9dee3'), 0, 0.03, 0);                              // kaide
+  put(new THREE.BoxGeometry(0.44, 0.38, 0.24), M('#fffaf0'), 0, 0.25, 0);                            // gövde
+  put(new THREE.BoxGeometry(0.48, 0.05, 0.28), M(roof, { roughness: 0.4 }), 0, 0.465, 0);             // çatı
+  put(new THREE.BoxGeometry(0.16, 0.08, 0.12), M(roof, { roughness: 0.4 }), 0, 0.53, 0);              // çatı katı
+  const glass = M('#9fd8ff', { emissive: '#ffd25e', emissiveIntensity: 0.25, roughness: 0.2 });
+  for (const zs of [1, -1]) for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) put(new THREE.BoxGeometry(0.06, 0.06, 0.006), glass, -0.15 + c * 0.1, 0.13 + r * 0.1, 0.122 * zs);
+  put(new THREE.BoxGeometry(0.2, 0.025, 0.07), M(roof), 0, 0.12, 0.15);                               // giriş saçağı
+  put(new THREE.CylinderGeometry(0.006, 0.006, 0.2, 6), M('#9aa3ab'), 0.18, 0.6, 0);                  // bayrak direği
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.06), M(roof, { side: THREE.DoubleSide })); flag.position.set(0.23, 0.67, 0); grp.add(flag);
+  return grp;
+}
+function flagMesh(color) {      // sahibi olan boş arsada küçük bayrak
+  const grp = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.32, 6), M('#e8ecef', { metalness: 0.3 })); pole.position.y = 0.16; pole.castShadow = true; grp.add(pole);
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.09, 6, 1), M(color, { side: THREE.DoubleSide, emissive: color, emissiveIntensity: 0.15 })); f.position.set(0.077, 0.27, 0); f.castShadow = true; grp.add(f);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.02, 12), M('#9aa3ab')); base.position.y = 0.01; grp.add(base);
+  grp.userData.flag = f;
   return grp;
 }
 
+// ---------------------------------------------------------------- tahta süsleri
+function treeMesh(k) {
+  const grp = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.16, 8), M('#7b4a2e')); trunk.position.y = 0.08; trunk.castShadow = true; grp.add(trunk);
+  const green = ['#2f9e44', '#40c057', '#2b8a3e'][k % 3];
+  if (k % 2) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.32, 10), M(green)); c.position.y = 0.3; c.castShadow = true; grp.add(c); }
+  else { const c = new THREE.Mesh(new THREE.IcosahedronGeometry(0.14, 1), M(green, { flatShading: true })); c.position.y = 0.27; c.castShadow = true; grp.add(c); }
+  return grp;
+}
+function signTex(draw, w = 256, h = 128) {
+  const c2 = document.createElement('canvas'); c2.width = w; c2.height = h; draw(c2.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c2); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function landmark(kind) {
+  const grp = new THREE.Group();
+  const put = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; grp.add(m); return m; };
+  if (kind === 'go') {            // başlangıç kapısı
+    for (const x of [-0.26, 0.26]) put(new THREE.CylinderGeometry(0.035, 0.04, 0.5, 12), M('#ffffff'), x, 0.25, 0);
+    const t = signTex((d, w, h) => { d.fillStyle = '#d7263d'; d.fillRect(0, 0, w, h); d.fillStyle = '#fff'; d.font = '900 64px Nunito'; d.textAlign = 'center'; d.textBaseline = 'middle'; d.fillText('BAŞLA', w / 2, h / 2 + 4); });
+    const side = M('#b5182b');
+    put(new THREE.BoxGeometry(0.64, 0.14, 0.06), [side, side, side, side, M('#ffffff', { map: t }), M('#ffffff', { map: t })], 0, 0.52, 0);
+    for (const x of [-0.26, 0.26]) { const f = put(new THREE.ConeGeometry(0.04, 0.12, 4), M('#f2b632'), x, 0.65, 0); f.rotation.y = Math.PI / 4; }
+  } else if (kind === 'jail') {   // hapishane binası
+    put(new THREE.BoxGeometry(0.56, 0.36, 0.4), M('#a7b0b8', { roughness: 0.9 }), 0, 0.18, 0);
+    put(new THREE.BoxGeometry(0.6, 0.05, 0.44), M('#5b646c'), 0, 0.385, 0);
+    put(new THREE.BoxGeometry(0.3, 0.2, 0.01), M('#2b2f33'), 0, 0.18, 0.201);
+    for (let k = 0; k < 6; k++) put(new THREE.CylinderGeometry(0.008, 0.008, 0.2, 6), M('#d9dee3', { metalness: 0.5, roughness: 0.3 }), -0.125 + k * 0.05, 0.18, 0.21);
+    const t = signTex((d, w, h) => { d.fillStyle = '#f28c28'; d.fillRect(0, 0, w, h); d.fillStyle = '#3b2412'; d.font = '900 66px Nunito'; d.textAlign = 'center'; d.textBaseline = 'middle'; d.fillText('HAPİS', w / 2, h / 2 + 4); });
+    const sg = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.1), M('#fff', { map: t })); sg.position.set(0, 0.33, 0.202); grp.add(sg);
+    for (const x of [-0.24, 0.24]) put(new THREE.BoxGeometry(0.08, 0.46, 0.08), M('#8e979f'), x, 0.23, 0.18);   // kuleler
+  } else if (kind === 'parking') { // otopark tabelası + park etmiş arabalar
+    put(new THREE.CylinderGeometry(0.012, 0.012, 0.42, 8), M('#9aa3ab'), -0.24, 0.21, 0);
+    const t = signTex((d, w, h) => { d.fillStyle = '#1d5fd0'; d.beginPath(); d.roundRect(4, 4, w - 8, h - 8, 26); d.fill(); d.fillStyle = '#fff'; d.font = '900 200px Nunito'; d.textAlign = 'center'; d.textBaseline = 'middle'; d.fillText('P', w / 2, h / 2 + 10); }, 256, 256);
+    const sg = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.16), M('#fff', { map: t, side: THREE.DoubleSide })); sg.position.set(-0.24, 0.45, 0.015); grp.add(sg);
+    grp.userData.cars = true;
+  } else if (kind === 'police') {  // polis kulübesi, tepesinde yanıp sönen siren
+    put(new THREE.BoxGeometry(0.34, 0.34, 0.3), M('#1d4fb3'), 0, 0.17, 0);
+    put(new THREE.BoxGeometry(0.35, 0.06, 0.31), M('#ffffff'), 0, 0.24, 0);
+    put(new THREE.BoxGeometry(0.4, 0.04, 0.36), M('#0f2f6e'), 0, 0.36, 0);
+    put(new THREE.BoxGeometry(0.12, 0.18, 0.01), M('#9fd8ff', { roughness: 0.2 }), 0.06, 0.12, 0.151);
+    const red = put(new THREE.SphereGeometry(0.045, 14, 10), M('#ff2d3c', { emissive: '#ff0018', emissiveIntensity: 1 }), -0.06, 0.41, 0);
+    const blue = put(new THREE.SphereGeometry(0.045, 14, 10), M('#2d7dff', { emissive: '#0050ff', emissiveIntensity: 0.2 }), 0.06, 0.41, 0);
+    grp.userData.siren = [red, blue];
+  }
+  return grp;
+}
 // ---------------------------------------------------------------- zarlar
 function pipTex(n) {
   const c2 = document.createElement('canvas'); c2.width = c2.height = 128; const d = c2.getContext('2d');
@@ -184,6 +268,24 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   const tex = new THREE.CanvasTexture(tcv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const top = new THREE.Mesh(new THREE.PlaneGeometry(B, B), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75 }));
   top.rotation.x = -Math.PI / 2; top.receiveShadow = true; scene.add(top);
+
+  // köşe yapıları (köşe karenin arka yarısında, piyonları kapatmasın)
+  const sirens = [];
+  [[0, 'go'], [10, 'jail'], [20, 'parking'], [30, 'police']].forEach(([i, kind]) => {
+    const lm = landmark(kind), c = sqCenter(i);
+    lm.position.set(c.x - 0.3, 0, c.z - 0.3); lm.rotation.y = Math.PI / 4;
+    lm.scale.setScalar(kind === 'jail' ? 1.25 : 1.4);
+    scene.add(lm);
+    if (lm.userData.siren) sirens.push(lm.userData.siren);
+    if (lm.userData.cars) ['#e9ecef', '#ffd43b'].forEach((col, k) => { const car = makeToken('araba', col); car.scale.setScalar(0.8); car.position.set(c.x - 0.05 + k * 0.32, 0, c.z - 0.45 + k * 0.2); car.rotation.y = Math.PI / 4 + (k ? 0.2 : -0.1); scene.add(car); });
+  });
+  // tahta ortasının köşelerinde ağaç kümeleri
+  const inner = B / 2 - C - ROAD - 0.32;
+  [[1, 1], [-1, 1], [-1, -1], [1, -1]].forEach(([sx, sz], q) => {
+    [[0, 0], [0.32, -0.05], [0.05, 0.3]].forEach(([dx, dz], k) => {
+      const t = treeMesh(q + k); t.position.set(sx * (inner - dx), 0, sz * (inner - dz)); t.scale.setScalar(0.9 + ((q * 3 + k) % 3) * 0.15); scene.add(t);
+    });
+  });
 
   // kart desteleri: üst üste birkaç yuvarlak köşeli kart, en üstte desenli yüz
   const decks = {};
@@ -298,7 +400,7 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w - inset, d - inset), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
     m.rotation.x = -Math.PI / 2; m.position.copy(sqCenter(i)); m.position.y = y; m.renderOrder = 2; scene.add(m); return m;
   };
-  const ownerMarks = {}, buildings = {}, mortg = {};
+  const ownerMarks = {}, buildings = {}, mortg = {}, flags = {};
   function setProp(i, color, houses, mortgaged) {
     const key = `${color}|${houses}|${mortgaged}`; if (overlays[i] === key) return; overlays[i] = key;
     if (ownerMarks[i]) { scene.remove(ownerMarks[i]); ownerMarks[i] = null; }
@@ -308,12 +410,23 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
       m.position.copy(c).addScaledVector(inw, -C * 0.465); m.position.y = 0.018; scene.add(m); ownerMarks[i] = m;
     }
     if (buildings[i]) { scene.remove(buildings[i]); buildings[i] = null; }
+    if (flags[i]) { scene.remove(flags[i]); flags[i] = null; }
+    if (color && !houses) {
+      const f = flagMesh(color), c = sqCenter(i), inw = inward(i);
+      f.position.copy(c).addScaledVector(inw, C * 0.36); f.rotation.y = Math.atan2(-inw.x, -inw.z) + Math.PI / 2;
+      scene.add(f); flags[i] = f;
+    }
     if (houses) {
       const grp = new THREE.Group(), c = sqCenter(i), inw = inward(i);
       const bandCenter = c.clone().addScaledVector(inw, C * 0.4);
       const along = new THREE.Vector3(-inw.z, 0, inw.x);
-      if (houses === 5) { const h = hotelMesh(); h.position.copy(bandCenter); h.rotation.y = Math.atan2(inw.x, inw.z); grp.add(h); }
-      else for (let k = 0; k < houses; k++) { const h = houseMesh(); h.position.copy(bandCenter).addScaledVector(along, (k - (houses - 1) / 2) * 0.19); grp.add(h); }
+      const face = Math.atan2(-inw.x, -inw.z);    // ön yüz karenin dışına (izleyiciye) baksın
+      if (houses === 5) { const h = hotelMesh(color || undefined); h.scale.setScalar(1.25); h.position.copy(bandCenter).addScaledVector(inw, -0.12); h.rotation.y = face; grp.add(h); }
+      else {
+        // 1-2 ev yan yana, 3-4 ev iki sıra (Business Tour tarzı küçük mahalle)
+        const spots = houses <= 2 ? [[-(houses - 1) * 0.17, 0], [0.17, 0]] : [[-0.17, 0], [0.17, 0], [-0.17, -0.3], [0.17, -0.3]];
+        for (let k = 0; k < houses; k++) { const h = houseMesh(color || undefined, i + k); h.scale.setScalar(1.5); h.position.copy(bandCenter).addScaledVector(along, spots[k][0]).addScaledVector(inw, spots[k][1]); h.rotation.y = face; grp.add(h); }
+      }
       scene.add(grp); buildings[i] = grp;
     }
     if (mortg[i]) { scene.remove(mortg[i]); mortg[i] = null; }
@@ -572,6 +685,9 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
       p.halo.material.opacity = p.cur ? 0.5 + 0.4 * Math.sin(now / 200) : 0;
       p.halo.scale.setScalar(p.cur ? 1 + 0.15 * Math.sin(now / 200) : 1);
     }
+    const on = Math.floor(now / 350) % 2 === 0;
+    sirens.forEach(([r, b]) => { r.material.emissiveIntensity = on ? 1.2 : 0.1; b.material.emissiveIntensity = on ? 0.1 : 1.2; });
+    Object.values(flags).forEach((f) => { if (f) f.userData.flag.rotation.y = Math.sin(now / 300 + f.position.x * 3) * 0.35; });
     marks.forEach((m) => { if (m.userData.pulse) m.material.opacity = 0.35 + 0.3 * Math.sin(now / 130); });
     focus();
     const f = 1 - Math.exp(-dt * 4);

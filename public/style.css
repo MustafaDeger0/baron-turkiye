@@ -1488,3 +1488,13 @@ body.ingame { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: 
 .hero-art { width: 340px; height: 200px; margin: -14px -10px -14px -20px; }
 .hero-gl { width: 100%; height: 100%; display: block; }
 @media (max-width: 1100px) { .hero-art { width: 280px; height: 160px; } }
+
+/* karakter / renk seçimi */
+.tok-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.tok-pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border-radius: 12px; border: 2px solid #e4dcc4; background: #fff; color: var(--c); cursor: pointer; font: inherit; transition: transform .15s; }
+.tok-pick button svg { width: 32px; height: 32px; }
+.tok-pick button small { font-size: 11px; font-weight: 700; color: var(--ink); }
+.tok-pick button.sel { border-color: var(--ink); background: color-mix(in srgb, var(--c) 14%, #fff); box-shadow: 0 3px 0 var(--ink); transform: translateY(-2px); }
+.col-pick { display: flex; gap: 8px; flex-wrap: wrap; }
+.col-pick button { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; background: var(--c); box-shadow: 0 0 0 2px #e4dcc4; cursor: pointer; }
+.col-pick button.sel { box-shadow: 0 0 0 3px var(--ink); transform: scale(1.1); }
