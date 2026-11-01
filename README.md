@@ -28,6 +28,10 @@ Tarayıcıdan oynanan, çevrimiçi ve çok oyunculu emlak ticareti oyunu
 | ✨ **Animasyonlar** | 3D zar, zıplayan piyonlar, uçan banknotlar, desteden çekilen kartlar, "SATIN ALDI" duyurusu, hapis parmaklıkları, konfeti |
 | 🗺️ **3D Türkiye haritası** | Tahtanın ortasında kabartmalı harita; satın alınan iller sahibinin rengiyle işaretlenir |
 | 🎨 **İl çizimleri** | Her il karesinde o ile özgü bir çizim (Malatya kayısısı, Rize çayı, Çanakkale truva atı…) |
+| 👤 **Hesaplar & çip** | Kayıt/giriş; kalıcı çip bakiyesi, oyun/galibiyet istatistiği, sıralama tablosu |
+| 🎁 **Günlük ödül** | Her gün giriş ödülü (100 → 500 çip, 7 günlük seri) |
+| 🤖 **Botlarla oyna** | 1–5 bota karşı ücretsiz oyun; kazanınca bot başına 25 çip. Çipsiz masalara lobide bot eklenebilir |
+| 🏨 **Otel** | Tek tıkla otel: 4 ev + otel bedeli; tur sınırı (20/40/60) dolunca en zengin kazanır |
 | ⛶ **Her ekrana sığar** | Masaüstü, tablet ve telefonda kaydırma olmadan; tek tıkla (veya **F** tuşuyla) tam ekran |
 | 💬 **Sohbet** | Lobide ve oyun içinde canlı sohbet, olay kaydı |
 | 🔄 **Yeniden bağlanma** | Sayfa yenilense ya da internet kopsa bile aynı koltuğa dönülür |
@@ -58,6 +62,25 @@ Testleri çalıştırmak için:
 npm test
 ```
 
+## 🎰 Çip Ekonomisi
+
+- Yeni hesap **1.000 çip** ile başlar.
+- **Hızlı eşleş**: giriş 100 çip. **Oda kur**: giriş ücreti 0 / 50 / 100 / 250 / 500 çip.
+- Oyun başlarken herkesin giriş ücreti masaya konur; **kazanan masadaki tüm çipleri alır**.
+- Yarım kalan (terk edilen) oyunlarda giriş ücretleri iade edilir.
+- **Günlük ödül**: 100, 150, 200, 250, 300, 400, 500 çip (her gün gelirsen seri büyür, bir gün kaçırırsan başa döner).
+
+## 🗄️ Veritabanı (hesapların kalıcı olması için önemli)
+
+| Ortam değişkeni | Açıklama |
+|---|---|
+| `DATABASE_URL` | PostgreSQL bağlantı adresi. **Tanımlıysa hesaplar burada saklanır.** |
+| `SESSION_SECRET` | Oturum anahtarlarını imzalayan gizli metin (uzun, rastgele). |
+
+`DATABASE_URL` yoksa hesaplar `data/db.json` dosyasına yazılır. Bu, kendi bilgisayarında veya diski kalıcı bir sunucuda yeterlidir.
+**Render gibi ücretsiz barındırmalarda disk kalıcı değildir**; sunucu yeniden başlarsa dosya silinir. Bu yüzden ücretsiz bir PostgreSQL
+(ör. Neon, Supabase veya Render PostgreSQL) oluşturup bağlantı adresini `DATABASE_URL` olarak gir. Tablolar ilk açılışta otomatik oluşturulur.
+
 ## 🌍 Yayına Alma
 
 > ⚠️ Oyun gerçek zamanlı WebSocket kullanır; **sürekli çalışan bir Node sunucusu** gerekir.
@@ -67,7 +90,8 @@ npm test
 
 1. [render.com](https://render.com)'a GitHub hesabınla giriş yap.
 2. **New → Blueprint** seç ve bu depoyu seç.
-3. **Apply**'a bas. Birkaç dakika sonra oyunun linki hazır!
+3. **Apply**'a bas. `SESSION_SECRET` otomatik üretilir; `DATABASE_URL` sorulduğunda PostgreSQL adresini yapıştır.
+4. Birkaç dakika sonra oyunun linki hazır!
 
 > 💤 Ücretsiz planda sunucu 15 dk boşta kalınca uyur; ilk açılış ~30 sn sürebilir.
 
@@ -85,7 +109,10 @@ Railway, Fly.io veya kendi sunucunda da çalışır; `PORT` ortam değişkeni ot
 ```
 baron-turkiye/
 ├── server/
-│   ├── index.js    # HTTP + Socket.IO, odalar, eşleşme, yeniden bağlanma
+│   ├── index.js    # HTTP + Socket.IO, hesap API'si, odalar, çip ekonomisi
+│   ├── db.js       # Hesap deposu (PostgreSQL veya JSON dosyası)
+│   ├── auth.js     # Şifre karma, oturum anahtarları
+│   ├── bots.js     # Bot yapay zekâsı
 │   ├── game.js     # Oyun motoru: kurallar ve zamanlayıcılar
 │   └── board.js    # Kareler, fiyat/kira tabloları, kartlar
 ├── public/         # Arayüz (HTML / CSS / JS)

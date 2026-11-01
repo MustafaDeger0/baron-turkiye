@@ -16,6 +16,7 @@
   const num = (n) => Math.abs(Math.round(n)).toLocaleString('tr-TR');
   const money = (n) => `${n < 0 ? '−' : ''}${CUR}${num(n)}`;
   const fmtText = (s) => esc(s).replace(/B(?=\d)/g, CUR);
+  const moneyShort = (n) => `${CUR}${n >= 1e6 ? `${(n / 1e6).toLocaleString('tr-TR')}M` : `${Math.round(n / 1000)}K`}`;
 
   // ---------- çizimler (emoji yerine SVG) ----------
   const svg = (inner, vb = '0 0 24 24') => `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner}</svg>`;
@@ -70,6 +71,10 @@
     Ankara: A('<path fill="#c8b48e" d="M2 20h28v3H2z"/><path fill="#e3d3b0" d="M4 18.5h24V20H4zM4 7.5h24v2.2H4z"/><path fill="#d6c39b" d="M6 5.5h20v2H6z"/><g fill="#efe3c6"><path d="M5.2 9.7h2v8.8h-2zm4 0h2v8.8h-2zm4 0h2v8.8h-2zm4 0h2v8.8h-2zm4 0h2v8.8h-2zm4 0h2v8.8h-2z"/></g>'),
     'İstanbul': A('<path fill="#78909c" d="M2 20h28v3H2z"/><path fill="#90a4ae" d="M8.5 15.5a7.5 6.5 0 0 1 15 0z"/><path fill="#b0bec5" d="M7.5 15.5h17V20h-17z"/><path fill="#90a4ae" d="M5.5 17a2.6 2.3 0 0 1 5.2 0zm16 0a2.6 2.3 0 0 1 5.2 0z"/><path fill="#cfd8dc" d="M15.7 6.6h.6v2.4h-.6z"/><path fill="#b0bec5" d="M3.4 6h1.4v14H3.4zm23.8 0h1.4v14h-1.4z"/><path fill="#78909c" d="m3.4 6 .7-4 .7 4zm23.8 0 .7-4 .7 4z"/><path fill="#5aa9dd" d="M0 23h32v1H0z"/>'),
   };
+
+  // ---------- çip (kalıcı puan) ----------
+  const CHIP_SVG = '<svg class="chip-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#d7263d"/><g fill="#fff"><rect x="10.6" y="1" width="2.8" height="4" rx=".6"/><rect x="10.6" y="19" width="2.8" height="4" rx=".6"/><rect x="1" y="10.6" width="4" height="2.8" rx=".6"/><rect x="19" y="10.6" width="4" height="2.8" rx=".6"/><rect x="3.6" y="4.9" width="2.8" height="4" rx=".6" transform="rotate(-45 5 6.9)"/><rect x="17.6" y="15.1" width="2.8" height="4" rx=".6" transform="rotate(-45 19 17.1)"/><rect x="15.1" y="3.6" width="4" height="2.8" rx=".6" transform="rotate(-45 17.1 5)"/><rect x="4.9" y="17.6" width="4" height="2.8" rx=".6" transform="rotate(-45 6.9 19)"/></g><circle cx="12" cy="12" r="6.6" fill="#fff"/><circle cx="12" cy="12" r="5.2" fill="none" stroke="#d7263d" stroke-width="1" stroke-dasharray="2 1.4"/><text x="12" y="15.2" text-anchor="middle" font-size="8" font-weight="900" fill="#d7263d" font-family="Baloo 2,Rubik,sans-serif">B</text></svg>';
+  const chips = (n) => `<span class="chips">${CHIP_SVG}${Math.round(n).toLocaleString('tr-TR')}</span>`;
 
   // ---------- Baron Doları banknotları ----------
   let K = 1000;
@@ -127,7 +132,9 @@
 
   let BOARD = null;
   let room = null, latest = null, prevGame = null;
-  let session = store.get('baron_session');
+  let session = null;                 // { code, pid } — içinde bulunduğun oda
+  let token = store.get('baron_token');
+  let user = null;
   let skew = 0;
   let boardBuilt = false;
   let lastLogSeq = 0, seenChatSeq = 0;
@@ -136,7 +143,7 @@
   let busy = false;
   const shownPos = {}, pawnEls = {}, cashShown = {}, cashTweens = {};
 
-  const socket = io({ transports: ['websocket', 'polling'] });
+  const socket = io({ transports: ['websocket', 'polling'], autoConnect: false, auth: (cb) => cb({ token }) });
   if (location.hostname === 'localhost') window.__baronDebug = (d) => socket.emit('debug:dice', d); // yalnızca yerel test
 
   // ---------- ekrana sığdırma (kaydırma yok) ----------
@@ -157,7 +164,17 @@
     root.setProperty('--side', `${side}px`);
     root.setProperty('--sideW', `${sideW}px`);
     $('#game').classList.toggle('portrait', !landscape);
+    placeControls(!landscape);
     if (boardBuilt) requestAnimationFrame(() => layoutPawns(false));
+  }
+  function placeControls(portrait) {
+    const inner = $('.center-inner'), bar = $('#mobileBar'), timer = $('.timer', inner) || $('.timer');
+    const ids = ['#turnInfo', '#landing', '#actions', '#debtBox', '#auctionBox'];
+    if (portrait) ids.forEach((id) => bar.appendChild($(id)));
+    else {
+      inner.insertBefore($('#turnInfo'), timer);
+      ids.slice(1).forEach((id) => inner.appendChild($(id)));
+    }
   }
   window.addEventListener('resize', fitLayout);
   fitLayout();
@@ -171,20 +188,17 @@
     setTimeout(() => t.remove(), 3200);
   }
   function showScreen(id) {
-    ['home', 'lobby', 'game'].forEach((s) => $(`#${s}`).classList.toggle('hidden', s !== id));
+    ['auth', 'home', 'lobby', 'game'].forEach((s) => $(`#${s}`).classList.toggle('hidden', s !== id));
     document.body.classList.toggle('ingame', id === 'game');
   }
-  function myName() { return $('#nameInput').value.trim(); }
   function saveSession(res) {
-    session = { code: res.code, secret: res.secret, pid: res.pid };
-    store.set('baron_session', session);
+    session = { code: res.code, pid: res.pid };
     history.replaceState(null, '', `?oda=${res.code}`);
   }
   function clearSession() {
     session = null; room = null; latest = null; prevGame = null; queue.length = 0; busy = false;
-    store.set('baron_session', null);
     history.replaceState(null, '', location.pathname);
-    boardBuilt = false; renderGameOver.done = false; lastLogSeq = 0; seenChatSeq = 0;
+    boardBuilt = false; renderGameOver.done = false; renderGameOver.res = false; lastLogSeq = 0; seenChatSeq = 0;
     [shownPos, pawnEls, cashShown].forEach((o) => Object.keys(o).forEach((k) => delete o[k]));
     $('#tokenLayer').innerHTML = '';
     $('#overlay').classList.add('hidden');
@@ -194,7 +208,7 @@
   }
   const handle = (res) => {
     if (res && res.error) { toast(res.error, 'err'); return false; }
-    if (res && res.secret) saveSession(res);
+    if (res && res.pid) saveSession(res);
     return true;
   };
   function act(type, extra = {}) {
@@ -244,7 +258,7 @@
   });
 
   // ---------- ana menü ----------
-  $('#logoHat').innerHTML = TOKENS.sapka;
+  $$('[data-hat]').forEach((el) => { el.innerHTML = TOKENS.sapka; });
   $('#deckChestIcon').innerHTML = ICON.chest;
   function notesBackground() {
     $('#notesBg').innerHTML = [1, 5, 10, 20, 50, 100, 500, 1000, 100, 50, 20, 500].map((d, i) => {
@@ -256,50 +270,161 @@
   }
   notesBackground();
 
-  $('#nameInput').value = store.get('baron_name') || '';
-  $('#nameInput').addEventListener('change', () => store.set('baron_name', myName()));
   const params = new URLSearchParams(location.search);
   if (params.get('oda')) $('#codeInput').value = params.get('oda').toUpperCase();
 
-  let startMoney = 1500000;
-  function renderStartMoney() {
-    $('#startMoneySeg').innerHTML = [1000, 1500, 2000, 2500].map((x) => x * K).map((v) => `<button type="button" class="${v === startMoney ? 'sel' : ''}" data-v="${v}">${money(v)}</button>`).join('');
-    $$('#startMoneySeg button').forEach((b) => { b.onclick = () => { startMoney = +b.dataset.v; renderStartMoney(); }; });
+  // ---------- hesap: giriş / kayıt ----------
+  let authMode = 'login';
+  $$('[data-auth]').forEach((t) => {
+    t.onclick = () => {
+      authMode = t.dataset.auth;
+      $$('[data-auth]').forEach((x) => x.classList.toggle('active', x === t));
+      $('#authBtn').textContent = authMode === 'login' ? 'Giriş Yap' : 'Hesap Oluştur';
+      $('#authPass').autocomplete = authMode === 'login' ? 'current-password' : 'new-password';
+      $('#authHint').innerHTML = authMode === 'login' ? 'Yeni hesaplar <b class="chipv">1.000</b> çiple başlar.' : 'Kullanıcı adı 3–16 karakter (harf, rakam, _). Şifre en az 6 karakter.';
+    };
+  });
+  async function api(path, body) {
+    const r = await fetch(path, { method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, ...j };
   }
-  renderStartMoney();
+  $('#authForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = $('#authBtn'); btn.disabled = true;
+    const r = await api(authMode === 'login' ? '/api/login' : '/api/register', { username: $('#authUser').value.trim(), password: $('#authPass').value });
+    btn.disabled = false;
+    if (!r.ok) return toast(r.error || 'Bir hata oluştu.', 'err');
+    token = r.token; store.set('baron_token', token);
+    $('#authPass').value = '';
+    setUser(r.user);
+    if (authMode === 'register') toast(`Hoş geldin ${r.user.name}! Hesabına 1.000 çip yüklendi.`);
+    startSocket();
+  };
+  function setUser(u) {
+    if (!u) return;
+    const prev = user;
+    user = u;
+    $('#ubName').textContent = u.name;
+    $('#ubAvatar').textContent = u.name.slice(0, 1).toLocaleUpperCase('tr-TR');
+    $('#ubStats').textContent = `${u.games} oyun · ${u.wins} galibiyet`;
+    $('#ubChips').innerHTML = chips(u.chips);
+    if (prev && prev.chips !== u.chips) { const el = $('#ubChips'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+    $('#dailyBtn').classList.toggle('glow', u.dailyAvailable);
+    $('#dailyBtn').innerHTML = u.dailyAvailable ? `Günlük Ödül <b>+${u.nextDaily}</b>` : 'Günlük Ödül ✓';
+  }
+  function startSocket() {
+    if (socket.connected) socket.disconnect();
+    socket.connect();
+  }
+  function logout() {
+    token = null; user = null; store.set('baron_token', null);
+    socket.disconnect();
+    session = null; room = null;
+    showScreen('auth');
+  }
+  $('#logoutBtn').onclick = () => confirmBox('Çıkış yapmak istiyor musun?', 'Çıkış Yap', logout);
 
-  $('#quickBtn').onclick = () => { store.set('baron_name', myName()); socket.emit('room:quick', { name: myName() }, handle); };
-  $('#showCreateBtn').onclick = () => $('#createForm').classList.toggle('hidden');
+  function openDaily() {
+    if (!user) return;
+    openModal((el) => {
+      const today = user.dailyAvailable ? user.streak + 1 : user.streak;
+      el.innerHTML = `<h3>Günlük Giriş Ödülü</h3><p class="muted">Her gün gel, seriyi bozma! 7. günden sonra her gün ${chips(user.dailyRewards.at(-1))}.</p>
+        <div class="daily-grid">${user.dailyRewards.map((r, k) => {
+          const day = k + 1, done = day < today || (!user.dailyAvailable && day === today), now = user.dailyAvailable && day === Math.min(today, 7);
+          return `<div class="dday ${done ? 'done' : ''} ${now ? 'now' : ''}"><small>${day}. gün</small>${CHIP_SVG}<b>${r}</b></div>`;
+        }).join('')}</div>
+        <div class="modal-actions">${user.dailyAvailable ? `<button class="btn primary claim-btn" id="claimBtn">Ödülü Al +${chips(user.nextDaily)}</button>` : '<p><b>Bugünkü ödülünü aldın.</b> Yarın tekrar gel!</p>'}</div>`;
+      const b = $('#claimBtn', el);
+      if (b) b.onclick = async () => {
+        b.disabled = true;
+        const r = await api('/api/daily', {});
+        if (!r.ok) { toast(r.error || 'Alınamadı.', 'err'); if (r.user) setUser(r.user); return; }
+        const from = centerOf(b);
+        setUser(r.user);
+        chipBurst(from, centerOf($('#ubChips')), r.reward);
+        toast(`+${r.reward} çip hesabına eklendi!`);
+        closeModal();
+      };
+    });
+  }
+  function chipBurst(from, to, amount) {
+    if (REDUCED) return;
+    const n = Math.min(12, 4 + Math.floor(amount / 60));
+    for (let k = 0; k < n; k++) {
+      const el = document.createElement('div');
+      el.className = 'fly-chip';
+      el.innerHTML = CHIP_SVG;
+      el.style.left = `${from.x}px`; el.style.top = `${from.y}px`;
+      $('#fx').appendChild(el);
+      const dx = to.x - from.x + (Math.random() * 30 - 15), dy = to.y - from.y;
+      el.animate([
+        { transform: 'translate(-50%,-50%) scale(.3)', opacity: 0 },
+        { transform: `translate(calc(-50% + ${dx * 0.3 + (Math.random() * 120 - 60)}px), calc(-50% + ${dy * 0.3 - 80}px)) scale(1.2)`, opacity: 1, offset: 0.35 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.6)`, opacity: 0.2 },
+      ], { duration: 900, delay: k * 50, easing: 'cubic-bezier(.4,0,.3,1)', fill: 'both' }).onfinish = () => el.remove();
+    }
+  }
+  $('#dailyBtn').onclick = openDaily;
+  $('#lbBtn').onclick = async () => {
+    const r = await api('/api/leaderboard');
+    openModal((el) => {
+      el.innerHTML = `<h3>Sıralama — En Zengin Baronlar</h3><ol class="lb">${(r.top || []).map((u, k) => `<li class="${user && u.name === user.name ? 'me' : ''}"><span class="rk">${k + 1}</span><b>${esc(u.name)}</b><span class="muted small">${u.wins} galibiyet · ${u.games} oyun</span>${chips(u.chips)}</li>`).join('') || '<li class="muted">Henüz kimse yok.</li>'}</ol>`;
+    });
+  };
+  $('#addBotBtn').onclick = () => socket.emit('lobby:bot', { add: true }, handle);
+
+  // seçim düğmeleri (açılır liste yerine: para/çip simgeleri görünsün)
+  const opt = { startMoney: 1500000, stake: 0, rounds: 40, bots: 3, botRounds: 40 };
+  function seg(id, key, values, label) {
+    const el = $(id);
+    el.innerHTML = values.map((v) => `<button type="button" class="${v === opt[key] ? 'sel' : ''}" data-v="${v}">${label(v)}</button>`).join('');
+    $$('button', el).forEach((b) => { b.onclick = () => { opt[key] = +b.dataset.v; seg(id, key, values, label); }; });
+  }
+  const roundLabel = (v) => (v ? `${v} tur` : 'Sınırsız');
+  function renderSegs() {
+    seg('#startMoneySeg', 'startMoney', [1000, 1500, 2000, 2500].map((x) => x * K), money);
+    seg('#stakeSeg', 'stake', [0, 50, 100, 250, 500], (v) => (v ? chips(v) : 'Ücretsiz'));
+    seg('#roundSeg', 'rounds', [20, 40, 60, 0], roundLabel);
+    seg('#botCountSeg', 'bots', [1, 2, 3, 4, 5], (v) => `${v} bot`);
+    seg('#botRoundSeg', 'botRounds', [20, 40, 60, 0], roundLabel);
+  }
+  renderSegs();
+
+  const toggleForm = (id) => ['#createForm', '#botsForm'].forEach((f) => $(f).classList.toggle('hidden', f !== id || !$(f).classList.contains('hidden')));
+  $('#quickBtn').onclick = () => socket.emit('room:quick', {}, handle);
+  $('#showCreateBtn').onclick = () => toggleForm('#createForm');
+  $('#showBotsBtn').onclick = () => toggleForm('#botsForm');
+  $('#botsForm').onsubmit = (e) => { e.preventDefault(); socket.emit('room:bots', { bots: opt.bots, roundLimit: opt.botRounds, startMoney: 1500 * K }, handle); };
   $('#createForm').onsubmit = (e) => {
     e.preventDefault();
-    store.set('baron_name', myName());
     socket.emit('room:create', {
-      name: myName(), roomName: $('#roomNameInput').value, maxPlayers: +$('#maxPlayersSel').value,
-      startMoney, isPublic: $('#publicSel').value === '1',
+      roomName: $('#roomNameInput').value, maxPlayers: +$('#maxPlayersSel').value,
+      startMoney: opt.startMoney, stake: opt.stake, roundLimit: opt.rounds, isPublic: $('#publicSel').value === '1',
     }, handle);
   };
-  const join = (code) => { store.set('baron_name', myName()); socket.emit('room:join', { code, name: myName() }, handle); };
+  const join = (code) => socket.emit('room:join', { code }, handle);
   $('#joinBtn').onclick = () => { const c = $('#codeInput').value.trim(); if (c.length < 5) return toast('5 haneli oda kodunu gir.', 'err'); join(c); };
   $('#codeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#joinBtn').click(); });
 
   function renderRooms(list) {
     const ul = $('#publicRooms');
     if (!Array.isArray(list) || !list.length) { ul.innerHTML = '<li class="muted">Şu an açık oda yok. İlk odayı sen kur!</li>'; return; }
-    ul.innerHTML = list.map((r) => `<li class="room"><div><b>${esc(r.name)}</b>${r.quick ? '<span class="tag">HIZLI</span>' : ''}<div class="muted">${r.players}/${r.maxPlayers} oyuncu · ${esc(r.code)}</div></div><button class="btn sm" data-join="${esc(r.code)}">Katıl</button></li>`).join('');
+    ul.innerHTML = list.map((r) => `<li class="room"><div><b>${esc(r.name)}</b>${r.quick ? '<span class="tag">HIZLI</span>' : ''}<div class="muted">${r.players}/${r.maxPlayers} oyuncu · ${r.stake ? `giriş ${chips(r.stake)}` : 'ücretsiz'} · ${esc(r.code)}</div></div><button class="btn sm" data-join="${esc(r.code)}">Katıl</button></li>`).join('');
     $$('[data-join]', ul).forEach((b) => { b.onclick = () => join(b.dataset.join); });
   }
 
   // ---------- bağlantı & durum kuyruğu ----------
   socket.on('connect', () => {
     $('#conn').classList.add('hidden');
-    if (session) {
-      socket.emit('room:rejoin', session, (res) => { if (res && res.error) clearSession(); else handle(res); });
-    } else {
-      showScreen('home');
-      socket.emit('rooms:list', renderRooms);
-    }
+    socket.emit('room:resume', (res) => {
+      if (res && res.ok) handle(res);
+      else { session = null; if (!room) { showScreen('home'); socket.emit('rooms:list', renderRooms); } }
+    });
   });
-  socket.on('disconnect', () => $('#conn').classList.remove('hidden'));
+  socket.on('connect_error', (e) => { if (e && e.message === 'auth') logout(); });
+  socket.on('disconnect', (reason) => { if (token && reason !== 'io client disconnect') $('#conn').classList.remove('hidden'); });
+  socket.on('me', (u) => setUser(u));
   socket.on('rooms:list', renderRooms);
   socket.on('kicked', (msg) => { toast(msg, 'err'); session = null; room = null; showScreen('home'); });
   socket.on('room:state', (s) => {
@@ -322,18 +447,23 @@
   // ---------- lobi ----------
   function renderLobby() {
     $('#lobbyName').textContent = room.name;
-    $('#lobbyInfo').innerHTML = `${room.players.length}/${room.maxPlayers} oyuncu · Başlangıç parası ${money(room.startMoney)} · ${room.isPublic ? 'Herkese açık' : 'Özel oda'}`;
+    $('#lobbyInfo').innerHTML = `${room.players.length}/${room.maxPlayers} oyuncu · Başlangıç ${money(room.startMoney)} · ${room.roundLimit ? `${room.roundLimit} tur` : 'tur sınırı yok'} · ${room.stake ? `Giriş ${chips(room.stake)} · Ödül ${chips(room.stake * room.players.filter((p) => !p.isBot).length)}` : 'Ücretsiz masa'}`;
+    const host0 = room.hostId === session.pid;
+    $('#botControls').classList.toggle('hidden', !host0 || room.stake > 0 || room.players.length >= room.maxPlayers);
     $('#lobbyCode').textContent = room.code;
     const mine = room.players.find((p) => p.id === session.pid);
     $('#lobbyPlayers').innerHTML = room.players.map((p) => `
       <li class="${p.connected ? '' : 'off'}">${chip(p)}
         <b>${esc(p.name)}</b>${p.id === session.pid ? ' <span class="muted">(sen)</span>' : ''}
+        ${p.isBot ? '<span class="badge-s">BOT</span>' : (p.chips != null ? `<span class="muted small">${chips(p.chips)}</span>` : '')}
         ${p.id === room.hostId ? '<span class="crown">ODA SAHİBİ</span>' : ''}
+        ${p.isBot && host0 ? `<button class="btn sm ghost" data-rmbot="${p.id}" title="Botu çıkar">✕</button>` : ''}
       </li>`).join('') + Array.from({ length: room.maxPlayers - room.players.length }, () => '<li class="muted">Boş koltuk…</li>').join('');
     const takenI = new Set(room.players.filter((p) => p !== mine).map((p) => p.icon));
     const takenC = new Set(room.players.filter((p) => p !== mine).map((p) => p.color));
     $('#iconPicker').innerHTML = Object.keys(TOKENS).map((i) => `<button class="chip ${mine && mine.icon === i ? 'sel' : ''} ${takenI.has(i) ? 'taken' : ''}" data-icon="${i}" title="${i}">${TOKENS[i]}</button>`).join('');
     $('#colorPicker').innerHTML = COLORS.map((c) => `<button class="chip ${mine && mine.color === c ? 'sel' : ''} ${takenC.has(c) ? 'taken' : ''}" data-color="${c}" style="background:${c}"></button>`).join('');
+    $$('[data-rmbot]').forEach((b) => { b.onclick = () => socket.emit('lobby:bot', { id: b.dataset.rmbot }, handle); });
     $$('[data-icon]').forEach((b) => { b.onclick = () => socket.emit('lobby:token', { icon: b.dataset.icon }); });
     $$('[data-color]').forEach((b) => { b.onclick = () => socket.emit('lobby:token', { color: b.dataset.color }); });
     const host = room.hostId === session.pid;
@@ -373,9 +503,9 @@
       inp.value = '';
     };
   });
-  $$('.tab').forEach((t) => {
+  $$('.tab[data-tab]').forEach((t) => {
     t.onclick = () => {
-      $$('.tab').forEach((x) => x.classList.toggle('active', x === t));
+      $$('.tab[data-tab]').forEach((x) => x.classList.toggle('active', x === t));
       $$('.tab-body').forEach((b) => b.classList.toggle('hidden', b.dataset.body !== t.dataset.tab));
       if (t.dataset.tab === 'chat' && latest) { renderChat(latest); const ul = $('#gameChat'); ul.scrollTop = ul.scrollHeight; }
     };
@@ -392,15 +522,15 @@
   const icon = (k, cls = '') => `<div class="icon ${cls}">${ICON[k]}</div>`;
   function squareHTML(s) {
     switch (s.type) {
-      case 'prop': return `<div class="band"></div><div class="ct art-ct"><div class="art">${ART[s.name] || ''}</div><div class="txt"><div class="${nameCls(s.name)}">${esc(s.name)}</div><div class="pr">${money(s.price)}</div></div></div>`;
+      case 'prop': return `<div class="band"></div><div class="ct art-ct"><div class="art">${ART[s.name] || ''}</div><div class="txt"><div class="${nameCls(s.name)}">${esc(s.name)}</div><div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div></div>`;
       case 'station': {
         const k = s.name.includes('Liman') ? 'ship' : s.name.includes('Havalimanı') ? 'plane' : 'train';
-        return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(k)}<div class="pr">${money(s.price)}</div></div>`;
+        return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(k)}<div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div>`;
       }
-      case 'utility': return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(s.icon, s.icon)}<div class="pr">${money(s.price)}</div></div>`;
+      case 'utility': return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(s.icon, s.icon)}<div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div>`;
       case 'chance': return '<div class="ct"><div class="nm">Şans</div><div class="q">?</div><div></div></div>';
       case 'chest': return `<div class="ct"><div class="nm">Kamu Fonu</div>${icon('chest')}<div></div></div>`;
-      case 'tax': return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(s.icon)}<div class="pr">${money(s.amount)} öde</div></div>`;
+      case 'tax': return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(s.icon)}<div class="pr">${money(s.amount)} öde</div><div class="prc">${moneyShort(s.amount)}</div></div>`;
       case 'go': return `<div class="corner-in"><div class="s">Her geçişte ${money(200 * K)} al</div><div class="t">BAŞLANGIÇ</div></div><div class="go-arrow">${ICON.arrow}</div>`;
       case 'jail': return '<div class="jail-cell"><div class="barsv"></div><div class="t">HAPİS</div></div><div class="visit v1"><span>SADECE</span></div><div class="visit v2">ZİYARET</div>';
       case 'parking': return `<div class="corner-in"><div class="t">ÜCRETSİZ</div>${icon('car')}<div class="t">OTOPARK</div></div>`;
@@ -793,6 +923,9 @@
     const moveT = animate ? movesDuration(g.moves) : 0;
     setDice(g.dice, animate);
     if (animate && g.dice[0] === g.dice[1]) after(diceT - 150, () => burst('ÇİFT!', '50%', '28%'));
+    const ds = $('#diceSum');
+    if (g.rollId) { after(animate ? diceT - 250 : 0, () => { ds.textContent = `= ${g.dice[0] + g.dice[1]}`; ds.classList.remove('hidden', 'pop'); void ds.offsetWidth; if (animate) ds.classList.add('pop'); }); }
+    else ds.classList.add('hidden');
     after(diceT, () => {
       if (animate && g.moves && g.moves.length) animateMoves(g.moves, g);
       else snapTokens(g);
@@ -861,13 +994,33 @@
     const s = sq(i);
     return `<div class="mini-deed"><div class="mh" style="background:${groupColor(s)}">${esc(s.name)}</div><div class="mb"><span>Fiyat <b>${money(s.price)}</b></span><span>Kira <b>${rentLabel(s)}</b></span></div></div>`;
   }
+  // Zar sonrası nereye gelindiğini ve neler olduğunu gösteren panel
+  function renderLanding(g) {
+    const el = $('#landing');
+    const mv = g.moves && g.moves.length ? g.moves[g.moves.length - 1] : null;
+    $$('.sq.landed').forEach((x) => x.classList.remove('landed'));
+    if (!mv || g.phase === 'gameover') { el.classList.add('hidden'); return; }
+    const p = playerById(mv.pid), s = sq(mv.to);
+    sqEl(mv.to).classList.add('landed');
+    const evs = g.log.filter((l) => l.seq > g.rollLogSeq + 1 && !/zar attı|Sıra .* oyuncusunda/.test(l.text)).slice(0, 3);
+    const pic = s.type === 'prop' ? (ART[s.name] || '') : s.type === 'chance' ? '<b class="q">?</b>' : ICON[{ station: s.name.includes('Liman') ? 'ship' : s.name.includes('Havalimanı') ? 'plane' : 'train', utility: s.icon, tax: s.icon, chest: 'chest', gotojail: 'cuffs', parking: 'car', go: 'arrow', jail: 'cuffs' }[s.type]] || '';
+    const isMe = m0() && p && p.id === m0().id;
+    el.classList.remove('hidden');
+    el.style.setProperty('--gc', groupColor(s));
+    el.innerHTML = `<div class="l-pic">${pic}</div><div class="l-txt"><div class="l-title">${p ? `${isMe ? 'Sen' : esc(p.name)} <span class="muted">→</span> ` : ''}<b>${esc(s.name)}</b> <span class="l-dice">(${g.dice[0]}+${g.dice[1]})</span></div>
+      ${evs.length ? `<ul>${evs.map((l) => `<li>${fmtText(l.text)}</li>`).join('')}</ul>` : ''}</div>`;
+  }
+  const m0 = () => me();
+
   function renderCenter(g) {
     const cur = playerById(g.turn), m = me();
     const myTurn = m && cur && m.id === cur.id && !m.bankrupt;
     const JAIL = 50 * K;
     let info = `<span class="who" style="background:${cur.color}">${tokenSVG(cur.token)} ${esc(cur.name)}</span> <span class="${g.phase === 'gameover' ? '' : 'dots'}">${phaseText[g.phase] || ''}</span>`;
     if (myTurn && g.phase === 'roll') info = m.inJail ? `Hapistesin (${m.jailTurns + 1}. deneme)` : (g.extraRoll ? 'Çift attın, tekrar at!' : 'Sıra sende!');
+    if (g.roundLimit) info += ` <span class="round-tag">Tur ${Math.min(g.round, g.roundLimit)}/${g.roundLimit}</span>`;
     $('#turnInfo').innerHTML = info;
+    renderLanding(g);
     const deedSlot = g.phase === 'buy' && g.pendingBuy !== null ? miniDeed(g.pendingBuy) : '';
 
     const A = [];
@@ -974,7 +1127,8 @@
       const labels = ['Kira', '1 ev ile', '2 ev ile', '3 ev ile', '4 ev ile', 'Otel ile'];
       rows = s.rent.map((r, k) => `<tr class="${pr.houses === k && pr.owner ? 'cur' : ''}"><td>${labels[k]}</td><td>${money(r)}</td></tr>`).join('')
         + '<tr><td colspan="2" class="muted" style="font-size:13px">Renk grubunun tamamına sahipsen boş arsa kirası 2 kat</td></tr>'
-        + `<tr><td>Ev / otel maliyeti</td><td>${money(BOARD.groups[s.group].house)}</td></tr>`;
+        + `<tr><td>Ev başına</td><td>${money(BOARD.groups[s.group].house)}</td></tr>`
+        + `<tr><td>Otel (4 ev + otel)</td><td>${money(BOARD.groups[s.group].house * 5)}</td></tr>`;
     } else if (s.type === 'station') {
       rows = [1, 2, 3, 4].map((n) => `<tr><td>${n} ulaşım noktası</td><td>${money(25 * K * 2 ** (n - 1))}</td></tr>`).join('');
     } else if (s.type === 'utility') {
@@ -991,7 +1145,9 @@
     const b = [];
     if (s.type === 'prop') {
       const h = BOARD.groups[s.group].house;
-      b.push(`<button class="btn sm green" data-pa="build" data-i="${i}">${pr.houses === 4 ? 'Otel' : 'Ev'} kur ${money(h)}</button>`);
+      const full = BOARD.squares.filter((x) => x.group === s.group).every((x) => g.props[x.index].owner === m.id);
+      if (pr.houses < 4) b.push(`<button class="btn sm green" data-pa="build" data-i="${i}">Ev kur ${money(h)}</button>`);
+      if (pr.houses < 5 && full) b.push(`<button class="btn sm green" data-pa="buildHotel" data-i="${i}" title="${pr.houses ? `Kalan ${4 - pr.houses} ev + otel` : '4 ev + otel'}">Otel kur ${money((4 - Math.min(4, pr.houses)) * h + h)}</button>`);
       if (pr.houses) b.push(`<button class="btn sm" data-pa="sell" data-i="${i}">Bina sat +${money(h / 2)}</button>`);
     }
     if (!pr.mortgaged) b.push(`<button class="btn sm gold" data-pa="mortgage" data-i="${i}">İpotek +${money(s.mortgage)}</button>`);
@@ -1105,18 +1261,33 @@
   function renderGameOver(g) {
     const ov = $('#overlay');
     if (g.phase !== 'gameover') { ov.classList.add('hidden'); return; }
-    if (renderGameOver.done) return;
+    if (renderGameOver.done && (renderGameOver.res || !room.result)) return;
+    const firstShow = !renderGameOver.done;
     renderGameOver.done = true;
+    renderGameOver.res = !!room.result;
     const w = playerById(g.winner);
+    const res = room.result;
+    const d = res && res.deltas ? res.deltas[session.pid] : undefined;
+    const order = g.players.slice().sort((a, b) => (b.id === g.winner) - (a.id === g.winner) || (g.worth[b.id] || 0) - (g.worth[a.id] || 0));
     ov.innerHTML = `<div class="win-box"><div class="trophy">${TOKENS.sapka}</div><h2>${w ? `${esc(w.name)} yeni Baron!` : 'Oyun bitti'}</h2>
       ${w && w.id === session.pid ? '<p>Tebrikler, Türkiye senin!</p>' : '<p>Bir dahaki sefere!</p>'}
+      ${d !== undefined ? `<div class="chip-result ${d > 0 ? 'plus' : d < 0 ? 'minus' : ''}">${d > 0 ? '+' : d < 0 ? '−' : ''}${chips(Math.abs(d))}</div>` : ''}
+      <ol class="standings">${order.map((p) => `<li>${chip(p)} <b>${esc(p.name)}</b> <span class="muted">${p.bankrupt ? 'iflas' : money(g.worth[p.id] || 0)}</span></li>`).join('')}</ol>
       <div class="modal-actions"><button class="btn primary" id="homeBtn">Ana Menü</button><button class="btn" id="stayBtn">Tahtaya Bak</button></div></div>`;
     ov.classList.remove('hidden');
-    confetti();
+    if (firstShow) confetti();
+    if (d > 0) after(400, () => chipBurst(centerOf($('.chip-result')), { x: innerWidth / 2, y: -40 }, d));
     $('#homeBtn').onclick = () => socket.emit('room:leave', () => clearSession());
     $('#stayBtn').onclick = () => ov.classList.add('hidden');
   }
 
   // ---------- başlat ----------
-  fetch('/api/board').then((r) => r.json()).then((b) => { BOARD = b; K = b.K || 1000; startMoney = 1500 * K; renderStartMoney(); notesBackground(); pump(); });
+  fetch('/api/board').then((r) => r.json()).then((b) => { BOARD = b; K = b.K || 1000; opt.startMoney = 1500 * K; renderSegs(); notesBackground(); pump(); });
+  (async () => {
+    if (!token) return showScreen('auth');
+    const r = await api('/api/me');
+    if (!r.ok) { if (r.status === 401) return logout(); return showScreen('auth'); }
+    setUser(r.user);
+    startSocket();
+  })();
 })();

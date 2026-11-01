@@ -29,8 +29,10 @@ const tl = (n) => `B${Number(n).toLocaleString('tr-TR')}`;
 class Game {
   constructor(players, opts = {}) {
     this.startMoney = opts.startMoney || 1500 * K;
+    this.roundLimit = opts.roundLimit === 0 ? 0 : (opts.roundLimit || 40);
+    this.turnCount = 0;
     this.players = shuffle(players.map((p) => ({
-      id: p.id, name: p.name, color: p.color, token: p.token,
+      id: p.id, name: p.name, color: p.color, token: p.token, isBot: !!p.isBot,
       cash: this.startMoney, pos: 0, inJail: false, jailTurns: 0, jailCards: [],
       bankrupt: false, connected: true, offlineSince: null, debtTo: null, debtSince: null,
     })));
@@ -121,6 +123,7 @@ class Game {
       case 'pass': err = this.passAuction(p); break;
       case 'endTurn': err = this.endTurn(p); break;
       case 'build': err = this.build(p, idx); break;
+      case 'buildHotel': err = this.buildHotel(p, idx); break;
       case 'sell': err = this.sell(p, idx); break;
       case 'mortgage': err = this.mortgage(p, idx); break;
       case 'unmortgage': err = this.unmortgage(p, idx); break;
@@ -148,6 +151,7 @@ class Game {
     this.dice = [a, b];
     this.rollId++;
     this.moves = [];
+    this.rollLogSeq = this.logSeq;
     this.addLog(`${p.name} zar attı: ${a} + ${b} = ${sum}${dbl ? ' (çift!)' : ''}`);
     if (p.inJail) {
       if (dbl) {
@@ -421,6 +425,8 @@ class Game {
   nextTurn() {
     if (this.phase === 'gameover') return;
     this.doubles = 0; this.extraRoll = false; this.pendingBuy = null;
+    this.turnCount++;
+    if (this.roundLimit && this.turnCount >= this.roundLimit * this.players.length) { this.endByLimit(); return; }
     const n = this.players.length;
     for (let k = 1; k <= n; k++) {
       const i = (this.turn + k) % n;
@@ -459,6 +465,28 @@ class Game {
       this.addLog(`${p.name}, ${sq.name} üzerine ev yaptı (${pr.houses}).`);
     }
     p.cash -= cost;
+    return null;
+  }
+  // Doğrudan otel: kalan evlerin bedeli + otel bedeli (toplam 4 ev + otel)
+  hotelCost(idx) {
+    const sq = SQUARES[idx], pr = this.props[idx];
+    return (4 - Math.min(4, pr.houses)) * GROUPS[sq.group].house + GROUPS[sq.group].house;
+  }
+  buildHotel(p, idx) {
+    const e = this.ownProp(p, idx); if (e) return e;
+    if (this.phase === 'auction') return 'Açık artırma sırasında inşaat yapılamaz.';
+    const sq = SQUARES[idx], pr = this.props[idx];
+    if (sq.type !== 'prop') return 'Buraya otel yapılamaz.';
+    if (!this.ownsGroup(p.id, sq.group)) return 'Önce bu renk grubunun tamamına sahip olmalısın.';
+    if (GROUP_MEMBERS[sq.group].some((i) => this.props[i].mortgaged)) return 'Grupta ipotekli mülk var.';
+    if (pr.houses >= 5) return 'Zaten otel var.';
+    if (this.hotelsLeft <= 0) return 'Bankada otel kalmadı.';
+    const cost = this.hotelCost(idx);
+    if (p.cash < cost) return `Otel için ${tl(cost)} gerekli.`;
+    this.housesLeft += pr.houses;
+    pr.houses = 5; this.hotelsLeft--;
+    p.cash -= cost;
+    this.addLog(`${p.name}, ${sq.name} üzerine otel dikti (${tl(cost)}).`);
     return null;
   }
   sell(p, idx) {
@@ -620,6 +648,31 @@ class Game {
     else this.refreshDebts();
   }
 
+  netWorth(p) {
+    let w = p.cash;
+    for (const [i, pr] of Object.entries(this.props)) {
+      if (pr.owner !== p.id) continue;
+      const s = SQUARES[i];
+      w += pr.mortgaged ? s.mortgage : s.price;
+      if (s.type === 'prop') w += pr.houses * GROUPS[s.group].house;
+    }
+    return w;
+  }
+  endByLimit() {
+    const act = this.active().map((p) => ({ p, w: this.netWorth(p) })).sort((a, b) => b.w - a.w);
+    this.phase = 'gameover';
+    this.auction = null;
+    this.winner = act[0] ? act[0].p.id : null;
+    this.addLog(`Tur sınırı (${this.roundLimit}) doldu! En zengin oyuncu kazanır.`);
+    act.forEach((x, k) => this.addLog(`${k + 1}. ${x.p.name}: ${tl(x.w)} toplam servet`));
+    this.addLog(`Oyun bitti! Kazanan: ${act[0] ? act[0].p.name : '—'}`);
+  }
+  forceEnd(reason) {
+    const act = this.active().map((p) => ({ p, w: this.netWorth(p) })).sort((a, b) => b.w - a.w);
+    this.phase = 'gameover'; this.auction = null;
+    this.winner = act[0] ? act[0].p.id : null;
+    this.addLog(`Oyun bitti (${reason}). Kazanan: ${act[0] ? act[0].p.name : '—'}`);
+  }
   checkWinner() {
     if (this.phase === 'gameover') return true;
     const act = this.active();
@@ -687,6 +740,7 @@ class Game {
       dice: this.dice,
       rollId: this.rollId,
       moves: this.moves,
+      rollLogSeq: this.rollLogSeq || 0,
       pendingBuy: this.pendingBuy,
       auction: this.auction,
       trades: this.trades,
@@ -698,6 +752,9 @@ class Game {
       deadline: this.deadline,
       extraRoll: this.extraRoll,
       timing: TIMING,
+      round: Math.floor(this.turnCount / this.players.length) + 1,
+      roundLimit: this.roundLimit,
+      worth: Object.fromEntries(this.players.map((p) => [p.id, p.bankrupt ? 0 : this.netWorth(p)])),
     };
   }
 }

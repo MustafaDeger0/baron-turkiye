@@ -6,3 +6,8 @@ services:
     buildCommand: npm ci --omit=dev
     startCommand: npm start
     healthCheckPath: /health
+    envVars:
+      - key: SESSION_SECRET
+        generateValue: true   # oturum anahtarlarını imzalar; Render otomatik üretir
+      - key: DATABASE_URL
+        sync: false           # PostgreSQL bağlantı adresini panelden gir (hesaplar kalıcı olsun)
