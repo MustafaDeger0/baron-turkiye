@@ -172,8 +172,14 @@
       sideW = side;
     } else {
       const pad = mode === 'compact' ? 4 : 10, gap = mode === 'compact' ? 8 : 12;
-      sideW = mode === 'compact' ? Math.round(Math.min(320, Math.max(220, W * 0.3))) : Math.round(Math.min(360, Math.max(260, W * 0.22)));
-      side = Math.min(H - pad * 2, W - sideW - gap - pad * 2);
+      if (mode === 'compact') {
+        // yan telefon: tahta tüm yüksekliği kullanır, kalan genişliğin hepsi panele
+        side = Math.min(H - pad * 2, W - 220 - gap - pad * 2);
+        sideW = Math.min(420, W - side - gap - pad * 2);
+      } else {
+        sideW = Math.round(Math.min(360, Math.max(260, W * 0.22)));
+        side = Math.min(H - pad * 2, W - sideW - gap - pad * 2);
+      }
     }
     side = Math.max(220, Math.floor(side));
     root.setProperty('--side', `${side}px`);
@@ -181,6 +187,7 @@
     root.setProperty('--leftW', `${leftW}px`);
     root.setProperty('--sat', `${sa.t}px`); root.setProperty('--sar', `${sa.r}px`); root.setProperty('--sab', `${sa.b}px`); root.setProperty('--sal', `${sa.l}px`);
     const gm = $('#game');
+    if (document.body.classList.contains('ingame') && (window.scrollX || window.scrollY)) window.scrollTo(0, 0);
     gm.classList.toggle('m-portrait', mode === 'portrait');
     gm.classList.toggle('m-land', mode === 'compact');
     if (!fitLayout.done) arrange();
@@ -1023,6 +1030,10 @@
     el.innerHTML = html;
     el.style.left = `${pt.x}px`; el.style.top = `${pt.y}px`;
     $('#fx').appendChild(el);
+    const b = $('#game').classList.contains('hidden') ? null : $('#board').getBoundingClientRect();
+    const w = el.offsetWidth / 2 + 4, inBoard = b && pt.x >= b.left && pt.x <= b.right && pt.y >= b.top && pt.y <= b.bottom;
+    const lo = inBoard ? b.left + w : w, hi = inBoard ? b.right - w : window.innerWidth - w;
+    if (hi > lo) el.style.left = `${Math.min(hi, Math.max(lo, pt.x))}px`;
     el.animate([
       { transform: 'translate(-50%,-50%) scale(.5)', opacity: 0 },
       { transform: 'translate(-50%,-90%) scale(1.2)', opacity: 1, offset: 0.2 },
@@ -1223,7 +1234,7 @@
       return `<li class="${g.turn === p.id ? 'turn' : ''} ${p.bankrupt ? 'dead' : ''}" data-pid="${p.id}" style="--c:${p.color}">
         ${chip(p)}
         <div style="flex:1;min-width:0">
-          <div class="pname" title="${esc(p.name)}">${p.id === session.pid ? '<b style="color:var(--red)">●</b> ' : ''}${esc(p.name)}
+          <div class="pname" title="${esc(p.name)}">${p.id === session.pid ? '<b style="color:var(--red)">●</b> ' : ''}<span class="pn">${esc(p.name)}</span>
             ${p.inJail ? '<span class="badge-s jail">hapiste</span>' : ''}
             ${p.inDebt ? '<span class="badge-s debt">borçlu</span>' : ''}
             ${!p.connected && !p.bankrupt ? '<span class="badge-s off">çevrimdışı</span>' : ''}
