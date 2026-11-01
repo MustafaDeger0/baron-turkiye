@@ -47,86 +47,8 @@ Tarayıcıdan oynanan, çevrimiçi ve çok oyunculu emlak ticareti oyunu
 4. Paran biterse ev sat ya da ipotek et. Kapatamazsan iflas edersin.
 5. Ayakta kalan son oyuncu **Baron** olur! 🏆
 
-## 🚀 Kurulum
-
-```bash
-npm install
-npm start
 ```
 
-Ardından tarayıcıda **http://localhost:3000** adresini aç.
-
-Testleri çalıştırmak için:
-
-```bash
-npm test
-```
-
-## 🎰 Çip Ekonomisi
-
-- Yeni hesap **1.000 çip** ile başlar.
-- **Hızlı eşleş**: giriş 100 çip. **Oda kur**: giriş ücreti 0 / 50 / 100 / 250 / 500 çip.
-- Oyun başlarken herkesin giriş ücreti masaya konur; **kazanan masadaki tüm çipleri alır**.
-- Yarım kalan (terk edilen) oyunlarda giriş ücretleri iade edilir.
-- **Günlük ödül**: 100, 150, 200, 250, 300, 400, 500 çip (her gün gelirsen seri büyür, bir gün kaçırırsan başa döner).
-
-## 🗄️ Veritabanı (hesapların kalıcı olması için önemli)
-
-| Ortam değişkeni | Açıklama |
-|---|---|
-| `DATABASE_URL` | PostgreSQL bağlantı adresi. **Tanımlıysa hesaplar burada saklanır.** |
-| `SESSION_SECRET` | Oturum anahtarlarını imzalayan gizli metin (uzun, rastgele). |
-
-`DATABASE_URL` yoksa hesaplar `data/db.json` dosyasına yazılır. Bu, kendi bilgisayarında veya diski kalıcı bir sunucuda yeterlidir.
-**Render gibi ücretsiz barındırmalarda disk kalıcı değildir**; sunucu yeniden başlarsa dosya silinir. Bu yüzden ücretsiz bir PostgreSQL
-(ör. Neon, Supabase veya Render PostgreSQL) oluşturup bağlantı adresini `DATABASE_URL` olarak gir. Tablolar ilk açılışta otomatik oluşturulur.
-
-## 🌍 Yayına Alma
-
-> ⚠️ Oyun gerçek zamanlı WebSocket kullanır; **sürekli çalışan bir Node sunucusu** gerekir.
-> Vercel / Netlify gibi yalnızca serverless platformlar uygun değildir.
-
-### Render (ücretsiz, önerilen)
-
-1. [render.com](https://render.com)'a GitHub hesabınla giriş yap.
-2. **New → Blueprint** seç ve bu depoyu seç.
-3. **Apply**'a bas. `SESSION_SECRET` otomatik üretilir; `DATABASE_URL` sorulduğunda PostgreSQL adresini yapıştır.
-4. Birkaç dakika sonra oyunun linki hazır!
-
-> 💤 Ücretsiz planda sunucu 15 dk boşta kalınca uyur; ilk açılış ~30 sn sürebilir.
-
-### Docker
-
-```bash
-docker build -t baron-turkiye .
-docker run -p 3000:3000 baron-turkiye
-```
-
-Railway, Fly.io veya kendi sunucunda da çalışır; `PORT` ortam değişkeni otomatik okunur.
-
-## 📁 Proje Yapısı
-
-```
-baron-turkiye/
-├── server/
-│   ├── index.js    # HTTP + Socket.IO, hesap API'si, odalar, çip ekonomisi
-│   ├── db.js       # Hesap deposu (PostgreSQL veya JSON dosyası)
-│   ├── auth.js     # Şifre karma, oturum anahtarları
-│   ├── bots.js     # Bot yapay zekâsı
-│   ├── game.js     # Oyun motoru: kurallar ve zamanlayıcılar
-│   └── board.js    # Kareler, fiyat/kira tabloları, kartlar
-├── public/         # Arayüz (HTML / CSS / JS)
-├── test/           # Simülasyon ve uçtan uca testler
-├── Dockerfile
-└── render.yaml
-```
-
-## 📝 Notlar
-
-- Odalar sunucu belleğinde tutulur; sunucu yeniden başlarsa süren oyunlar silinir.
-- Süreleri `server/game.js` içindeki `TIMING` ile, tahta ve kartları `server/board.js` üzerinden değiştirebilirsin.
-
----
 
 <div align="center">
 <sub>Bu proje Hasbro'nun Monopoly markasıyla ilişkili değildir; klasik emlak ticareti oyun mekaniklerini kullanan bağımsız bir yapımdır.</sub>
