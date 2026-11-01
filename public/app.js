@@ -167,18 +167,19 @@
     const mode = !landscape ? 'portrait' : H < 560 ? 'compact' : 'desktop';
     let side, sideW, leftW = 0;
     if (mode === 'compact') {
-      // yan çevrilmiş telefon: [oyuncular] [tahta] [eylemler]
+      // yan çevrilmiş telefon: [oyuncu paraları] [tahta — tüm yükseklik] [dar düğme sütunu]
       side = H - 8;
-      let rem = W - side - 12;
-      if (rem < 230) { side = W - 230 - 12; rem = 230; }
-      if (rem >= 390) { leftW = Math.round(Math.min(185, Math.max(130, rem * 0.36))); sideW = Math.min(320, rem - leftW - 8); }
+      const BTN = 112;
+      let rem = W - side - 20;
+      if (rem < BTN) { side = W - BTN - 20; rem = BTN; }
+      if (rem - BTN >= 140) { sideW = BTN; leftW = Math.min(230, rem - BTN); }
       else sideW = rem;
     } else if (mode === 'desktop') {
       sideW = Math.round(Math.min(360, Math.max(260, W * 0.22)));
       side = Math.min(H - 20, W - sideW - 32);
     } else {
-      // dikey telefon: tahta üstte, altta eylemler ve oyuncular
-      side = Math.min(W - 8, H - 8 - Math.max(230, H * 0.32));
+      // dikey telefon: tahta tam genişlikte, altında paralar ve düğmeler
+      side = Math.min(W - 8, H - 8 - 170);
       sideW = side;
     }
     side = Math.max(220, Math.floor(side));
@@ -192,26 +193,46 @@
     gm.classList.toggle('has-strip', leftW > 0);
     if (mode !== layoutMode || !fitLayout.done) arrange(mode, leftW > 0);
     layoutMode = mode; fitLayout.done = true;
-    if (boardBuilt) requestAnimationFrame(() => layoutPawns(false));
+    if (boardBuilt) requestAnimationFrame(() => { layoutPawns(false); fitNames(); });
+    fitHome();
   }
+  // Bilgisayarda ana sayfa kaydırma gerektirmeden ekrana sığsın
+  function fitHome() {
+    const h = $('#home2'); if (!h || $('#home').classList.contains('hidden')) return;
+    const desk = window.innerWidth > 920;
+    if (!desk) { h.style.transform = ''; h.style.marginBottom = ''; return; }
+    const natural = h.offsetHeight, avail = window.innerHeight;
+    const k = Math.max(0.6, Math.min(1, avail / natural));
+    h.style.transform = k < 1 ? `scale(${k})` : '';
+    h.style.marginBottom = k < 1 ? `${-(natural * (1 - k))}px` : '';
+  }
+  if (window.ResizeObserver) new ResizeObserver(() => fitHome()).observe($('#home2'));
   // Ögeleri ekran türüne göre yerleştir
   function arrange(mode, strip) {
     const small = mode !== 'desktop';
-    const inner = $('.center-inner'), bar = $('#mobileBar'), timer = $('.timer', inner) || $('.timer');
     const aside = $('.side'), drawer = $('#gameDrawerBody'), players = $('#playerList');
-    const extras = [$('.side-buttons'), $('#game .tabs, #gameDrawerBody .tabs'), ...$$('.tab-body')];
-    const ids = ['#turnInfo', '#landing', '#actions', '#debtBox', '#auctionBox'];
-    if (small) ids.forEach((id) => bar.appendChild($(id)));
-    else { inner.insertBefore($('#turnInfo'), timer); ids.slice(1).forEach((id) => inner.appendChild($(id))); inner.insertBefore($('#bankStock'), $('#landing')); }
-    if (small) extras.forEach((el) => el && drawer.appendChild(el));
-    else extras.forEach((el) => el && aside.appendChild(el));
+    // oyun düğmeleri (zar, satın al…) her ekranda tahtanın ortasında kalır;
+    // telefonda yalnız Olaylar / Sohbet / Teklifler açılır menüye taşınır
+    const tabs = [$('#game .tabs, #gameDrawerBody .tabs'), ...$$('.tab-body')];
+    if (small) tabs.forEach((el) => el && drawer.appendChild(el));
+    else tabs.forEach((el) => el && aside.appendChild(el));
     if (strip) $('#leftStrip').appendChild(players);
-    else if (small) aside.insertBefore(players, $('#mobileBar').nextSibling);
     else aside.insertBefore(players, $('.side-buttons'));
     if (!small) closeDrawer();
   }
+  // Telefonda il adlarını kareye sığdır
+  function fitNames() {
+    const on = $('#game').classList.contains('portrait') || $('#game').classList.contains('compact');
+    $$('#board .sq .nm').forEach((el) => {
+      el.style.fontSize = '';
+      if (!on || !el.offsetParent) return;
+      let f = parseFloat(getComputedStyle(el).fontSize), guard = 0;
+      const lh = parseFloat(getComputedStyle(el).lineHeight) || f * 1.1;
+      while ((el.scrollWidth > el.clientWidth + 0.5 || el.scrollHeight > lh * 2 + 1) && f > 6 && guard++ < 24) { f -= 0.5; el.style.fontSize = `${f}px`; }
+    });
+  }
   // Oyun içi açılır menü
-  function openDrawer() { $('#gameDrawer').classList.add('open'); $('#drawerBackdrop').classList.remove('hidden'); if (latest) renderChat(latest); updateMenuBadge(); }
+  function openDrawer() { const t = $(`.tab[data-tab="${incomingTrades ? 'trades' : 'chat'}"]`); if (t) t.click(); $('#gameDrawer').classList.add('open'); $('#drawerBackdrop').classList.remove('hidden'); if (latest) renderChat(latest); updateMenuBadge(); }
   function closeDrawer() { $('#gameDrawer').classList.remove('open'); $('#drawerBackdrop').classList.add('hidden'); }
   const drawerOpen = () => $('#gameDrawer').classList.contains('open');
   let unreadChat = 0, incomingTrades = 0;
@@ -239,6 +260,8 @@
     ['loading', 'auth', 'home', 'lobby', 'game'].forEach((s) => $(`#${s}`).classList.toggle('hidden', s !== id));
     if (id === 'home' && token) loadLeaderboard();
     document.body.classList.toggle('ingame', id === 'game');
+    if (id === 'game') requestAnimationFrame(() => { if (boardBuilt) { layoutPawns(false); fitNames(); } });
+    if (id === 'home') requestAnimationFrame(fitHome);
   }
   function saveSession(res) {
     session = { code: res.code, pid: res.pid };
@@ -687,19 +710,31 @@
     if (i <= 30) return { r: 1, c: 1 + (i - 20), side: i === 30 ? 'corner' : 'top' };
     return { r: 1 + (i - 30), c: 11, side: 'right' };
   }
+  // Türkçe heceye göre uzun kelimeleri ortadan bölünebilir yap (DİYAR-BAKIR, KASTA-MONU)
+  function hyph(name) {
+    const V = 'AEIİOÖUÜaeıioöuü';
+    return name.split(' ').map((w) => {
+      if (w.length < 7) return esc(w);
+      let best = -1;
+      for (let i = 3; i <= w.length - 3; i++) {
+        if (!V.includes(w[i]) && V.includes(w[i + 1]) && (best < 0 || Math.abs(i - w.length / 2) < Math.abs(best - w.length / 2))) best = i;
+      }
+      return best < 0 ? esc(w) : `${esc(w.slice(0, best))}&shy;${esc(w.slice(best))}`;
+    }).join(' ');
+  }
   const nameCls = (n) => (n.length > 8 ? 'nm long' : 'nm');
   const icon = (k, cls = '') => `<div class="icon ${cls}">${ICON[k]}</div>`;
   function squareHTML(s) {
     switch (s.type) {
-      case 'prop': return `<div class="band"></div><div class="ct art-ct"><div class="art">${ART[s.name] || ''}</div><div class="txt"><div class="${nameCls(s.name)}">${esc(s.name)}</div><div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div></div>`;
+      case 'prop': return `<div class="band"></div><div class="ct art-ct"><div class="art">${ART[s.name] || ''}</div><div class="txt"><div class="${nameCls(s.name)}">${hyph(s.name)}</div><div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div></div>`;
       case 'station': {
         const k = s.name.includes('Liman') ? 'ship' : s.name.includes('Havalimanı') ? 'plane' : 'train';
-        return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(k)}<div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div>`;
+        return `<div class="ct"><div class="${nameCls(s.name)}">${hyph(s.name)}</div>${icon(k)}<div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div>`;
       }
-      case 'utility': return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(s.icon, s.icon)}<div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div>`;
+      case 'utility': return `<div class="ct"><div class="${nameCls(s.name)}">${hyph(s.name)}</div>${icon(s.icon, s.icon)}<div class="pr">${money(s.price)}</div><div class="prc">${moneyShort(s.price)}</div></div>`;
       case 'chance': return '<div class="ct"><div class="nm">Şans</div><div class="q">?</div><div></div></div>';
       case 'chest': return `<div class="ct"><div class="nm">Kamu Fonu</div>${icon('chest')}<div></div></div>`;
-      case 'tax': return `<div class="ct"><div class="${nameCls(s.name)}">${esc(s.name)}</div>${icon(s.icon)}<div class="pr">${money(s.amount)} öde</div><div class="prc">${moneyShort(s.amount)}</div></div>`;
+      case 'tax': return `<div class="ct"><div class="${nameCls(s.name)}">${hyph(s.name)}</div>${icon(s.icon)}<div class="pr">${money(s.amount)} öde</div><div class="prc">${moneyShort(s.amount)}</div></div>`;
       case 'go': return `<div class="corner-in"><div class="s">Her geçişte ${money(200 * K)} al</div><div class="t">BAŞLANGIÇ</div></div><div class="go-arrow">${ICON.arrow}</div>`;
       case 'jail': return '<div class="jail-cell"><div class="barsv"></div><div class="t">HAPİS</div></div><div class="visit v1"><span>SADECE</span></div><div class="visit v2">ZİYARET</div>';
       case 'parking': return `<div class="corner-in"><div class="t">ÜCRETSİZ</div>${icon('car')}<div class="t">OTOPARK</div></div>`;
@@ -751,7 +786,7 @@
     });
     buildMap();
     $('#die1').innerHTML = cubeHTML(); $('#die2').innerHTML = cubeHTML();
-    boardBuilt = true;
+    boardBuilt = true; requestAnimationFrame(fitNames);
   }
   const sqEl = (i) => $(`.sq[data-idx="${i}"]`);
 
@@ -782,7 +817,8 @@
       } else if (flag) flag.remove();
       if (s.type === 'prop') {
         const band = $('.band', el);
-        band.innerHTML = pr.houses === 5 ? '<i class="hotel"></i>' : '<i class="house"></i>'.repeat(pr.houses);
+        band.innerHTML = pr.houses === 5 ? '<i class="hotel"></i>' : pr.houses ? '<i class="house"></i>'.repeat(pr.houses) + `<b class="hcount">${pr.houses}</b>` : '';
+        el.title = `${s.name}${pr.houses ? ` · ${pr.houses === 5 ? '1 otel' : `${pr.houses} ev`}` : ''}`;
         if (!fast && pp && pr.houses > pp.houses) { band.classList.remove('pop'); void band.offsetWidth; band.classList.add('pop'); stamp(i, '#18a04a', pr.houses === 5 ? 'OTEL!' : 'EV!'); }
       }
     });
@@ -1366,7 +1402,8 @@
       rows = s.rent.map((r, k) => `<tr class="${pr.houses === k && pr.owner ? 'cur' : ''}"><td>${labels[k]}</td><td>${money(r)}</td></tr>`).join('')
         + '<tr><td colspan="2" class="muted" style="font-size:13px">Renk grubunun tamamına sahipsen boş arsa kirası 2 kat</td></tr>'
         + `<tr><td>Ev başına</td><td>${money(BOARD.groups[s.group].house)}</td></tr>`
-        + `<tr><td>Otel (4 evden sonra)</td><td>${money(BOARD.groups[s.group].house)}</td></tr>`;
+        + `<tr><td>Otel (4 evin üstüne)</td><td>${money(BOARD.groups[s.group].hotel)}</td></tr>`
+        + `<tr><td colspan="2" class="muted" style="font-size:13px">Otelin toplam maliyeti: 4 × ${money(BOARD.groups[s.group].house)} + ${money(BOARD.groups[s.group].hotel)} = <b>${money(BOARD.groups[s.group].house * 4 + BOARD.groups[s.group].hotel)}</b></td></tr>`;
     } else if (s.type === 'station') {
       rows = [1, 2, 3, 4].map((n) => `<tr><td>${n} ulaşım noktası</td><td>${money(25 * K * 2 ** (n - 1))}</td></tr>`).join('');
     } else if (s.type === 'utility') {
@@ -1382,9 +1419,10 @@
     if (!m || !pr || pr.owner !== m.id || m.bankrupt) return '';
     const b = [];
     if (s.type === 'prop') {
-      const h = BOARD.groups[s.group].house;
-      if (pr.houses < 5) b.push(`<button class="btn sm green" data-pa="build" data-i="${i}" ${pr.houses === 4 ? 'title="4 evin yerine otel"' : ''}>${pr.houses === 4 ? 'Otel' : 'Ev'} kur ${money(h)}</button>`);
-      if (pr.houses) b.push(`<button class="btn sm" data-pa="sell" data-i="${i}">Bina sat +${money(h / 2)}</button>`);
+      const gr = BOARD.groups[s.group], h = gr.house;
+      const left = Math.max(0, (g.buildLimit || 3) - (m.builds || 0));
+      if (pr.houses < 5) b.push(`<button class="btn sm green" data-pa="build" data-i="${i}" ${left ? '' : 'disabled'} title="Bu tur kalan inşaat hakkın: ${left}/${g.buildLimit || 3}">${pr.houses === 4 ? 'Otel' : 'Ev'} kur ${money(pr.houses === 4 ? gr.hotel : h)} <small>(${left} hak)</small></button>`);
+      if (pr.houses) b.push(`<button class="btn sm" data-pa="sell" data-i="${i}">${pr.houses === 5 ? 'Oteli' : 'Ev'} sat +${money((pr.houses === 5 ? gr.hotel : h) / 2)}</button>`);
     }
     if (!pr.mortgaged) b.push(`<button class="btn sm gold" data-pa="mortgage" data-i="${i}">İpotek +${money(s.mortgage)}</button>`);
     else b.push(`<button class="btn sm" data-pa="unmortgage" data-i="${i}">İpoteği kaldır ${money(Math.ceil(s.mortgage * 1.1))}</button>`);
@@ -1407,7 +1445,7 @@
       const owned = Object.entries(g.props).filter(([, pr]) => pr.owner === p.id).map(([i]) => +i);
       const order = (i) => { const s = sq(i); return s.group ? GROUP_ORDER.indexOf(s.group) : s.type === 'station' ? 8 : 9; };
       owned.sort((a, b) => order(a) - order(b) || a - b);
-      const worth = owned.reduce((t, i) => t + (g.props[i].mortgaged ? 0 : sq(i).mortgage) + (sq(i).type === 'prop' ? g.props[i].houses * BOARD.groups[sq(i).group].house / 2 : 0), 0);
+      const worth = owned.reduce((t, i) => t + (g.props[i].mortgaged ? 0 : sq(i).mortgage) + (sq(i).type === 'prop' ? (g.props[i].houses === 5 ? BOARD.groups[sq(i).group].house * 4 + BOARD.groups[sq(i).group].hotel : g.props[i].houses * BOARD.groups[sq(i).group].house) / 2 : 0), 0);
       const wallet = breakdown(p.cash).map(([n, c], k) => `<div class="wn" style="animation-delay:${k * 60}ms">${noteSVG(n)}<b>×${c}</b></div>`).join('');
       el.innerHTML = `<h3 style="display:flex;align-items:center;gap:8px">${chip(p)} ${esc(p.name)} — ${money(p.cash)}</h3>
         <div class="wallet">${wallet || '<span class="muted">Cüzdan boş.</span>'}</div>

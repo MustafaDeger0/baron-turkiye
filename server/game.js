@@ -1,7 +1,7 @@
 // Sunucu tarafında yetkili oyun motoru. Tüm kurallar burada uygulanır;
 // istemciler yalnızca eylem gönderir ve durumu görüntüler.
 const crypto = require('crypto');
-const { SQUARES, GROUPS, GROUP_MEMBERS, CHANCE, CHEST, K } = require('./board');
+const { SQUARES, GROUPS, GROUP_MEMBERS, CHANCE, CHEST, K, BUILD_LIMIT } = require('./board');
 const GO_MONEY = 200 * K;
 const JAIL_FEE = 50 * K;
 
@@ -450,6 +450,7 @@ class Game {
       if (!this.players[i].bankrupt) { this.turn = i; break; }
     }
     this.phase = 'roll';
+    this.current().builds = 0;
     this.addLog(`Sıra ${this.current().name} oyuncusunda.`);
     this.resetDeadline();
   }
@@ -470,7 +471,8 @@ class Game {
     if (members.some((i) => this.props[i].mortgaged)) return 'Grupta ipotekli mülk var.';
     if (pr.houses >= 5) return 'Zaten otel var.';
     if (pr.houses > Math.min(...members.map((i) => this.props[i].houses))) return 'Evleri gruba eşit dağıtmalısın.';
-    const cost = GROUPS[sq.group].house;
+    if ((p.builds || 0) >= BUILD_LIMIT) return `Bir turda en fazla ${BUILD_LIMIT} bina dikebilirsin. Sıran tekrar gelince devam et.`;
+    const cost = pr.houses === 4 ? GROUPS[sq.group].hotel : GROUPS[sq.group].house;
     if (p.cash < cost) return 'Yeterli paran yok.';
     if (pr.houses === 4) {
       if (this.hotelsLeft <= 0) return 'Bankada otel kalmadı.';
@@ -482,6 +484,7 @@ class Game {
       this.addLog(`${p.name}, ${sq.name} üzerine ev yaptı (${pr.houses}).`);
     }
     p.cash -= cost;
+    p.builds = (p.builds || 0) + 1;
     return null;
   }
   sell(p, idx) {
@@ -490,16 +493,16 @@ class Game {
     if (sq.type !== 'prop' || pr.houses === 0) return 'Satılacak bina yok.';
     const members = GROUP_MEMBERS[sq.group];
     if (pr.houses < Math.max(...members.map((i) => this.props[i].houses))) return 'Binaları gruptan eşit satmalısın.';
-    const half = GROUPS[sq.group].house / 2;
+    const half = GROUPS[sq.group].house / 2, hotelHalf = GROUPS[sq.group].hotel / 2;
     if (pr.houses === 5) {
       if (this.housesLeft >= 4) {
         pr.houses = 4; this.housesLeft -= 4; this.hotelsLeft++;
-        p.cash += half;
-        this.addLog(`${p.name}, ${sq.name} otelini sattı (+${tl(half)}).`);
+        p.cash += hotelHalf;
+        this.addLog(`${p.name}, ${sq.name} otelini sattı (+${tl(hotelHalf)}).`);
       } else {
         pr.houses = 0; this.hotelsLeft++;
-        p.cash += half * 5;
-        this.addLog(`${p.name}, ${sq.name} otelini sattı; bankada ev olmadığından tüm binalar gitti (+${tl(half * 5)}).`);
+        p.cash += hotelHalf + half * 4;
+        this.addLog(`${p.name}, ${sq.name} otelini sattı; bankada ev olmadığından tüm binalar gitti (+${tl(hotelHalf + half * 4)}).`);
       }
     } else {
       pr.houses--; this.housesLeft++;
@@ -649,7 +652,7 @@ class Game {
       if (pr.owner !== p.id) continue;
       const s = SQUARES[i];
       w += pr.mortgaged ? s.mortgage : s.price;
-      if (s.type === 'prop') w += pr.houses * GROUPS[s.group].house;
+      if (s.type === 'prop') w += pr.houses === 5 ? GROUPS[s.group].house * 4 + GROUPS[s.group].hotel : pr.houses * GROUPS[s.group].house;
     }
     return w;
   }
@@ -746,6 +749,7 @@ class Game {
       winner: this.winner,
       housesLeft: this.housesLeft,
       hotelsLeft: this.hotelsLeft,
+      buildLimit: BUILD_LIMIT,
       deadline: this.deadline,
       extraRoll: this.extraRoll,
       timing: TIMING,

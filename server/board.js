@@ -5,14 +5,15 @@
 const K = 1000;
 
 const GROUPS = {
-  kahve:   { name: 'Kahverengi', color: '#8B5A2B', house: 50 * K },
-  acikmavi:{ name: 'Açık Mavi',  color: '#3FB8E8', house: 50 * K },
-  pembe:   { name: 'Pembe',      color: '#E3338C', house: 100 * K },
-  turuncu: { name: 'Turuncu',    color: '#FF8A1F', house: 100 * K },
-  kirmizi: { name: 'Kırmızı',    color: '#E53935', house: 150 * K },
-  sari:    { name: 'Sarı',       color: '#F7CF1D', house: 150 * K },
-  yesil:   { name: 'Yeşil',      color: '#24A148', house: 200 * K },
-  lacivert:{ name: 'Lacivert',   color: '#1E4FD8', house: 200 * K },
+  // her bölgenin ev fiyatı farklı; otel = 4 ev üstüne ayrıca otel bedeli (ev × 2)
+  kahve:   { name: 'Kahverengi', color: '#8B5A2B', house: 40 * K,  hotel: 80 * K },
+  acikmavi:{ name: 'Açık Mavi',  color: '#3FB8E8', house: 60 * K,  hotel: 120 * K },
+  pembe:   { name: 'Pembe',      color: '#E3338C', house: 90 * K,  hotel: 180 * K },
+  turuncu: { name: 'Turuncu',    color: '#FF8A1F', house: 110 * K, hotel: 220 * K },
+  kirmizi: { name: 'Kırmızı',    color: '#E53935', house: 140 * K, hotel: 280 * K },
+  sari:    { name: 'Sarı',       color: '#F7CF1D', house: 160 * K, hotel: 320 * K },
+  yesil:   { name: 'Yeşil',      color: '#24A148', house: 190 * K, hotel: 380 * K },
+  lacivert:{ name: 'Lacivert',   color: '#1E4FD8', house: 230 * K, hotel: 460 * K },
 };
 
 const P = (name, group, price, rent) => ({ type: 'prop', name, group, price: price * K, rent: rent.map((r) => r * K) });
@@ -117,4 +118,5 @@ for (const c of [...CHANCE, ...CHEST]) {
   if (c.repairs) c.repairs = c.repairs.map((x) => x * K);
 }
 
-module.exports = { SQUARES, GROUPS, GROUP_MEMBERS, CHANCE, CHEST, K };
+const BUILD_LIMIT = 3; // bir oyuncu kendi turu başına en fazla 3 bina dikebilir
+module.exports = { SQUARES, GROUPS, GROUP_MEMBERS, CHANCE, CHEST, K, BUILD_LIMIT };

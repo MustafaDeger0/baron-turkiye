@@ -1,7 +1,7 @@
 // Bot oyuncular: sunucuda çalışan yapay zekâ.
 // Takaslar, "takas olursa kim hangi seti tamamlar?" sorusu simüle edilerek değerlendirilir.
 const crypto = require('crypto');
-const { SQUARES, GROUPS, GROUP_MEMBERS, K } = require('./board');
+const { SQUARES, GROUPS, GROUP_MEMBERS, K, BUILD_LIMIT } = require('./board');
 
 const BOT_NAMES = ['Bot Kemal', 'Bot Ayşe', 'Bot Mehmet', 'Bot Elif', 'Bot Cem', 'Bot Zehra'];
 const RESERVE = 100 * K;          // elde tutulmaya çalışılan nakit
@@ -150,6 +150,7 @@ function chooseManagement(game, bot) {
     const cost = Math.ceil(SQUARES[i].mortgage * 1.1);
     if (bot.cash - cost > RESERVE * 3) return { type: 'unmortgage', idx: +i };
   }
+  if ((bot.builds || 0) >= BUILD_LIMIT) return null;
   let best = null;
   for (const g of Object.keys(GROUPS)) {
     if (!game.ownsGroup(bot.id, g)) continue;
@@ -158,7 +159,7 @@ function chooseManagement(game, bot) {
     const min = Math.min(...mem.map((i) => game.props[i].houses));
     if (min >= 5) continue;
     const idx = mem.find((i) => game.props[i].houses === min);
-    const cost = GROUPS[g].house;
+    const cost = min === 4 ? GROUPS[g].hotel : GROUPS[g].house;
     if (bot.cash - cost < RESERVE) continue;
     if (min < 4 && game.housesLeft <= 0) continue;
     if (min === 4 && game.hotelsLeft <= 0) continue;
