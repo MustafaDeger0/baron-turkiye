@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b2034">
+<title>Baron Türkiye — 3D Önizleme</title>
+<link rel="stylesheet" href="/fonts.css">
+<style>
+  :root { --sat: env(safe-area-inset-top); --sar: env(safe-area-inset-right); --sab: env(safe-area-inset-bottom); --sal: env(safe-area-inset-left); --ink: #1b2a36; --red: #d7263d; --gold: #f2b632; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b2034; font-family: 'Nunito', system-ui, sans-serif; color: var(--ink); user-select: none; -webkit-user-select: none; overscroll-behavior: none; }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .hud { position: fixed; pointer-events: none; z-index: 5; }
+  .hud * { pointer-events: auto; }
+  .pl { position: fixed; z-index: 5; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.94); border-radius: 99px; padding: 3px 10px 3px 4px; font-size: 13px; font-weight: 700; box-shadow: 0 2px 0 rgba(0,0,0,.35); border: 2px solid transparent; transition: transform .2s, border-color .2s; }
+  .pl i { width: 20px; height: 20px; border-radius: 50%; display: block; box-shadow: inset 0 -3px 0 rgba(0,0,0,.25); }
+  .pl b { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .pl.turn { border-color: var(--ink); transform: translateY(2px); }
+  .pl.c0 { left: calc(8px + var(--sal)); bottom: calc(8px + var(--sab)); }
+  .pl.c1 { left: calc(8px + var(--sal)); top: calc(8px + var(--sat)); }
+  .pl.c2 { right: calc(8px + var(--sar)); top: calc(8px + var(--sat)); }
+  .pl.c3 { right: calc(8px + var(--sar)); bottom: calc(8px + var(--sab)); }
+  .pl { flex-direction: column; align-items: flex-start; gap: 0; padding: 5px 12px 5px 34px; border-radius: 14px; min-width: 120px; }
+  .pl i { position: absolute; left: 7px; top: 50%; margin-top: -11px; width: 22px; height: 22px; }
+  .pl b { font-size: 15px; }
+  .btns { position: fixed; right: calc(8px + var(--sar)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; }
+  .b { border: 2px solid var(--ink); background: #fff; color: var(--ink); font: 700 13px 'Nunito', sans-serif; border-radius: 10px; padding: 6px 10px; box-shadow: 0 3px 0 var(--ink); cursor: pointer; white-space: nowrap; }
+  .b:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  .b.on { background: var(--gold); }
+  .infow { left: 0; right: 0; top: 27%; display: flex; justify-content: center; }
+  .bottom { left: 0; right: 0; top: 55%; display: flex; justify-content: center; }
+  .info { background: rgba(255,255,255,.94); border-radius: 99px; padding: 5px 14px; font-size: 14px; font-weight: 700; box-shadow: 0 2px 0 rgba(0,0,0,.3); max-width: 92vw; text-align: center; }
+  .info:empty { display: none; }
+  .act { display: flex; gap: 8px; }
+  .big { font: 800 18px 'Nunito', sans-serif; padding: 10px 24px; border-radius: 14px; border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink); color: #fff; background: var(--red); cursor: pointer; }
+  .big.green { background: #1f9d55; } .big.ghost { background: #fff; color: var(--ink); }
+  .big:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+  .big[disabled] { opacity: .45; }
+  .card { position: fixed; z-index: 6; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.6); opacity: 0; transition: transform .35s cubic-bezier(.2,1.5,.4,1), opacity .25s; pointer-events: none; width: 210px; background: #fff; border: 3px solid var(--ink); border-radius: 12px; overflow: hidden; box-shadow: 0 6px 0 var(--ink), 0 20px 40px rgba(0,0,0,.4); text-align: center; }
+  .card.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  .card .h { color: #fff; font-weight: 800; font-size: 20px; padding: 10px 8px 8px; text-shadow: 0 2px 3px rgba(0,0,0,.4); }
+  .card .h small { display: block; font-size: 10px; letter-spacing: .2em; opacity: .85; }
+  .card .bd { padding: 8px 12px 10px; font-size: 14px; font-weight: 600; }
+  .tag { position: fixed; z-index: 7; left: 50%; top: calc(8px + var(--sat)); transform: translateX(-50%); background: var(--gold); color: var(--ink); font-weight: 800; font-size: 11px; letter-spacing: .12em; padding: 3px 10px; border-radius: 99px; border: 2px solid var(--ink); pointer-events: none; display: none; }
+  #loading { position: fixed; inset: 0; z-index: 9; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 22px; letter-spacing: .1em; background: #0b2034; }
+  @media (orientation: portrait) { .btns { top: calc(72px + var(--sat)); transform: none; flex-direction: row; } }
+  @media (max-height: 460px) { .big { font-size: 15px; padding: 7px 18px; } .info { font-size: 12px; } .pl { font-size: 11px; min-width: 104px; } .pl b { font-size: 13px; } .b { font-size: 11px; padding: 4px 8px; } }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<div id="loading">BARON 3D yükleniyor…</div>
+<canvas id="c"></canvas>
+<div id="players"></div>
+<div class="hud btns">
+  <button class="b on" id="camFollow">Yakın</button>
+  <button class="b" id="camAll">Tüm tahta</button>
+  <a class="b" href="/" style="text-decoration:none">Oyuna dön</a>
+</div>
+<div class="hud infow"><div class="info" id="info"></div></div>
+<div class="hud bottom"><div class="act" id="act"></div></div>
+<div class="card" id="card"></div>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
