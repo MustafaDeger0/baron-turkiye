@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Baron Türkiye — Yönetici Paneli</title>
+<link rel="stylesheet" href="/fonts.css">
+<style>
+  :root { --ink: #1b2a36; --muted: #6b7a86; --red: #d7263d; --green: #1f9d55; --gold: #f2b632; --line: #e4dcc4; --bg: #0f2233; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Nunito', system-ui, sans-serif; background: radial-gradient(900px 500px at 15% 0%, #1d4a6e 0%, var(--bg) 60%); color: var(--ink); min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 16px 22px; color: #fff; flex-wrap: wrap; }
+  header h1 { margin: 0; font-weight: 900; letter-spacing: 3px; font-size: 26px; }
+  header h1 small { font-size: 13px; letter-spacing: 2px; color: var(--gold); margin-left: 8px; }
+  header .who { margin-left: auto; font-size: 14px; opacity: .85; }
+  header a { color: #fff; font-weight: 800; text-decoration: none; background: rgba(255,255,255,.12); padding: 7px 12px; border-radius: 10px; }
+  main { max-width: 1180px; margin: 0 auto; padding: 0 16px 40px; display: grid; gap: 16px; }
+  .card { background: #fdfcf7; border-radius: 18px; padding: 16px 18px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .card h2 { margin: 0 0 10px; font-size: 19px; display: flex; align-items: center; gap: 10px; }
+  .card h2 small { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .tabs { display: flex; gap: 8px; }
+  .tab { border: none; background: rgba(255,255,255,.12); color: #fff; font: 800 15px 'Nunito', sans-serif; padding: 9px 16px; border-radius: 12px; cursor: pointer; }
+  .tab.on { background: #fff; color: var(--ink); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  input { font: 600 15px 'Nunito', sans-serif; border: 2px solid var(--line); border-radius: 10px; padding: 8px 10px; min-width: 0; background: #fff; }
+  input:focus { outline: none; border-color: var(--ink); }
+  input.amt { width: 120px; text-align: right; }
+  .btn { font: 800 14px 'Nunito', sans-serif; border: 2px solid var(--ink); background: #fff; color: var(--ink); border-radius: 10px; padding: 7px 12px; cursor: pointer; box-shadow: 0 2px 0 var(--ink); white-space: nowrap; }
+  .btn:active { transform: translateY(2px); box-shadow: none; }
+  .btn.g { background: var(--green); color: #fff; } .btn.r { background: var(--red); color: #fff; } .btn.y { background: var(--gold); }
+  .btn.sm { padding: 4px 8px; font-size: 12px; }
+  .btn[disabled] { opacity: .5; cursor: default; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 11px; letter-spacing: .12em; color: var(--muted); padding: 6px 8px; border-bottom: 2px solid var(--line); }
+  td { padding: 8px; border-bottom: 1px dashed var(--line); vertical-align: middle; }
+  td.n { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 16px; white-space: nowrap; }
+  .nm b { display: block; } .nm small { color: var(--muted); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #c7ccd1; margin-right: 6px; vertical-align: 1px; }
+  .dot.on { background: var(--green); box-shadow: 0 0 0 3px rgba(31,157,85,.2); }
+  .tag { font-size: 11px; font-weight: 800; background: var(--gold); padding: 1px 7px; border-radius: 99px; margin-left: 6px; }
+  .acts { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+  .room { border: 2px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-top: 10px; background: #fff; }
+  .room h3 { margin: 0 0 6px; font-size: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .room h3 small { color: var(--muted); font-weight: 700; }
+  .pill { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px; margin-right: 6px; }
+  .muted { color: var(--muted); }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 12px; font-weight: 800; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 9; }
+  .toast.show { opacity: 1; } .toast.err { background: var(--red); }
+  .gate { max-width: 560px; margin: 60px auto; text-align: center; }
+  .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .hidden { display: none !important; }
+  @media (max-width: 760px) {
+    thead { display: none; } tr { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); } td { border: none; padding: 2px 4px; }
+    td.acts-cell { grid-column: 1 / -1; } td.stats { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>BARON<small>YÖNETİCİ PANELİ</small></h1>
+  <div class="tabs"><button class="tab on" data-t="users">Oyuncular ve çipler</button><button class="tab" data-t="rooms">Canlı oyunlar</button></div>
+  <span class="who" id="who"></span>
+  <a href="/">Oyuna dön</a>
+</header>
+
+<div class="gate card hidden" id="gate"><h2 style="justify-content:center">Giriş gerekli</h2><p id="gateMsg"></p><a class="btn" href="/">Ana sayfaya git</a></div>
+
+<main id="app" class="hidden">
+  <section data-p="users">
+    <div class="card">
+      <h2>Herkese çip ver / al <small>Tüm hesaplara aynı anda uygulanır (çip 0'ın altına düşmez)</small></h2>
+      <div class="row">
+        <input class="amt" id="allAmt" type="number" min="1" step="50" value="100">
+        <button class="btn g" id="allGive">Herkese ver</button>
+        <button class="btn r" id="allTake">Herkesten al</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>Oyuncular <small id="count"></small></h2>
+      <div class="row" style="margin-bottom:8px"><input id="q" placeholder="Kullanıcı adı veya e-posta ara…" style="flex:1"><button class="btn" id="reload">Yenile</button></div>
+      <table>
+        <thead><tr><th>OYUNCU</th><th>ÇİP</th><th class="stats">OYUN / GALİBİYET</th><th>İŞLEM</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="pager"><button class="btn sm" id="prev">← Önceki</button><span class="muted" id="pageInfo"></span><button class="btn sm" id="next">Sonraki →</button></div>
+    </div>
+  </section>
+
+  <section data-p="rooms" class="hidden">
+    <div class="card">
+      <h2>Devam eden oyunlar <small>Oyun içi Baron Doları (฿) — yalnızca o oyunu etkiler</small></h2>
+      <div class="row"><button class="btn" id="roomsReload">Yenile</button><span class="muted">Liste 5 saniyede bir kendiliğinden yenilenir.</span></div>
+      <div id="rooms"></div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const $ = (s, el = document) => el.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = (n) => Number(n).toLocaleString('tr-TR');
+  let token = null; try { token = JSON.parse(localStorage.getItem('baron_token')); } catch { /* yok */ }
+  const api = async (path, body) => {
+    const r = await fetch(path, { method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw Object.assign(new Error(j.error || 'Hata'), { status: r.status });
+    return j;
+  };
+  const toast = (m, err) => { const t = $('#toast'); t.textContent = m; t.className = `toast show${err ? ' err' : ''}`; clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2200); };
+  const amountOf = (el) => { const n = Math.trunc(Number(el.value)); return Number.isFinite(n) && n > 0 ? n : 0; };
+
+  // ---------- oyuncular ----------
+  let page = 0, total = 0, timer = null;
+  async function loadUsers() {
+    const j = await api(`/api/admin/users?q=${encodeURIComponent($('#q').value)}&page=${page}`);
+    total = j.total;
+    $('#count').textContent = `${fmt(total)} hesap`;
+    $('#pageInfo').textContent = `${page * 50 + (j.users.length ? 1 : 0)}–${page * 50 + j.users.length} / ${fmt(total)}`;
+    $('#prev').disabled = page === 0; $('#next').disabled = (page + 1) * 50 >= total;
+    $('#rows').innerHTML = j.users.map((u) => `<tr data-id="${u.id}">
+      <td class="nm"><b><span class="dot ${u.online ? 'on' : ''}" title="${u.online ? 'çevrimiçi' : 'çevrimdışı'}"></span>${esc(u.name)}${u.admin ? '<span class="tag">YÖNETİCİ</span>' : ''}</b><small>${esc(u.email || '—')} · #${u.id}</small></td>
+      <td class="n">${fmt(u.chips)}</td>
+      <td class="stats muted">${u.games} / ${u.wins}</td>
+      <td class="acts-cell"><div class="acts">
+        <button class="btn sm g" data-d="100">+100</button><button class="btn sm g" data-d="1000">+1.000</button><button class="btn sm r" data-d="-100">−100</button>
+        <input class="amt" type="number" min="0" step="50" placeholder="miktar" style="width:96px;padding:4px 8px;font-size:14px">
+        <button class="btn sm g" data-k="give">Ver</button><button class="btn sm r" data-k="take">Al</button><button class="btn sm y" data-k="set">Ayarla</button>
+      </div></td></tr>`).join('') || '<tr><td colspan="4" class="muted">Sonuç yok.</td></tr>';
+    $('#rows').querySelectorAll('tr[data-id]').forEach((tr) => {
+      const id = +tr.dataset.id, inp = $('input', tr);
+      const run = async (body, msg) => {
+        try { const r = await api('/api/admin/chips', { id, ...body }); $('td.n', tr).textContent = fmt(r.user.chips); toast(msg(r.user)); } catch (e) { toast(e.message, true); }
+      };
+      tr.querySelectorAll('[data-d]').forEach((b) => { b.onclick = () => run({ delta: +b.dataset.d }, (u) => `${u.name}: ${b.textContent} çip → ${fmt(u.chips)}`); });
+      tr.querySelector('[data-k="give"]').onclick = () => { const n = amountOf(inp); if (!n) return toast('Önce miktar yaz.', true); run({ delta: n }, (u) => `${u.name} hesabına ${fmt(n)} çip verildi`); };
+      tr.querySelector('[data-k="take"]').onclick = () => { const n = amountOf(inp); if (!n) return toast('Önce miktar yaz.', true); run({ delta: -n }, (u) => `${u.name} hesabından ${fmt(n)} çip alındı`); };
+      tr.querySelector('[data-k="set"]').onclick = () => { const n = Math.trunc(Number(inp.value)); if (!Number.isFinite(n) || n < 0 || inp.value === '') return toast('Önce miktar yaz.', true); run({ set: n }, (u) => `${u.name}: çip ${fmt(n)} olarak ayarlandı`); };
+    });
+  }
+  $('#q').oninput = () => { clearTimeout(timer); timer = setTimeout(() => { page = 0; loadUsers().catch((e) => toast(e.message, true)); }, 250); };
+  $('#reload').onclick = () => loadUsers().catch((e) => toast(e.message, true));
+  $('#prev').onclick = () => { page = Math.max(0, page - 1); loadUsers(); };
+  $('#next').onclick = () => { page++; loadUsers(); };
+  const all = async (sign) => {
+    const n = amountOf($('#allAmt')); if (!n) return toast('Önce miktar yaz.', true);
+    if (!confirm(`TÜM oyunculara ${sign > 0 ? 'verilecek' : 'alınacak'}: ${fmt(n)} çip. Emin misin?`)) return;
+    try { const r = await api('/api/admin/chips-all', { delta: sign * n }); toast(`${fmt(r.count)} hesaba uygulandı`); loadUsers(); } catch (e) { toast(e.message, true); }
+  };
+  $('#allGive').onclick = () => all(1); $('#allTake').onclick = () => all(-1);
+
+  // ---------- canlı oyunlar ----------
+  const STATUS = { lobby: 'Lobide', playing: 'Oynanıyor', finished: 'Bitti' };
+  async function loadRooms() {
+    const j = await api('/api/admin/rooms');
+    const live = j.rooms.filter((r) => r.status === 'playing');
+    $('#rooms').innerHTML = j.rooms.length ? j.rooms.map((r) => `<div class="room" data-code="${r.code}">
+      <h3>${esc(r.name)} <small>${r.code} · ${STATUS[r.status] || r.status}${r.botGame ? ' · botlu' : ''}${r.stake ? ` · giriş ${r.stake} çip` : ''}</small>
+        ${r.status === 'playing' ? '<span style="margin-left:auto" class="acts"><input class="amt" type="number" min="1" step="10000" value="100000" style="width:120px;padding:4px 8px;font-size:14px"><button class="btn sm g" data-all="1">Herkese ฿ ver</button><button class="btn sm r" data-all="-1">Herkesten ฿ al</button></span>' : ''}</h3>
+      <table><tbody>${r.players.map((p) => `<tr data-pid="${p.id}">
+        <td class="nm"><b><span class="pill" style="background:${esc(p.color)}"></span>${esc(p.name)}${p.isBot ? ' <small>(bot)</small>' : ''}${p.bankrupt ? ' <small style="color:var(--red)">iflas</small>' : ''}</b></td>
+        <td class="n">${p.cash == null ? '—' : `฿${fmt(p.cash)}`}</td>
+        <td class="acts-cell">${r.status === 'playing' && !p.bankrupt ? `<div class="acts"><input class="amt" type="number" min="1" step="10000" value="100000" style="width:110px;padding:4px 8px;font-size:14px"><button class="btn sm g" data-s="1">฿ Ver</button><button class="btn sm r" data-s="-1">฿ Al</button></div>` : ''}</td></tr>`).join('')}</tbody></table></div>`).join('') : '<p class="muted">Şu an açık oda yok.</p>';
+    if (!live.length && j.rooms.length) $('#rooms').insertAdjacentHTML('afterbegin', '<p class="muted">Şu an oynanan oyun yok; oyun içi para yalnızca devam eden oyunlarda verilebilir.</p>');
+    $('#rooms').querySelectorAll('.room').forEach((el) => {
+      const code = el.dataset.code;
+      const send = async (pid, delta) => { try { await api('/api/admin/cash', { code, pid, delta }); toast(delta > 0 ? `฿${fmt(delta)} verildi` : `฿${fmt(-delta)} alındı`); loadRooms(); } catch (e) { toast(e.message, true); } };
+      el.querySelectorAll('[data-all]').forEach((b) => { b.onclick = () => { const n = amountOf($('h3 input', el)); if (n) send('*', n * +b.dataset.all); }; });
+      el.querySelectorAll('tr[data-pid]').forEach((tr) => tr.querySelectorAll('[data-s]').forEach((b) => { b.onclick = () => { const n = amountOf($('input', tr)); if (n) send(tr.dataset.pid, n * +b.dataset.s); }; }));
+    });
+  }
+  let roomTimer = null;
+  $('#roomsReload').onclick = () => loadRooms().catch((e) => toast(e.message, true));
+  document.querySelectorAll('.tab').forEach((t) => { t.onclick = () => {
+    document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === t));
+    document.querySelectorAll('[data-p]').forEach((p) => p.classList.toggle('hidden', p.dataset.p !== t.dataset.t));
+    clearInterval(roomTimer);
+    if (t.dataset.t === 'rooms') { loadRooms().catch((e) => toast(e.message, true)); roomTimer = setInterval(() => { if (!document.activeElement || document.activeElement.tagName !== 'INPUT') loadRooms().catch(() => {}); }, 5000); }
+    else loadUsers().catch(() => {});
+  }; });
+
+  // ---------- giriş kontrolü ----------
+  (async () => {
+    if (!token) { $('#gateMsg').textContent = 'Önce oyunda yönetici hesabınla giriş yap, sonra bu sayfayı aç.'; $('#gate').classList.remove('hidden'); return; }
+    try {
+      const me = await api('/api/admin/check');
+      $('#who').textContent = `Yönetici: ${me.name}`;
+      $('#app').classList.remove('hidden');
+      loadUsers();
+    } catch (e) { $('#gateMsg').textContent = e.message; $('#gate').classList.remove('hidden'); }
+  })();
+})();
+</script>
+</body>
+</html>

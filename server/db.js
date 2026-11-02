@@ -91,6 +91,16 @@ function pgStore(url) {
       } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
     },
     top: async (n) => (await pool.query('SELECT * FROM users ORDER BY chips DESC, wins DESC LIMIT $1', [n])).rows,
+    // ---- yönetici ----
+    adjust: (id, delta) => one('UPDATE users SET chips = GREATEST(0, chips + $2) WHERE id = $1 RETURNING *', [id, delta]),
+    setChips: (id, n) => one('UPDATE users SET chips = $2 WHERE id = $1 RETURNING *', [id, Math.max(0, n)]),
+    adjustAll: async (delta) => (await pool.query('UPDATE users SET chips = GREATEST(0, chips + $1) RETURNING *', [delta])).rows,
+    async search(q, limit = 50, offset = 0) {
+      const like = `%${String(q || '').toLowerCase()}%`;
+      const rows = (await pool.query('SELECT * FROM users WHERE username LIKE $1 OR lower(coalesce(email, \'\')) LIKE $1 OR lower(display) LIKE $1 ORDER BY id LIMIT $2 OFFSET $3', [like, limit, offset])).rows;
+      const total = +(await pool.query('SELECT count(*) FROM users WHERE username LIKE $1 OR lower(coalesce(email, \'\')) LIKE $1 OR lower(display) LIKE $1', [like])).rows[0].count;
+      return { rows, total };
+    },
     close: () => pool.end(),
   };
 }
@@ -137,6 +147,14 @@ function jsonStore(file) {
       return { user: upd(id, (x) => { x.chips += reward; x.streak = streak; x.last_daily = today; }), reward };
     },
     top: async (n) => Object.values(data.users).sort((a, b) => b.chips - a.chips || b.wins - a.wins).slice(0, n).map((u) => ({ ...u })),
+    adjust: async (id, delta) => upd(id, (u) => { u.chips = Math.max(0, u.chips + delta); }),
+    setChips: async (id, n) => upd(id, (u) => { u.chips = Math.max(0, n); }),
+    adjustAll: async (delta) => Object.keys(data.users).map((id) => upd(id, (u) => { u.chips = Math.max(0, u.chips + delta); })),
+    async search(q, limit = 50, offset = 0) {
+      const s = String(q || '').toLowerCase();
+      const all = Object.values(data.users).filter((u) => !s || u.username.includes(s) || (u.email || '').toLowerCase().includes(s) || u.display.toLowerCase().includes(s)).sort((a, b) => a.id - b.id);
+      return { rows: all.slice(offset, offset + limit).map((u) => ({ ...u })), total: all.length };
+    },
     close: async () => {},
   };
 }

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
 const { Game } = require('./game');
+const tl = (n) => `B${Number(n).toLocaleString('tr-TR')}`;
 const { SQUARES, GROUPS, K } = require('./board');
 const { BOT_NAMES, driveBots } = require('./bots');
 const { createStore, publicUser } = require('./db');
@@ -86,7 +87,7 @@ app.post('/api/login', wrap(async (req, res) => {
 app.get('/api/me', wrap(async (req, res) => {
   const u = await userFromReq(req);
   if (!u) return res.status(401).json({ error: 'Oturum geçersiz.' });
-  res.json({ user: publicUser(u) });
+  res.json({ user: { ...publicUser(u), admin: isAdmin(u) } });
 }));
 
 app.post('/api/daily', wrap(async (req, res) => {
@@ -524,6 +525,66 @@ async function initDb() {
 }
 console.log(`DATABASE_URL ${process.env.DATABASE_URL && process.env.DATABASE_URL.trim() ? `bulundu → ${db && db.where ? db.where : '(geçersiz)'}` : 'TANIMLI DEĞİL → hesaplar geçici dosyaya yazılacak'}`);
 if (dbError) console.error(`HATA: ${dbError}`);
+// ---------- yönetici paneli ----------
+// Yöneticiler Render'da ADMIN_USERS ortam değişkeniyle belirlenir: kullanıcı adları ya da e-postalar, virgülle (örn. "mustafa,ali@mail.com")
+const ADMINS = new Set(String(process.env.ADMIN_USERS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
+const isAdmin = (u) => !!u && (ADMINS.has(String(u.username).toLowerCase()) || (u.email && ADMINS.has(String(u.email).toLowerCase())));
+const adminOnly = (fn) => wrap(async (req, res) => {
+  const u = await userFromReq(req);
+  if (!u) return res.status(401).json({ error: 'Önce giriş yapmalısın.' });
+  if (!isAdmin(u)) return res.status(403).json({ error: ADMINS.size ? 'Bu sayfa yalnızca yöneticiler içindir.' : 'Henüz yönetici tanımlanmamış. Render\'da ADMIN_USERS ortam değişkenine kullanıcı adını yaz.' });
+  return fn(req, res, u);
+});
+const adminRow = (u) => ({ id: u.id, username: u.username, name: u.display, email: u.email || null, chips: u.chips, games: u.games, wins: u.wins, createdAt: u.created_at, admin: isAdmin(u), online: io.sockets.adapter.rooms.has(`u:${u.id}`) });
+const intIn = (v, max = 1e9) => { const n = Math.trunc(Number(v)); return Number.isFinite(n) && Math.abs(n) <= max ? n : null; };
+app.get('/api/admin/check', adminOnly(async (_req, res, u) => res.json({ ok: true, name: u.display })));
+app.get('/api/admin/users', adminOnly(async (req, res) => {
+  const page = Math.max(0, intIn(req.query.page) || 0), q = String(req.query.q || '').slice(0, 60);
+  const { rows, total } = await db.search(q, 50, page * 50);
+  res.json({ users: rows.map(adminRow), total, page });
+}));
+app.post('/api/admin/chips', adminOnly(async (req, res, admin) => {
+  const id = intIn(req.body.id), delta = intIn(req.body.delta), set = intIn(req.body.set);
+  if (id == null || (delta == null && set == null)) return res.status(400).json({ error: 'Geçersiz istek.' });
+  const u = set != null ? await db.setChips(id, set) : await db.adjust(id, delta);
+  if (!u) return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
+  pushUser(u);
+  console.log(`[YÖNETİCİ] ${admin.username} → ${u.username}: ${set != null ? `çip = ${set}` : `${delta > 0 ? '+' : ''}${delta} çip`}`);
+  res.json({ user: adminRow(u) });
+}));
+app.post('/api/admin/chips-all', adminOnly(async (req, res, admin) => {
+  const delta = intIn(req.body.delta); if (!delta) return res.status(400).json({ error: 'Geçersiz miktar.' });
+  const list = await db.adjustAll(delta);
+  list.forEach(pushUser);
+  console.log(`[YÖNETİCİ] ${admin.username} → herkese ${delta > 0 ? '+' : ''}${delta} çip (${list.length} kişi)`);
+  res.json({ count: list.length });
+}));
+app.get('/api/admin/rooms', adminOnly(async (_req, res) => {
+  const list = [...rooms.values()].map((r) => ({
+    code: r.code, name: r.name, status: r.status, botGame: !!r.botGame, stake: r.stake,
+    players: r.players.map((p) => { const gp = r.game && r.game.player(p.id); return { id: p.id, name: p.name, isBot: !!p.isBot, color: p.color, cash: gp ? gp.cash : null, bankrupt: gp ? gp.bankrupt : false }; }),
+  }));
+  res.json({ rooms: list });
+}));
+app.post('/api/admin/cash', adminOnly(async (req, res, admin) => {
+  const room = rooms.get(String(req.body.code || '').toUpperCase());
+  const delta = intIn(req.body.delta);
+  if (!room || !room.game || room.game.phase === 'gameover') return res.status(404).json({ error: 'Devam eden oyun bulunamadı.' });
+  if (!delta) return res.status(400).json({ error: 'Geçersiz miktar.' });
+  const g = room.game;
+  const targets = req.body.pid === '*' ? g.active() : [g.player(String(req.body.pid))].filter((p) => p && !p.bankrupt);
+  if (!targets.length) return res.status(404).json({ error: 'Oyuncu bulunamadı.' });
+  for (const p of targets) {
+    p.cash += delta;
+    if (p.cash < 0 && !p.debtSince) { p.debtSince = Date.now(); p.debtTo = null; }
+    g.addLog(delta > 0 ? `Yönetici ${p.name} oyuncusuna ${tl(delta)} verdi.` : `Yönetici ${p.name} oyuncusundan ${tl(-delta)} aldı.`);
+  }
+  g.refreshDebts();
+  console.log(`[YÖNETİCİ] ${admin.username} → oda ${room.code} ${req.body.pid}: ${delta}`);
+  broadcast(room);
+  res.json({ ok: true });
+}));
+
 const ready = initDb().then(() => new Promise((ok) => {
   server.listen(PORT, () => {
     console.log(`Baron Türkiye sunucusu http://localhost:${PORT} (veri: ${dbError ? 'HATA' : db.kind})`);

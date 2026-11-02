@@ -428,6 +428,7 @@
     renderDailyCard(u);
     $('#ubChips').innerHTML = chips(u.chips);
     $('#mChips').innerHTML = chips(u.chips);
+    if (u.admin !== undefined) ['#adminLink', '#adminLink2'].forEach((id) => $(id) && $(id).classList.toggle('hidden', !u.admin));
     $('#mGiftDot').classList.toggle('hidden', !u.dailyAvailable);
     if (prev && prev.chips !== u.chips) { const el = $('#ubChips'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
   }
