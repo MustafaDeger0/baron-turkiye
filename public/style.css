@@ -1498,3 +1498,34 @@ body.ingame { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: 
 .col-pick { display: flex; gap: 8px; flex-wrap: wrap; }
 .col-pick button { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff; background: var(--c); box-shadow: 0 0 0 2px #e4dcc4; cursor: pointer; }
 .col-pick button.sel { box-shadow: 0 0 0 3px var(--ink); transform: scale(1.1); }
+
+/* ================= v25: her cihaz boyutu ================= */
+/* eylem düğmeleri tahtanın ortasında, BAŞLANGIÇ köşesini kapatmasın */
+.hud-low { top: 55cqw; }
+.hud-sq .mini-deed { cursor: pointer; }
+.hud-sq .mini-deed::after { content: 'tapu için dokun'; display: block; font-size: .62em; text-align: center; color: var(--muted); padding: 0 0 .3em; }
+/* dikey ekran: araç çubukları oyuncu kartlarının altında/üstünde, çakışmasın */
+#game.g-portrait .tb-left { top: calc(var(--sat) + 82px); }
+#game.g-portrait .tb-right { bottom: calc(var(--sab) + 82px); }
+#game.g-portrait:not(.g-small) .tb-left { top: calc(var(--sat) + 104px); }
+#game.g-portrait:not(.g-small) .tb-right { bottom: calc(var(--sab) + 104px); }
+/* çok kısa yatay ekranlar (küçük telefonlar) */
+@media (max-height: 420px) and (orientation: landscape) {
+  #playerList.p-corners li { width: 136px !important; padding: 3px 8px !important; }
+  #playerList.p-corners li > .token-chip { width: 24px !important; height: 24px !important; }
+  #playerList.p-corners .pname { font-size: 11px !important; } #playerList.p-corners .cash { font-size: 13px !important; }
+  #playerList.p-corners .mini { display: none !important; }
+  .tbb { width: 36px; height: 32px; font-size: 14px; } .tbb.wide { width: 50px; height: 42px; } .tbb.wide span { font-size: 9px; }
+  .tb { gap: 5px; }
+  /* ana sayfa yatay: kaydırma olmasın */
+  .home2 { padding-top: 2px !important; }
+  .hero-text h1 { font-size: 34px !important; } .hero-text h1 small { font-size: 11px !important; margin-top: 4px !important; }
+  .h-main { gap: 8px !important; }
+  .mode { padding: 8px 6px !important; } .m-ic { width: 32px !important; height: 32px !important; } .m-t { font-size: 14px !important; }
+  .rooms-card { padding: 8px 12px !important; }
+}
+/* yatay ekranda tur ve sıra bilgisi ekranın en üstünde, tek satır */
+#game:not(.g-portrait) .hud-top { top: 0; flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; gap: .6em; padding-top: calc(var(--sat) + 6px); }
+#game:not(.g-portrait) .hud-top .timer { flex-basis: 100%; max-width: 30cqw; }
+#game:not(.g-portrait) .hud-sq .round-top { font-size: clamp(12px, 2.6cqw, 20px); }
+#game:not(.g-portrait) .hud-sq .turn-info { font-size: clamp(11px, 2.5cqw, 18px); }

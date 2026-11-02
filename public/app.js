@@ -174,8 +174,11 @@
     gm.classList.toggle('g-small', small);
     if (V3) {
       // köşe kartları ve yan araç çubukları tahtanın üstüne binmesin
-      const side = small ? 58 : 74;
-      V3.setMargins(portrait ? { top: sa.t + (small ? 64 : 80), bottom: sa.b + (small ? 64 : 80), left: sa.l + 4, right: sa.r + 4 } : { top: sa.t + 6, bottom: sa.b + 6, left: sa.l + side, right: sa.r + side });
+      const side = small ? 58 : 74;   // eşkenar dörtgen tahtanın sol/sağ uçları ortada; köşe kartları üstte kalır
+      // yatayda üstteki tur/sıra bilgisi tahtanın en üst köşesini (OTOPARK) kapatmasın: tahta biraz aşağı insin
+      const topInfo = small ? 50 : Math.min(96, Math.round(H * 0.09));
+      const many = gm.classList.contains('many');
+      V3.setMargins(portrait ? { top: sa.t + (many ? (small ? 150 : 170) : (small ? 64 : 80)), bottom: sa.b + (small ? 64 : 80), left: sa.l + 4, right: sa.r + 4 } : { top: sa.t + topInfo, bottom: sa.b + 4, left: sa.l + side, right: sa.r + side });
     }
     if (document.body.classList.contains('ingame') && (window.scrollX || window.scrollY)) window.scrollTo(0, 0);
     fitHome();
@@ -198,7 +201,7 @@
       V3 = await mod.createView($('#gl3d'), { squares: BOARD.squares, groups: BOARD.groups, ART, ICON, onPick: (i) => openDeed(i) });
       if (location.hostname === 'localhost') window.__V3 = V3;
       const portrait = innerHeight > innerWidth * 1.05;
-      V3.setCamMode(portrait ? 'follow' : 'all'); renderCamBtn();
+      V3.setCamMode(portrait && Math.min(innerWidth, innerHeight) < 600 ? 'follow' : 'all'); renderCamBtn();
       fitLayout();
       const g = game(); if (g) sync3D(g);
     }).catch((e) => { console.error(e); toast('3D görünüm yüklenemedi: ' + (e && e.message), 'err'); });
@@ -1292,7 +1295,7 @@
   }
 
   function renderPlayers(g, fast) {
-    $('#game').classList.toggle('many', g.players.length > 4);
+    if ($('#game').classList.contains('many') !== g.players.length > 4) { $('#game').classList.toggle('many', g.players.length > 4); fitLayout(); }
     $('#playerList').innerHTML = g.players.map((p) => {
       const owned = Object.entries(g.props).filter(([, pr]) => pr.owner === p.id).map(([i]) => +i).sort((a, b) => a - b);
       const mini = owned.map((i) => `<i style="background:${groupColor(sq(i))};${g.props[i].mortgaged ? 'opacity:.3' : ''}" title="${esc(sq(i).name)}"></i>`).join('');
@@ -1365,10 +1368,11 @@
         const s = sq(g.pendingBuy);
         A.push(['buy', `Satın Al ${money(s.price)}`, 'green', m.cash < s.price]);
         A.push(['decline', 'Açık Artırma', 'gold']);
-        A.push(['deed', 'Tapuya Bak', '']);
       } else if (g.phase === 'end') A.push(['endTurn', 'Turu Bitir →', 'primary']);
     }
     $('#actions').innerHTML = deedSlot + (deedSlot ? '<div style="flex-basis:100%"></div>' : '') + A.map(([t, l, c, dis]) => `<button class="btn ${c}" data-a="${t}" ${dis ? 'disabled' : ''}>${l}</button>`).join('');
+    const md = $('#actions .mini-deed');   // tapu kartına dokununca tapunun tamamı açılır
+    if (md) { md.title = 'Tapunun tamamı için dokun'; md.style.cursor = 'pointer'; md.onclick = () => openDeed(g.pendingBuy); }
     $$('#actions [data-a]').forEach((b) => {
       b.onclick = () => {
         if (b.dataset.a === 'deed') return openDeed(g.pendingBuy);
