@@ -159,7 +159,7 @@ function chooseManagement(game, bot) {
     const min = Math.min(...mem.map((i) => game.props[i].houses));
     if (min >= 5) continue;
     const idx = mem.find((i) => game.props[i].houses === min);
-    const cost = min === 4 ? GROUPS[g].hotel : GROUPS[g].house;
+    const cost = min === 4 ? GROUPS[g].hotelCost : GROUPS[g].house;
     if (bot.cash - cost < RESERVE) continue;
     if (min < 4 && game.housesLeft <= 0) continue;
     if (min === 4 && game.hotelsLeft <= 0) continue;

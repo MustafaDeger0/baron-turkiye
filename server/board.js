@@ -16,6 +16,9 @@ const GROUPS = {
   lacivert:{ name: 'Lacivert',   color: '#1E4FD8', house: 230 * K, hotel: 460 * K },
 };
 
+// Otel dikme bedeli = 4 ev bedeli + otel bedeli (örn. ev 100K, otel 200K → otel 600K)
+for (const g of Object.values(GROUPS)) g.hotelCost = g.house * 4 + g.hotel;
+
 const P = (name, group, price, rent) => ({ type: 'prop', name, group, price: price * K, rent: rent.map((r) => r * K) });
 const S = (name) => ({ type: 'station', name, price: 200 * K });
 const U = (name, icon) => ({ type: 'utility', name, price: 150 * K, icon });

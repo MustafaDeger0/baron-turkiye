@@ -1457,8 +1457,8 @@
       rows = s.rent.map((r, k) => `<tr class="${pr.houses === k && pr.owner ? 'cur' : ''}"><td>${labels[k]}</td><td>${money(r)}</td></tr>`).join('')
         + '<tr><td colspan="2" class="muted" style="font-size:13px">Renk grubunun tamamına sahipsen boş arsa kirası 2 kat</td></tr>'
         + `<tr><td>Ev başına</td><td>${money(BOARD.groups[s.group].house)}</td></tr>`
-        + `<tr><td>Otel (4 evin üstüne)</td><td>${money(BOARD.groups[s.group].hotel)}</td></tr>`
-        + `<tr><td colspan="2" class="muted" style="font-size:13px">Otelin toplam maliyeti: 4 × ${money(BOARD.groups[s.group].house)} + ${money(BOARD.groups[s.group].hotel)} = <b>${money(BOARD.groups[s.group].house * 4 + BOARD.groups[s.group].hotel)}</b></td></tr>`;
+        + `<tr><td>Otel (4 ev varken)</td><td>${money(BOARD.groups[s.group].hotelCost)}</td></tr>`
+        + `<tr><td colspan="2" class="muted" style="font-size:13px">Otel bedeli: 4 × ${money(BOARD.groups[s.group].house)} + ${money(BOARD.groups[s.group].hotel)} = <b>${money(BOARD.groups[s.group].hotelCost)}</b></td></tr>`;
     } else if (s.type === 'station') {
       rows = [1, 2, 3, 4].map((n) => `<tr><td>${n} ulaşım noktası</td><td>${money(25 * K * 2 ** (n - 1))}</td></tr>`).join('');
     } else if (s.type === 'utility') {
@@ -1475,9 +1475,11 @@
     const b = [];
     if (s.type === 'prop') {
       const gr = BOARD.groups[s.group], h = gr.house;
-      const left = Math.max(0, (g.buildLimit || 3) - (m.builds || 0));
-      if (pr.houses < 5) b.push(`<button class="btn sm green" data-pa="build" data-i="${i}" ${left ? '' : 'disabled'} title="Bu tur kalan inşaat hakkın: ${left}/${g.buildLimit || 3}">${pr.houses === 4 ? 'Otel' : 'Ev'} kur ${money(pr.houses === 4 ? gr.hotel : h)} <small>(${left} hak)</small></button>`);
-      if (pr.houses) b.push(`<button class="btn sm" data-pa="sell" data-i="${i}">${pr.houses === 5 ? 'Oteli' : 'Ev'} sat +${money((pr.houses === 5 ? gr.hotel : h) / 2)}</button>`);
+      const myTurn = g.turn === m.id && (g.phase === 'roll' || g.phase === 'end');
+      const left = myTurn ? Math.max(0, (g.buildLimit || 3) - (m.builds || 0)) : 0;
+      const full = BOARD.squares.filter((x) => x.group === s.group).every((x) => g.props[x.index].owner === m.id);
+      if (pr.houses < 5 && full) b.push(`<button class="btn sm green" data-pa="build" data-i="${i}" ${left ? '' : 'disabled'} title="${myTurn ? `Bu tur kalan inşaat hakkın: ${left}/${g.buildLimit || 3}` : 'Yalnızca kendi sıranda inşaat yapabilirsin'}">${pr.houses === 4 ? 'Otel' : 'Ev'} kur ${money(pr.houses === 4 ? gr.hotelCost : h)} <small>(${myTurn ? `${left} hak` : 'sıranı bekle'})</small></button>`);
+      if (pr.houses) b.push(`<button class="btn sm" data-pa="sell" data-i="${i}">${pr.houses === 5 ? 'Oteli' : 'Ev'} sat +${money((pr.houses === 5 ? gr.hotelCost + h * 4 : h) / 2)}</button>`);
     }
     if (!pr.mortgaged) b.push(`<button class="btn sm gold" data-pa="mortgage" data-i="${i}">İpotek +${money(s.mortgage)}</button>`);
     else b.push(`<button class="btn sm" data-pa="unmortgage" data-i="${i}">İpoteği kaldır ${money(Math.ceil(s.mortgage * 1.1))}</button>`);
@@ -1500,7 +1502,7 @@
       const owned = Object.entries(g.props).filter(([, pr]) => pr.owner === p.id).map(([i]) => +i);
       const order = (i) => { const s = sq(i); return s.group ? GROUP_ORDER.indexOf(s.group) : s.type === 'station' ? 8 : 9; };
       owned.sort((a, b) => order(a) - order(b) || a - b);
-      const worth = owned.reduce((t, i) => t + (g.props[i].mortgaged ? 0 : sq(i).mortgage) + (sq(i).type === 'prop' ? (g.props[i].houses === 5 ? BOARD.groups[sq(i).group].house * 4 + BOARD.groups[sq(i).group].hotel : g.props[i].houses * BOARD.groups[sq(i).group].house) / 2 : 0), 0);
+      const worth = owned.reduce((t, i) => t + (g.props[i].mortgaged ? 0 : sq(i).mortgage) + (sq(i).type === 'prop' ? (g.props[i].houses === 5 ? BOARD.groups[sq(i).group].house * 4 + BOARD.groups[sq(i).group].hotelCost : g.props[i].houses * BOARD.groups[sq(i).group].house) / 2 : 0), 0);
       const wallet = breakdown(p.cash).map(([n, c], k) => `<div class="wn" style="animation-delay:${k * 60}ms">${noteSVG(n)}<b>×${c}</b></div>`).join('');
       el.innerHTML = `<h3 style="display:flex;align-items:center;gap:8px">${chip(p)} ${esc(p.name)} — ${money(p.cash)}</h3>
         <div class="wallet">${wallet || '<span class="muted">Cüzdan boş.</span>'}</div>

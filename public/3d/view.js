@@ -273,11 +273,12 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   const sirens = [];
   [[0, 'go'], [10, 'jail'], [20, 'parking'], [30, 'police']].forEach(([i, kind]) => {
     const lm = landmark(kind), c = sqCenter(i);
-    lm.position.set(c.x - 0.3, 0, c.z - 0.3); lm.rotation.y = Math.PI / 4;
-    lm.scale.setScalar(kind === 'jail' ? 1.25 : 1.4);
+    // yapı köşenin arka ucunda; karakterler önde durur, yapının içinde kaybolmaz
+    lm.position.set(c.x - 0.44, 0, c.z - 0.44); lm.rotation.y = Math.PI / 4;
+    lm.scale.setScalar(kind === 'jail' ? 1.0 : 1.1);
     scene.add(lm);
     if (lm.userData.siren) sirens.push(lm.userData.siren);
-    if (lm.userData.cars) ['#e9ecef', '#ffd43b'].forEach((col, k) => { const car = makeToken('araba', col); car.scale.setScalar(0.8); car.position.set(c.x - 0.05 + k * 0.32, 0, c.z - 0.45 + k * 0.2); car.rotation.y = Math.PI / 4 + (k ? 0.2 : -0.1); scene.add(car); });
+    if (lm.userData.cars) ['#e9ecef', '#ffd43b'].forEach((col, k) => { const car = makeToken('araba', col); car.scale.setScalar(0.8); car.position.set(c.x - 0.18 + (k ? 0.42 : -0.42) * 0.707, 0, c.z - 0.18 - (k ? 0.42 : -0.42) * 0.707); car.rotation.y = Math.PI / 4 + (k ? 0.2 : -0.1); scene.add(car); });
   });
   // tahta ortasının köşelerinde ağaç kümeleri
   const inner = B / 2 - C - ROAD - 0.32;
@@ -421,11 +422,11 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
       const bandCenter = c.clone().addScaledVector(inw, C * 0.4);
       const along = new THREE.Vector3(-inw.z, 0, inw.x);
       const face = Math.atan2(-inw.x, -inw.z);    // ön yüz karenin dışına (izleyiciye) baksın
-      if (houses === 5) { const h = hotelMesh(color || undefined); h.scale.setScalar(1.25); h.position.copy(bandCenter).addScaledVector(inw, -0.12); h.rotation.y = face; grp.add(h); }
+      if (houses === 5) { const h = hotelMesh(color || undefined); h.scale.setScalar(1.15); h.position.copy(bandCenter).addScaledVector(inw, -0.08); h.rotation.y = face; grp.add(h); }
       else {
         // 1-2 ev yan yana, 3-4 ev iki sıra (Business Tour tarzı küçük mahalle)
-        const spots = houses <= 2 ? [[-(houses - 1) * 0.17, 0], [0.17, 0]] : [[-0.17, 0], [0.17, 0], [-0.17, -0.3], [0.17, -0.3]];
-        for (let k = 0; k < houses; k++) { const h = houseMesh(color || undefined, i + k); h.scale.setScalar(1.5); h.position.copy(bandCenter).addScaledVector(along, spots[k][0]).addScaledVector(inw, spots[k][1]); h.rotation.y = face; grp.add(h); }
+        const spots = houses <= 2 ? [[-(houses - 1) * 0.17, 0], [0.17, 0]] : [[-0.17, 0], [0.17, 0], [-0.17, -0.24], [0.17, -0.24]];
+        for (let k = 0; k < houses; k++) { const h = houseMesh(color || undefined, i + k); h.scale.setScalar(1.3); h.position.copy(bandCenter).addScaledVector(along, spots[k][0]).addScaledVector(inw, spots[k][1]); h.rotation.y = face; grp.add(h); }
       }
       scene.add(grp); buildings[i] = grp;
     }
@@ -525,11 +526,15 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   function spotFor(key, k, n) {
     const i = key === 'jail' ? 10 : +key;
     const c = sqCenter(i);
-    if (i === 10) {                          // hapis köşesi: içeride / ziyaret kenarı
-      const inner = new THREE.Vector3(1, 0, -1).normalize();   // köşeden tahtanın ortasına doğru
-      if (key === 'jail') c.addScaledVector(inner, 0.2); else c.addScaledVector(inner, -0.3);
+    const front = new THREE.Vector3(1, 0, 1).normalize(), lat = new THREE.Vector3(1, 0, -1).normalize();
+    if (i % 10 === 0) {
+      c.addScaledVector(front, 0.22);                       // köşede yapının önü
+      if (i === 10) c.addScaledVector(lat, key === 'jail' ? 0.36 : -0.36);   // hapistekiler "HAPİS", ziyaretçiler "ZİYARET" tarafında
+      if (n > 1) { const a = (k / n) * Math.PI * 2, r = i === 10 ? 0.17 : 0.26; c.addScaledVector(lat, Math.cos(a) * r).addScaledVector(front, Math.sin(a) * r * 0.6); }
+      return c;
     }
-    if (n > 1) { const a = (k / n) * Math.PI * 2 + Math.PI / 4, r = i % 10 === 0 ? 0.26 : 0.2; c.x += Math.cos(a) * r; c.z += Math.sin(a) * r; }
+    c.addScaledVector(inward(i), -0.2);                      // evler karenin iç tarafında, karakterler dış tarafta
+    if (n > 1) { const a = (k / n) * Math.PI * 2 + Math.PI / 4, r = 0.19; c.x += Math.cos(a) * r; c.z += Math.sin(a) * r; }
     return c;
   }
   // groups: { '5': [id, id], 'jail': [id] }
@@ -540,8 +545,10 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
         const to = spotFor(key, k, ids.length);
         if (p.target && p.target.distanceTo(to) < 0.001) return;
         const from = p.root.position.clone();
+        if (![from.x, from.y, from.z].every(Number.isFinite)) from.copy(to);   // bozuk konumdan kurtar
         p.target = to;
-        const mode = p.pending ? p.pending.mode : 'slide', dur = p.pending ? p.pending.dur : 260;
+        const mode = p.pending ? p.pending.mode : 'slide';
+        let dur = p.pending && Number.isFinite(p.pending.dur) ? p.pending.dur : mode === 'jump' ? 900 : 260;
         p.pending = null;
         if (!animate || !p.everPlaced) { p.root.position.copy(to); p.anim = null; p.everPlaced = true; return; }
         const dx = to.x - from.x, dz = to.z - from.z;
@@ -676,8 +683,9 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
         p.root.position.lerpVectors(a.from, a.to, e);
         p.root.position.y = Math.sin(a.t * Math.PI) * a.h;
         if (a.spin) p.model.rotation.y = p.face + a.t * Math.PI * 2;
-        if (a.t >= 1) { p.anim = null; p.root.position.copy(a.to); }
+        if (a.t >= 1 || !Number.isFinite(a.t)) { p.anim = null; p.root.position.copy(a.to); p.root.position.y = 0; }
       } else p.root.position.y = 0;
+      if (!Number.isFinite(p.root.position.x + p.root.position.z + p.model.rotation.y)) { p.anim = null; if (p.target) p.root.position.copy(p.target); p.model.rotation.set(0, 0, 0); p.face = 0; }
       // gidiş yönüne dön, sırası gelen hafifçe zıplasın
       const ry = p.model.rotation.y; let d = p.face - ry; d = Math.atan2(Math.sin(d), Math.cos(d));
       if (!(p.anim && p.anim.spin)) p.model.rotation.y = ry + d * Math.min(1, dt * 10);
