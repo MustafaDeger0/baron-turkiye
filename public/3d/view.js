@@ -586,15 +586,22 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
 
   // ---------- kamera ----------
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
-  const EL = 34 * Math.PI / 180, AZ = Math.PI / 4;
-  const camDir = new THREE.Vector3(Math.sin(AZ) * Math.cos(EL), Math.sin(EL), Math.cos(AZ) * Math.cos(EL));
+  // yatay ekran: 45° dönük eşkenar dörtgen (Business Tour tarzı); dik ekran: tahta karşıdan, daha yukarıdan (√2 kat büyük görünür)
+  let EL = 34 * Math.PI / 180, AZ = Math.PI / 4, flat = false;
+  const camDir = new THREE.Vector3();
+  const setDir = () => camDir.set(Math.sin(AZ) * Math.cos(EL), Math.sin(EL), Math.cos(AZ) * Math.cos(EL));
+  setDir();
+  function setPortrait(on) {
+    if (flat === on) return; flat = on;
+    EL = (on ? 58 : 34) * Math.PI / 180; AZ = on ? 0 : Math.PI / 4; setDir(); resize();
+  }
   const view = { target: new THREE.Vector3(), zoom: 1, wantTarget: new THREE.Vector3(), wantZoom: 1, mode: 'all', manual: false };
   let fitHalfH = 6, shakeT = 0;
   let margins = { top: 0, bottom: 0, left: 0, right: 0 };
   function resize() {
     const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
     renderer.setSize(w, h, false);
-    const diag = (B + 0.7) * Math.SQRT2, needW = diag * 1.02, needH = diag * Math.sin(EL) + 1.6;
+    const span = flat ? B + 0.8 : (B + 0.7) * Math.SQRT2, needW = span * 1.02, needH = span * Math.sin(EL) + (flat ? 1.0 : 1.6);
     const uw = Math.max(100, w - margins.left - margins.right), uh = Math.max(100, h - margins.top - margins.bottom);
     // tahta yüksekliği / genişliği kullanılabilir alana sığsın
     const halfFromH = needH / 2 * h / uh, halfFromW = needW / 2 * h / uw;
@@ -712,6 +719,6 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   try { const hold = makeToken('araba', '#888'); scene.add(hold); renderer.compile(scene, camera); scene.remove(hold); } catch { /* sorun değil */ }
 
   const debugPawns = () => Object.fromEntries(Object.entries(pawns).map(([k, p]) => [k, { pos: p.root.position.toArray().map((v) => +v.toFixed(2)), vis: p.root.visible, anim: !!p.anim }]));
-  return { fx, reset, setBank, setPot, potScreen, bankScreen, debugPawns, ensurePawn, setVisible, setTurn, layout, step, setProp, popBuilding, preview, clearPreview, removeStep, landed, pulse, setDice, drawDeck, setCamMode, get camMode() { return view.mode; }, setMargins, resize, pawnScreen, squareScreen, centerScreen, shake, pick };
+  return { setPortrait, fx, reset, setBank, setPot, potScreen, bankScreen, debugPawns, ensurePawn, setVisible, setTurn, layout, step, setProp, popBuilding, preview, clearPreview, removeStep, landed, pulse, setDice, drawDeck, setCamMode, get camMode() { return view.mode; }, setMargins, resize, pawnScreen, squareScreen, centerScreen, shake, pick };
 }
 export { pipTex, FACE, dieQuat };

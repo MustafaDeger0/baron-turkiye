@@ -1529,3 +1529,41 @@ body.ingame { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: 
 #game:not(.g-portrait) .hud-top .timer { flex-basis: 100%; max-width: 30cqw; }
 #game:not(.g-portrait) .hud-sq .round-top { font-size: clamp(12px, 2.6cqw, 20px); }
 #game:not(.g-portrait) .hud-sq .turn-info { font-size: clamp(11px, 2.5cqw, 18px); }
+
+/* ================= v26 ================= */
+/* "Zar At" / "Turu Bitir" zarların altında; satın alma, açık artırma ve borç kutusu tahtanın ortasında (ön köşe görünür kalsın) */
+.hud-low { top: 64cqw; }
+.hud-low:has(.mini-deed), .hud-low:has(.auction-box:not(.hidden)), .hud-low:has(.debt-box:not(.hidden)) { top: 33cqw; }
+.rules-btn { margin-top: 10px; background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.35); box-shadow: none; }
+@media (max-width: 920px) { .rules-btn { display: none; } }
+.rules { display: flex; flex-direction: column; gap: 8px; max-width: 620px; }
+.rule { border: 2px solid #e4dcc4; border-radius: 12px; background: #fff; padding: 2px 12px; }
+.rule summary { font-weight: 800; font-size: 16px; padding: 8px 0; cursor: pointer; list-style: none; }
+.rule summary::after { content: '▾'; float: right; color: var(--muted); transition: transform .2s; }
+.rule[open] summary::after { transform: rotate(180deg); }
+.rule ul { margin: 0 0 10px; padding-left: 18px; font-size: 14.5px; line-height: 1.5; }
+.rule li { margin: 3px 0; }
+/* oyun sonu: kaydırılabilir kutu + istatistikler */
+.overlay { padding: calc(10px + var(--sat, 0px)) 10px calc(10px + var(--sab, 0px)); }
+.win-box { max-height: calc(var(--vh, 100vh) - 20px); overflow-y: auto; max-width: min(760px, 96vw); padding: 22px 26px; }
+.stats { margin: 12px 0 4px; text-align: left; }
+.stats summary { font-weight: 800; cursor: pointer; text-align: center; margin-bottom: 8px; }
+.hls { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.hl { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; background: #fff; border: 2px solid #e4dcc4; border-radius: 12px; padding: 6px 10px; }
+.hl > span { grid-row: 1 / 4; font-size: 24px; }
+.hl small { color: var(--muted); font-size: 11px; font-weight: 700; }
+.hl b { display: flex; align-items: center; gap: 5px; font-size: 14px; }
+.hl b .token-chip { width: 20px; height: 20px; padding: 2px; }
+.hl em { font-style: normal; font-weight: 800; font-size: 13px; }
+.stats-tbl { overflow-x: auto; margin-top: 10px; }
+.stats-tbl table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.stats-tbl th { font-size: 11px; color: var(--muted); text-align: right; padding: 4px 6px; border-bottom: 2px solid #e4dcc4; white-space: nowrap; }
+.stats-tbl td { text-align: right; padding: 5px 6px; border-bottom: 1px dashed #e4dcc4; white-space: nowrap; }
+.stats-tbl th:first-child, .stats-tbl td:first-child { text-align: left; }
+.stats-tbl td .token-chip { width: 20px; height: 20px; padding: 2px; vertical-align: middle; }
+@media (max-height: 500px) { .win-box .trophy { width: 48px; height: 48px; } .win-box h2 { font-size: 24px; margin: 2px 0 6px; } .stats[open] .hls { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); } }
+.card-head .row-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.win-box { width: min(680px, 96vw); }
+.stats-tbl td:first-child { display: flex; align-items: center; gap: 6px; }
+/* dikey ekranda tur ve sıra bilgisi tahtanın üstündeki boşlukta (karelerin üstüne binmesin) */
+#game.g-portrait .hud-top { top: auto; bottom: 100%; padding-bottom: 8px; }

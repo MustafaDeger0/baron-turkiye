@@ -146,7 +146,7 @@
   const shownPos = {}, pawnEls = {}, cashShown = {}, cashTweens = {};
 
   const socket = io({ transports: ['websocket', 'polling'], autoConnect: false, auth: (cb) => cb({ token }) });
-  if (location.hostname === 'localhost') window.__baronDebug = (d) => socket.emit('debug:dice', d); // yalnızca yerel test
+  if (location.hostname === 'localhost') window.__baronDebug = (d) => socket.emit('debug:dice', d); if (location.hostname === 'localhost') window.__baronEnd = () => socket.emit('debug:end'); // yalnızca yerel test
 
   // ---------- ekrana sığdırma (kaydırma yok) ----------
   // iPhone çentiği / ana ekran çubuğu için güvenli alan payları
@@ -173,6 +173,7 @@
     gm.classList.toggle('g-portrait', portrait);
     gm.classList.toggle('g-small', small);
     if (V3) {
+      V3.setPortrait(portrait);
       // köşe kartları ve yan araç çubukları tahtanın üstüne binmesin
       const side = small ? 58 : 74;   // eşkenar dörtgen tahtanın sol/sağ uçları ortada; köşe kartları üstte kalır
       // yatayda üstteki tur/sıra bilgisi tahtanın en üst köşesini (OTOPARK) kapatmasın: tahta biraz aşağı insin
@@ -201,7 +202,7 @@
       V3 = await mod.createView($('#gl3d'), { squares: BOARD.squares, groups: BOARD.groups, ART, ICON, onPick: (i) => openDeed(i) });
       if (location.hostname === 'localhost') window.__V3 = V3;
       const portrait = innerHeight > innerWidth * 1.05;
-      V3.setCamMode(portrait && Math.min(innerWidth, innerHeight) < 600 ? 'follow' : 'all'); renderCamBtn();
+      V3.setCamMode('all'); renderCamBtn();
       fitLayout();
       const g = game(); if (g) sync3D(g);
     }).catch((e) => { console.error(e); toast('3D görünüm yüklenemedi: ' + (e && e.message), 'err'); });
@@ -540,7 +541,8 @@
   $('#addBotBtn').onclick = () => socket.emit('lobby:bot', { add: true }, handle);
 
   // seçim düğmeleri (açılır liste yerine: para/çip simgeleri görünsün)
-  const opt = { startMoney: 1500000, stake: 0, rounds: 40, bots: 3, botRounds: 40 };
+  const opt = { startMoney: 1500000, stake: 0, rounds: 40, bots: 3, botRounds: 40, botLevel: store.get('baron_level') ?? 1 };
+  const LEVEL_KEYS = ['easy', 'normal', 'hard'], LEVEL_NAMES = ['Kolay', 'Normal', 'Zor'], LEVEL_PRIZE = [15, 25, 40];
   function seg(id, key, values, label) {
     const el = $(id);
     el.innerHTML = values.map((v) => `<button type="button" class="${v === opt[key] ? 'sel' : ''}" data-v="${v}">${label(v)}</button>`).join('');
@@ -564,6 +566,9 @@
     seg('#roundSeg', 'rounds', [20, 40, 60, 0], roundLabel);
     seg('#botCountSeg', 'bots', [1, 2, 3, 4, 5], (v) => `${v} bot`);
     seg('#botRoundSeg', 'botRounds', [20, 40, 60, 0], roundLabel);
+    seg('#botLevelSeg', 'botLevel', [0, 1, 2], (v) => LEVEL_NAMES[v]);
+    $$('#botLevelSeg button').forEach((b) => { const f = b.onclick; b.onclick = () => { f(); store.set('baron_level', opt.botLevel); renderSegs(); }; });
+    if ($('#botPrize')) $('#botPrize').textContent = LEVEL_PRIZE[opt.botLevel];
   }
   renderSegs();
 
@@ -576,7 +581,7 @@
   $('#quickBtn').onclick = () => socket.emit('room:quick', {}, handle);
   $('#showCreateBtn').onclick = () => toggleForm('#createForm');
   $('#showBotsBtn').onclick = () => { renderLookPick(); toggleForm('#botsForm'); };
-  $('#botsForm').onsubmit = (e) => { e.preventDefault(); socket.emit('room:bots', { bots: opt.bots, roundLimit: opt.botRounds, startMoney: 1500 * K, icon: look.icon, color: look.color }, handle); };
+  $('#botsForm').onsubmit = (e) => { e.preventDefault(); socket.emit('room:bots', { bots: opt.bots, roundLimit: opt.botRounds, startMoney: 1500 * K, icon: look.icon, color: look.color, level: LEVEL_KEYS[opt.botLevel] }, handle); };
   $('#createForm').onsubmit = (e) => {
     e.preventDefault();
     socket.emit('room:create', {
@@ -639,7 +644,7 @@
   // ---------- lobi ----------
   function renderLobby() {
     $('#lobbyName').textContent = room.name;
-    $('#lobbyInfo').innerHTML = `${room.players.length}/${room.maxPlayers} oyuncu · Başlangıç ${money(room.startMoney)} · ${room.roundLimit ? `${room.roundLimit} tur` : 'tur sınırı yok'} · ${room.stake ? `Giriş ${chips(room.stake)} · Ödül ${chips(room.stake * room.players.filter((p) => !p.isBot).length)}` : 'Ücretsiz masa'}`;
+    $('#lobbyInfo').innerHTML = `${room.players.length}/${room.maxPlayers} oyuncu · Başlangıç ${money(room.startMoney)} · ${room.roundLimit ? `${room.roundLimit} tur` : 'tur sınırı yok'} · ${room.stake ? `Giriş ${chips(room.stake)} · Ödül ${chips(room.stake * room.players.filter((p) => !p.isBot).length)}` : 'Ücretsiz masa'}${room.players.some((p) => p.isBot) ? ` · Botlar: ${LEVEL_NAMES[LEVEL_KEYS.indexOf(room.botLevel || 'normal')]}` : ''} · ${room.isPublic ? 'herkese açık' : 'kodla'}`;
     const host0 = room.hostId === session.pid;
     $('#botControls').classList.toggle('hidden', !host0 || room.stake > 0 || room.players.length >= room.maxPlayers);
     $('#lobbyCode').textContent = room.code;
@@ -663,7 +668,30 @@
     $('#startBtn').disabled = room.players.length < 2;
     $('#startBtn').textContent = room.players.length < 2 ? 'En az 2 oyuncu bekleniyor…' : 'Oyunu Başlat';
     $('#waitHost').classList.toggle('hidden', host);
+    $('#lobbySettingsBtn').classList.toggle('hidden', !host || room.quick);
   }
+  // oda sahibi için masa ayarları
+  $('#lobbySettingsBtn').onclick = () => {
+    const st = { name: room.name, isPublic: room.isPublic, maxPlayers: room.maxPlayers, startMoney: room.startMoney, roundLimit: room.roundLimit, botLevel: room.botLevel || 'normal' };
+    const segH = (key, vals, label) => `<div class="seg" data-k="${key}">${vals.map((v) => `<button type="button" class="${st[key] === v ? 'sel' : ''}" data-v="${v}">${label(v)}</button>`).join('')}</div>`;
+    openModal((el) => {
+      el.innerHTML = `<h3>Masa ayarları</h3><form class="create-form" id="lobbySetForm">
+        <label class="field"><span>Oda adı</span><input id="lsName" maxlength="30" value="${esc(st.name)}"></label>
+        <div class="field"><span>Görünürlük</span>${segH('isPublic', [true, false], (v) => (v ? 'Herkese açık' : 'Sadece kodla'))}</div>
+        <div class="field"><span>Kişi sayısı</span>${segH('maxPlayers', [2, 3, 4, 5, 6], (v) => `${v} kişi`)}</div>
+        <div class="field"><span>Başlangıç parası</span>${segH('startMoney', [1000, 1500, 2000, 2500].map((x) => x * K), money)}</div>
+        <div class="field"><span>Tur sınırı</span>${segH('roundLimit', [20, 40, 60, 0], roundLabel)}</div>
+        <div class="field"><span>Bot zorluğu</span>${segH('botLevel', LEVEL_KEYS, (v) => LEVEL_NAMES[LEVEL_KEYS.indexOf(v)])}</div>
+        <p class="muted small">Giriş ücreti oda kurulduktan sonra değiştirilemez.</p>
+        <button class="btn big primary" type="submit">Kaydet</button></form>`;
+      $$('.seg[data-k]', el).forEach((sg) => $$('button', sg).forEach((b) => { b.onclick = () => {
+        const k = sg.dataset.k, raw = b.dataset.v;
+        st[k] = k === 'isPublic' ? raw === 'true' : k === 'botLevel' ? raw : +raw;
+        $$('button', sg).forEach((x) => x.classList.toggle('sel', x === b));
+      }; }));
+      $('#lobbySetForm', el).onsubmit = (e) => { e.preventDefault(); st.name = $('#lsName', el).value; socket.emit('lobby:settings', st, (r) => { if (r && r.error) toast(r.error, 'err'); else { closeModal(); toast('Ayarlar kaydedildi'); } }); };
+    });
+  };
   $('#startBtn').onclick = () => socket.emit('lobby:start', handle);
   $('#leaveLobbyBtn').onclick = () => socket.emit('room:leave', () => clearSession());
   $('#copyLinkBtn').onclick = async () => {
@@ -1596,6 +1624,23 @@
     if (!playing) return socket.emit('room:leave', () => clearSession());
     confirmBox('Oyundan çıkarsan iflas etmiş sayılırsın. Emin misin?', 'Çık', () => socket.emit('room:leave', () => clearSession()));
   };
+  // oyun sonu istatistikleri: öne çıkanlar + tablo
+  function statsHTML(g) {
+    const S = g.stats; if (!S) return '';
+    const ps = g.players.filter((p) => S[p.id]);
+    const best = (key) => { const p = ps.slice().sort((a, b) => S[b.id][key] - S[a.id][key])[0]; return p && S[p.id][key] > 0 ? p : null; };
+    const hl = [
+      ['💰', 'En çok kira toplayan', 'rentGot', (v) => money(v)],
+      ['🏠', 'Müteahhit (en çok bina)', 'built', (v) => `${v} bina`],
+      ['🗺', 'Emlak kralı (en çok mülk alan)', 'bought', (v) => `${v} mülk`],
+      ['🅿', 'Otopark şanslısı', 'potWon', (v) => money(v)],
+      ['🎲', 'Çift ustası', 'doubles', (v) => `${v} çift`],
+      ['🚔', 'Hapishane müdavimi', 'jail', (v) => `${v} kez`],
+    ].map(([ic, label, key, f]) => { const p = best(key); return p ? `<div class="hl"><span>${ic}</span><small>${label}</small><b>${chip(p)} ${esc(p.name)}</b><em>${f(S[p.id][key])}</em></div>` : ''; }).join('');
+    const rows = ps.map((p) => { const s = S[p.id]; return `<tr><td>${chip(p)} ${esc(p.name)}</td><td>${money(s.rentGot)}</td><td>${money(s.rentPaid)}</td><td>${s.bought}</td><td>${s.built}</td><td>${money(s.peak)}</td></tr>`; }).join('');
+    return `<details class="stats" open><summary>Oyun istatistikleri</summary><div class="hls">${hl}</div>
+      <div class="stats-tbl"><table><thead><tr><th>Oyuncu</th><th>Kira aldı</th><th>Kira ödedi</th><th>Mülk</th><th>Bina</th><th>En yüksek servet</th></tr></thead><tbody>${rows}</tbody></table></div></details>`;
+  }
   function renderGameOver(g) {
     const ov = $('#overlay');
     if (g.phase !== 'gameover') { ov.classList.add('hidden'); return; }
@@ -1612,13 +1657,39 @@
       ${w && w.id === session.pid ? '<p>Tebrikler, Türkiye senin!</p>' : '<p>Bir dahaki sefere!</p>'}
       ${d !== undefined ? `<div class="chip-result ${d > 0 ? 'plus' : d < 0 ? 'minus' : ''}">${d > 0 ? '+' : d < 0 ? '−' : ''}${chips(Math.abs(d))}</div>` : ''}
       <ol class="standings">${order.map((p) => `<li>${chip(p)} <b>${esc(p.name)}</b> <span class="muted">${p.bankrupt ? 'iflas' : money(g.worth[p.id] || 0)}</span></li>`).join('')}</ol>
-      <div class="modal-actions"><button class="btn primary" id="homeBtn">Ana Menü</button><button class="btn" id="stayBtn">Tahtaya Bak</button></div></div>`;
+      ${statsHTML(g)}
+      <div class="modal-actions">${room.botGame ? '<button class="btn primary" id="againBtn">🔁 Tekrar Oyna</button>' : '<button class="btn primary" id="againBtn">⚡ Yeni Eşleşme</button>'}<button class="btn" id="homeBtn">Ana Menü</button><button class="btn" id="stayBtn">Tahtaya Bak</button></div></div>`;
     ov.classList.remove('hidden');
     if (firstShow) confetti();
     if (d > 0) after(400, () => chipBurst(centerOf($('.chip-result')), { x: innerWidth / 2, y: -40 }, d));
     $('#homeBtn').onclick = () => socket.emit('room:leave', () => clearSession());
+    const wasBot = room.botGame, lvl = g.botLevel, nBots = g.players.filter((p) => p.isBot).length, rounds = g.roundLimit;
+    $('#againBtn').onclick = () => socket.emit('room:leave', () => {
+      clearSession();
+      if (wasBot) socket.emit('room:bots', { bots: nBots, roundLimit: rounds, startMoney: 1500 * K, icon: look.icon, color: look.color, level: lvl }, handle);
+      else socket.emit('room:quick', {}, handle);
+    });
     $('#stayBtn').onclick = () => ov.classList.add('hidden');
   }
+
+  // ---------- nasıl oynanır ----------
+  function openRules() {
+    const k = (n) => money(n * K);
+    const sec = (t, items) => `<details class="rule"${t.open ? ' open' : ''}><summary>${t.title}</summary><ul>${items.map((x) => `<li>${x}</li>`).join('')}</ul></details>`;
+    openModal((el) => {
+      el.innerHTML = `<h3>Nasıl Oynanır?</h3><div class="rules">
+        ${sec({ title: '🎯 Amaç', open: true }, ['Herkes ' + k(1500) + ' ile başlar. İlleri satın al, ev ve otel dik, kira topla.', 'Diğer herkesi iflas ettiren ya da tur sınırı dolduğunda <b>en zengin</b> olan (para + mülk + bina) kazanır.'])}
+        ${sec({ title: '🎲 Sıran gelince' }, ['<b>Zar At</b>: zarların toplamı kadar ilerlersin. Gideceğin kare önceden parlar.', 'Çift atarsan bir kez daha atarsın; üst üste <b>3 çift</b> atan hapse girer.', 'Her turun için <b>60 saniye</b> süren var; süre biterse oyun senin yerine en güvenli hamleyi yapar.', 'BAŞLANGIÇ\'tan her geçişte ' + k(200) + ' alırsın.'])}
+        ${sec({ title: '🏠 Mülk, ev ve otel' }, ['Sahipsiz bir ile gelince <b>Satın Al</b> ya da <b>Açık Artırma</b> seçersin; açık artırmaya herkes katılabilir.', 'Bir renk grubunun <b>tamamı</b> sendeyse boş arsa kirası 2 katına çıkar ve ev dikebilirsin.', 'Evler gruba <b>eşit</b> dağıtılır. Ev ve otel yalnızca <b>kendi sıranda</b> ve sıra başına en fazla <b>3 bina</b> dikilir.', 'Her bölgenin ev fiyatı farklıdır. <b>Otel</b> = 4 ev bedeli + otel bedeli (örn. ev ' + k(100) + ' ise otel ' + k(600) + ').', 'Bankadaki ev ve otel sayısı sınırlıdır (32 ev, 12 otel); tahtadaki BANKA tabelasında görünür.', 'Binaları yarı fiyatına bankaya satabilir, mülkü ipotek edip değerinin yarısını alabilirsin (ipoteği kaldırmak %10 fazlaya mal olur).'])}
+        ${sec({ title: '💰 Otopark kasası' }, ['Vergiler, kart cezaları ve hapis ücretleri bankaya değil <b>tahtadaki Otopark kasasına</b> gider.', '<b>Ücretsiz Otopark</b> karesine gelen kasadaki paranın tamamını alır!'])}
+        ${sec({ title: '🚔 Hapis' }, ['"Hapse Gir" karesi, bazı kartlar ya da 3 çift seni hapse yollar.', 'Çıkmak için: çift atmayı dene, ' + k(50) + ' kefalet öde ya da Hapisten Çıkış Kartı kullan. 3. denemede de çift gelmezse kefaleti ödeyip çıkarsın.'])}
+        ${sec({ title: '🤝 Takas ve borç' }, ['<b>Takas</b> düğmesiyle diğer oyunculara mülk, para ve hapis kartı teklif edebilirsin; botlar da teklif yapar.', 'Paran eksiye düşerse borçlu olursun: ev sat, ipotek et ya da takas yap. 90 saniyede kapatamazsan varlıkların satılır, yetmezse iflas edersin.'])}
+        ${sec({ title: '🎰 Çipler' }, ['Çipler hesabında kalıcıdır. Yeni hesaplar 1.000 çiple başlar.', 'Odaların giriş ücreti olabilir; masadaki toplam çipi kazanan alır.', 'Botlara karşı giriş ücreti yoktur; kazanırsan zorluğa göre bot başına çip kazanırsın (Kolay 15, Normal 25, Zor 40).', 'Her gün <b>Günlük Ödül</b> al; seri yaptıkça ödül büyür.'])}
+        ${sec({ title: '📱 Kontroller' }, ['Bir kareye dokun: tapusu açılır. Oyuncu kartına dokun: o oyuncunun mülkleri açılır.', 'İki parmakla yakınlaştır, tek parmakla kaydır. 🔍 düğmesi sırası geleni yakından izler, 🗺 tüm tahtayı gösterir.', 'En iyi deneyim için telefonu yan çevir ya da siteyi "Ana Ekrana Ekle" ile aç.'])}
+      </div>`;
+    });
+  }
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-rules]'); if (b) { e.preventDefault(); $('#tbMore') && $('#tbMore').classList.add('hidden'); $('#homeSide') && $('#home2').classList.remove('drawer-open'); openRules(); } });
 
   // ---------- başlat ----------
   fetch('/api/board').then((r) => r.json()).then((b) => {

@@ -9,6 +9,13 @@ const STEP_MS = 210, DICE_MS = 1050, PREVIEW_MS = 750, CARD_PAUSE_MS = 2600;
 const TRADE_COOLDOWN_TURNS = 6;   // bir bot en sık bu kadar turda bir teklif yapar
 const REPEAT_BLOCK_TURNS = 24;    // aynı teklif bu kadar tur tekrarlanmaz
 
+// Zorluk seviyeleri: Kolay botlar temkinli ve cömert, Zor botlar agresif ve pazarlıkçıdır
+const LEVELS = {
+  easy:   { buyChance: 0.65, reserve: 1.6, auction: [0.6, 1.1, 0.8], trades: false, cooldown: 99, accept: -0.05, buildReserve: 3, jailPay: false },
+  normal: { buyChance: 1,    reserve: 1,   auction: [0.85, 1.6, 1.25], trades: true, cooldown: TRADE_COOLDOWN_TURNS, accept: 0.05, buildReserve: 1, jailPay: true },
+  hard:   { buyChance: 1,    reserve: 0.5, auction: [1.0, 2.0, 1.45], trades: true, cooldown: 3, accept: 0.15, buildReserve: 0.6, jailPay: true },
+};
+const lvl = (game) => LEVELS[game.botLevel] || LEVELS.normal;
 const rand = (a, b) => a + crypto.randomInt(Math.max(1, b - a));
 const groupOf = (i) => (SQUARES[i].type === 'prop' ? SQUARES[i].group : null);
 const groupValue = (g) => GROUP_MEMBERS[g].reduce((t, i) => t + SQUARES[i].price, 0);
@@ -74,13 +81,13 @@ function evaluateTrade(game, bot, t) {
   if (t.getCash > bot.cash - RESERVE / 2) return false;
   const v = tradeValueFor(game, bot.id, t);
   const size = [...t.giveProps, ...t.getProps].reduce((s, i) => s + SQUARES[i].price, 0) + t.giveCash + t.getCash;
-  return v > size * 0.05;
+  return v > size * lvl(game).accept;
 }
 
 // Seti tamamlamak için eksik mülkü isteyen teklif üret
 function proposeTrade(game, bot) {
-  if (game.trades.some((t) => t.from === bot.id)) return null;
-  if ((bot.lastTradeTurn ?? -99) > game.turnCount - TRADE_COOLDOWN_TURNS) return null;
+  if (!lvl(game).trades || game.trades.some((t) => t.from === bot.id)) return null;
+  if ((bot.lastTradeTurn ?? -99) > game.turnCount - lvl(game).cooldown) return null;
   bot.tradeMemory ||= {};
   const now = ownersNow(game);
   // önce en değerli setler
@@ -148,7 +155,7 @@ function chooseManagement(game, bot) {
   for (const [i, pr] of Object.entries(game.props)) {
     if (pr.owner !== bot.id || !pr.mortgaged) continue;
     const cost = Math.ceil(SQUARES[i].mortgage * 1.1);
-    if (bot.cash - cost > RESERVE * 3) return { type: 'unmortgage', idx: +i };
+    if (bot.cash - cost > RESERVE * 3 * lvl(game).reserve) return { type: 'unmortgage', idx: +i };
   }
   if ((bot.builds || 0) >= BUILD_LIMIT) return null;
   let best = null;
@@ -160,7 +167,7 @@ function chooseManagement(game, bot) {
     if (min >= 5) continue;
     const idx = mem.find((i) => game.props[i].houses === min);
     const cost = min === 4 ? GROUPS[g].hotelCost : GROUPS[g].house;
-    if (bot.cash - cost < RESERVE) continue;
+    if (bot.cash - cost < RESERVE * lvl(game).buildReserve) continue;
     if (min < 4 && game.housesLeft <= 0) continue;
     if (min === 4 && game.hotelsLeft <= 0) continue;
     if (best === null || SQUARES[idx].rent[min + 1] > SQUARES[best].rent[game.props[best].houses + 1]) best = idx;
@@ -180,9 +187,10 @@ function decide(game, bot) {
     const au = game.auction;
     if (au.passed.includes(bot.id) || au.bidder === bot.id) return null;
     const s = SQUARES[au.idx];
-    let factor = 0.85;
-    if (completesGroup(game, bot.id, au.idx)) factor = 1.6;
-    else if (game.active().some((o) => o.id !== bot.id && completesGroup(game, o.id, au.idx))) factor = 1.25;
+    const [base, complete, block] = lvl(game).auction;
+    let factor = base;
+    if (completesGroup(game, bot.id, au.idx)) factor = complete;
+    else if (game.active().some((o) => o.id !== bot.id && completesGroup(game, o.id, au.idx))) factor = block;
     const max = Math.min(s.price * factor, bot.cash - 50 * K);
     const inc = Math.max(5 * K, Math.round((s.price * 0.05) / K) * K);
     if (au.bid + inc <= max) return { type: 'bid', amount: au.bid + inc };
@@ -194,13 +202,14 @@ function decide(game, bot) {
     if (bot.inJail) {
       if (bot.jailCards.length) return { type: 'useJailCard' };
       const unowned = Object.values(game.props).filter((p) => !p.owner).length;
-      if (unowned > 12 && bot.cash > 400 * K) return { type: 'payJail' };
+      if (lvl(game).jailPay && unowned > 12 && bot.cash > 400 * K) return { type: 'payJail' };
     }
     return { type: 'roll' };
   }
   if (game.phase === 'buy') {
     const s = SQUARES[game.pendingBuy];
-    const wants = (bot.cash - s.price >= RESERVE * 0.5) || (completesGroup(game, bot.id, s.index) && bot.cash >= s.price);
+    const L = lvl(game);
+    const wants = ((bot.cash - s.price >= RESERVE * 0.5 * L.reserve) && Math.random() < L.buyChance) || (completesGroup(game, bot.id, s.index) && bot.cash >= s.price);
     return { type: wants && bot.cash >= s.price ? 'buy' : 'decline' };
   }
   if (game.phase === 'end') return chooseManagement(game, bot) || proposeTrade(game, bot) || { type: 'endTurn' };
@@ -237,4 +246,4 @@ function driveBots(game, now) {
   return changed;
 }
 
-module.exports = { BOT_NAMES, driveBots, decide, evaluateTrade, proposeTrade, tradeValueFor, sensible };
+module.exports = { LEVELS, BOT_NAMES, driveBots, decide, evaluateTrade, proposeTrade, tradeValueFor, sensible };

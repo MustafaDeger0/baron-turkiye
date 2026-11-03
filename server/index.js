@@ -21,7 +21,8 @@ try { db = createStore(); } catch (e) { dbError = e.message; db = null; }
 // ---------- ekonomi ----------
 const STAKES = [0, 50, 100, 250, 500];   // oda giriş ücreti (çip)
 const QUICK_STAKE = 100;
-const BOT_WIN_PER_BOT = 25;              // botlara karşı kazanınca bot başına çip
+const BOT_WIN_PER_BOT = 25;              // botlara karşı kazanınca bot başına çip (normal)
+const BOT_WIN_BY_LEVEL = { easy: 15, normal: 25, hard: 40 };
 const ROUND_LIMITS = [20, 40, 60, 0];    // 0 = sınırsız
 
 const ICONS = ['araba', 'sapka', 'gemi', 'cay', 'nazar', 'ucak', 'tac', 'roket'];
@@ -209,7 +210,7 @@ async function startGame(room) {
     room.status = 'playing';
     room.autoStartAt = null;
     room.game = new Game(room.players.map((p) => ({ id: p.id, name: p.name, color: p.color, token: p.icon, isBot: p.isBot })),
-      { startMoney: room.startMoney, roundLimit: room.roundLimit, startDelay: 3600 });
+      { startMoney: room.startMoney, roundLimit: room.roundLimit, startDelay: 3600, botLevel: room.botLevel });
     room.players.forEach((p) => { if (!p.connected) room.game.setConnected(p.id, false); });
     sysChat(room, room.pot ? `Oyun başladı! Masadaki ödül: ${room.pot} çip.` : 'Oyun başladı, bol şans!');
     return null;
@@ -233,7 +234,7 @@ async function settle(room) {
   if (winner && !winner.isBot) {
     prize = room.pot;
     const bots = room.players.filter((p) => p.isBot).length;
-    if (room.botGame) prize += bots * BOT_WIN_PER_BOT;
+    if (room.botGame) prize += bots * (BOT_WIN_BY_LEVEL[room.botLevel] || BOT_WIN_PER_BOT);
     if (prize) pushUser(await db.credit(winner.userId, prize));
     deltas[winner.id] = (deltas[winner.id] || 0) + prize;
   }
@@ -255,7 +256,7 @@ function publicRoom(room) {
   return {
     code: room.code, name: room.name, isPublic: room.isPublic, quick: room.quick, botGame: room.botGame,
     maxPlayers: room.maxPlayers, startMoney: room.startMoney, stake: room.stake, pot: room.pot, roundLimit: room.roundLimit,
-    hostId: room.hostId, status: room.status, result: room.result,
+    hostId: room.hostId, status: room.status, result: room.result, botLevel: room.botLevel || 'normal',
     autoStartAt: room.autoStartAt, serverNow: Date.now(),
     players: room.players.map(({ id, name, icon, color, connected, isBot, chips }) => ({ id, name, icon, color, connected, isBot, chips })),
     chat: room.chat,
@@ -377,7 +378,9 @@ io.on('connection', (socket) => {
     const busy = ensureFree(); if (busy) return cb({ error: busy });
     const n = Math.min(5, Math.max(1, parseInt(opts.bots, 10) || 3));
     const u = await db.byId(uid);
-    const room = createRoom({ roomName: 'Botlarla Oyun', isPublic: false, maxPlayers: n + 1, startMoney: opts.startMoney, roundLimit: opts.roundLimit, botGame: true });
+    const level = ['easy', 'normal', 'hard'].includes(opts.level) ? opts.level : 'normal';
+    const room = createRoom({ roomName: `Botlarla Oyun (${{ easy: 'Kolay', normal: 'Normal', hard: 'Zor' }[level]})`, isPublic: false, maxPlayers: n + 1, startMoney: opts.startMoney, roundLimit: opts.roundLimit, botGame: true });
+    room.botLevel = level; room.botOpts = { bots: n, roundLimit: opts.roundLimit, startMoney: opts.startMoney, level };
     const p = addPlayer(room, u);
     if (ICONS.includes(opts.icon)) p.icon = opts.icon;          // oyuncunun seçtiği karakter ve renk
     if (COLORS.includes(opts.color)) p.color = opts.color;
@@ -439,6 +442,25 @@ io.on('connection', (socket) => {
     broadcast(room); markList();
   }));
 
+  // Oda sahibi, oyun başlamadan oda ayarlarını değiştirebilir (giriş ücreti hariç: ödemeler buna göre yapıldı)
+  socket.on('lobby:settings', guard((s = {}, cb = () => {}) => {
+    const { room, me } = ctx();
+    if (!room || !me || room.status !== 'lobby') return cb({ error: 'Ayarlar yalnızca lobide değiştirilebilir.' });
+    if (room.hostId !== me.id) return cb({ error: 'Ayarları yalnızca oda sahibi değiştirebilir.' });
+    if (room.quick) return cb({ error: 'Hızlı eşleşme odalarının ayarları değiştirilemez.' });
+    if (typeof s.name === 'string') { const n = s.name.replace(/[<>]/g, '').trim().slice(0, 30); if (n) room.name = n; }
+    if (typeof s.isPublic === 'boolean') room.isPublic = s.isPublic;
+    const mp = parseInt(s.maxPlayers, 10);
+    if (mp >= 2 && mp <= 6) { if (mp < room.players.length) return cb({ error: `Odada ${room.players.length} kişi var; kişi sayısı bundan az olamaz.` }); room.maxPlayers = mp; }
+    if ([1000, 1500, 2000, 2500].map((x) => x * K).includes(+s.startMoney)) room.startMoney = +s.startMoney;
+    if (ROUND_LIMITS.includes(+s.roundLimit)) room.roundLimit = +s.roundLimit;
+    if (['easy', 'normal', 'hard'].includes(s.botLevel)) room.botLevel = s.botLevel;
+    sysChat(room, 'Oda sahibi masa ayarlarını güncelledi.');
+    updateAutoStart(room);
+    broadcast(room); markList();
+    cb({ ok: true });
+  }));
+
   socket.on('lobby:token', guard(({ icon, color } = {}) => {
     const { room, me } = ctx();
     if (!room || !me || room.status !== 'lobby') return;
@@ -449,6 +471,7 @@ io.on('connection', (socket) => {
 
   if (process.env.DEBUG) {
     // Yalnızca geliştirme: sonraki zarları sabitler (testler için)
+    socket.on('debug:end', () => { const { room } = ctx(); if (room && room.game && room.game.phase !== 'gameover') { room.game.forceEnd('test'); settle(room).catch(console.error); broadcast(room); } });
     socket.on('debug:dice', (d) => { const { room } = ctx(); if (room && room.game) room.game.forceDice = Array.isArray(d) ? d : null; });
   }
 
