@@ -59,7 +59,7 @@
 <body>
 <header>
   <h1>BARON<small>YÖNETİCİ PANELİ</small></h1>
-  <div class="tabs"><button class="tab on" data-t="users">Oyuncular ve çipler</button><button class="tab" data-t="rooms">Canlı oyunlar</button></div>
+  <div class="tabs"><button class="tab on" data-t="users">Oyuncular ve çipler</button><button class="tab" data-t="rooms">Canlı oyunlar</button><button class="tab" data-t="reports">Şikayetler <span id="repCount"></span></button></div>
   <span class="who" id="who"></span>
   <a href="/">Oyuna dön</a>
 </header>
@@ -84,6 +84,14 @@
         <tbody id="rows"></tbody>
       </table>
       <div class="pager"><button class="btn sm" id="prev">← Önceki</button><span class="muted" id="pageInfo"></span><button class="btn sm" id="next">Sonraki →</button></div>
+    </div>
+  </section>
+
+  <section data-p="reports" class="hidden">
+    <div class="card">
+      <h2>Oyuncu şikayetleri <small>Sohbetteki ⋯ düğmesiyle yapılan şikayetler ve şikayet edilen kişinin son mesajları</small></h2>
+      <div class="row"><button class="btn" id="repReload">Yenile</button><label class="muted"><input type="checkbox" id="repAll"> Kapatılanları da göster</label></div>
+      <div id="reports"></div>
     </div>
   </section>
 
@@ -113,21 +121,23 @@
   const amountOf = (el) => { const n = Math.trunc(Number(el.value)); return Number.isFinite(n) && n > 0 ? n : 0; };
 
   // ---------- oyuncular ----------
-  let page = 0, total = 0, timer = null;
+  let page = 0, total = 0, timer = null, lastUsers = [];
+  const u0 = (id) => lastUsers.find((x) => x.id === id) || {};
   async function loadUsers() {
     const j = await api(`/api/admin/users?q=${encodeURIComponent($('#q').value)}&page=${page}`);
-    total = j.total;
+    total = j.total; lastUsers = j.users;
     $('#count').textContent = `${fmt(total)} hesap`;
     $('#pageInfo').textContent = `${page * 50 + (j.users.length ? 1 : 0)}–${page * 50 + j.users.length} / ${fmt(total)}`;
     $('#prev').disabled = page === 0; $('#next').disabled = (page + 1) * 50 >= total;
     $('#rows').innerHTML = j.users.map((u) => `<tr data-id="${u.id}">
-      <td class="nm"><b><span class="dot ${u.online ? 'on' : ''}" title="${u.online ? 'çevrimiçi' : 'çevrimdışı'}"></span>${esc(u.name)}${u.admin ? '<span class="tag">YÖNETİCİ</span>' : ''}</b><small>${esc(u.email || '—')} · #${u.id}</small></td>
+      <td class="nm"><b>${u.muted ? '🔇 ' : ''}<span class="dot ${u.online ? 'on' : ''}" title="${u.online ? 'çevrimiçi' : 'çevrimdışı'}"></span>${esc(u.name)}${u.admin ? '<span class="tag">YÖNETİCİ</span>' : ''}</b><small>${esc(u.email || '—')} · #${u.id}</small></td>
       <td class="n">${fmt(u.chips)}</td>
       <td class="stats muted">${u.games} / ${u.wins}</td>
       <td class="acts-cell"><div class="acts">
         <button class="btn sm g" data-d="100">+100</button><button class="btn sm g" data-d="1000">+1.000</button><button class="btn sm r" data-d="-100">−100</button>
         <input class="amt" type="number" min="0" step="50" placeholder="miktar" style="width:96px;padding:4px 8px;font-size:14px">
         <button class="btn sm g" data-k="give">Ver</button><button class="btn sm r" data-k="take">Al</button><button class="btn sm y" data-k="set">Ayarla</button>
+        <button class="btn sm" data-k="mute">${u.muted ? '💬 Sohbeti aç' : '🔇 Sohbeti kapat'}</button>${u.admin ? '' : '<button class="btn sm r" data-k="del">Sil</button>'}
       </div></td></tr>`).join('') || '<tr><td colspan="4" class="muted">Sonuç yok.</td></tr>';
     $('#rows').querySelectorAll('tr[data-id]').forEach((tr) => {
       const id = +tr.dataset.id, inp = $('input', tr);
@@ -137,6 +147,8 @@
       tr.querySelectorAll('[data-d]').forEach((b) => { b.onclick = () => run({ delta: +b.dataset.d }, (u) => `${u.name}: ${b.textContent} çip → ${fmt(u.chips)}`); });
       tr.querySelector('[data-k="give"]').onclick = () => { const n = amountOf(inp); if (!n) return toast('Önce miktar yaz.', true); run({ delta: n }, (u) => `${u.name} hesabına ${fmt(n)} çip verildi`); };
       tr.querySelector('[data-k="take"]').onclick = () => { const n = amountOf(inp); if (!n) return toast('Önce miktar yaz.', true); run({ delta: -n }, (u) => `${u.name} hesabından ${fmt(n)} çip alındı`); };
+      tr.querySelector('[data-k="mute"]').onclick = async () => { try { const r = await api('/api/admin/mute', { id, muted: !u0(id).muted }); toast(`${r.user.name}: sohbet ${r.user.muted ? 'kapatıldı' : 'açıldı'}`); loadUsers(); } catch (e) { toast(e.message, true); } };
+      const del = tr.querySelector('[data-k="del"]'); if (del) del.onclick = async () => { if (!confirm(`${u0(id).name} hesabı kalıcı olarak silinecek. Emin misin?`)) return; try { await api('/api/admin/delete-user', { id }); toast('Hesap silindi'); loadUsers(); } catch (e) { toast(e.message, true); } };
       tr.querySelector('[data-k="set"]').onclick = () => { const n = Math.trunc(Number(inp.value)); if (!Number.isFinite(n) || n < 0 || inp.value === '') return toast('Önce miktar yaz.', true); run({ set: n }, (u) => `${u.name}: çip ${fmt(n)} olarak ayarlandı`); };
     });
   }
@@ -150,6 +162,25 @@
     try { const r = await api('/api/admin/chips-all', { delta: sign * n }); toast(`${fmt(r.count)} hesaba uygulandı`); loadUsers(); } catch (e) { toast(e.message, true); }
   };
   $('#allGive').onclick = () => all(1); $('#allTake').onclick = () => all(-1);
+
+  // ---------- şikayetler ----------
+  async function loadReports() {
+    const j = await api(`/api/admin/reports${$('#repAll').checked ? '?all=1' : ''}`);
+    const open = j.reports.filter((r) => r.status === 'open').length;
+    $('#repCount').textContent = open ? `(${open})` : '';
+    $('#reports').innerHTML = j.reports.length ? j.reports.map((r) => `<div class="room" data-id="${r.id}">
+      <h3>🚩 ${esc(r.target)} <small>${esc(r.reason || '')} · oda ${esc(r.room)} · ${new Date(r.at).toLocaleString('tr-TR')} ${r.status === 'closed' ? '· kapatıldı' : ''}</small>
+        <span class="acts" style="margin-left:auto">${r.targetId && r.muted !== null ? `<button class="btn sm" data-a="mute">${r.muted ? '💬 Sohbetini aç' : '🔇 Sohbetini kapat'}</button>` : '<small class="muted">hesap silinmiş</small>'}
+        <button class="btn sm ${r.status === 'open' ? 'g' : ''}" data-a="close">${r.status === 'open' ? '✓ Kapat' : 'Yeniden aç'}</button></span></h3>
+      <pre style="white-space:pre-wrap;margin:0;font:13px/1.5 'Nunito',sans-serif;background:#f6f2e6;border-radius:10px;padding:8px 10px">${esc(r.messages || '(mesaj yok)')}</pre></div>`).join('') : '<p class="muted">Açık şikayet yok. 🎉</p>';
+    $('#reports').querySelectorAll('.room').forEach((el) => {
+      const r = j.reports.find((x) => x.id === +el.dataset.id);
+      const m = el.querySelector('[data-a="mute"]'); if (m) m.onclick = async () => { try { await api('/api/admin/mute', { id: r.targetId, muted: !r.muted }); toast('Güncellendi'); loadReports(); } catch (e) { toast(e.message, true); } };
+      el.querySelector('[data-a="close"]').onclick = async () => { await api('/api/admin/report', { id: r.id, status: r.status === 'open' ? 'closed' : 'open' }); loadReports(); };
+    });
+  }
+  $('#repReload').onclick = () => loadReports().catch((e) => toast(e.message, true));
+  $('#repAll').onchange = () => loadReports().catch(() => {});
 
   // ---------- canlı oyunlar ----------
   const STATUS = { lobby: 'Lobide', playing: 'Oynanıyor', finished: 'Bitti' };
@@ -178,6 +209,7 @@
     document.querySelectorAll('[data-p]').forEach((p) => p.classList.toggle('hidden', p.dataset.p !== t.dataset.t));
     clearInterval(roomTimer);
     if (t.dataset.t === 'rooms') { loadRooms().catch((e) => toast(e.message, true)); roomTimer = setInterval(() => { if (!document.activeElement || document.activeElement.tagName !== 'INPUT') loadRooms().catch(() => {}); }, 5000); }
+    else if (t.dataset.t === 'reports') loadReports().catch((e) => toast(e.message, true));
     else loadUsers().catch(() => {});
   }; });
 
@@ -188,7 +220,7 @@
       const me = await api('/api/admin/check');
       $('#who').textContent = `Yönetici: ${me.name}`;
       $('#app').classList.remove('hidden');
-      loadUsers();
+      loadUsers(); loadReports().catch(() => {});
     } catch (e) { $('#gateMsg').textContent = e.message; $('#gate').classList.remove('hidden'); }
   })();
 })();

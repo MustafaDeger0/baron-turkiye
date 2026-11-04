@@ -61,6 +61,10 @@ function pgStore(url) {
       await pool.query("UPDATE users SET session_key = md5(random()::text || id::text) WHERE session_key IS NULL");
       await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS users_email_uq ON users (email)');
       await pool.query('CREATE INDEX IF NOT EXISTS users_chips_idx ON users (chips DESC)');
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_muted BOOLEAN NOT NULL DEFAULT false');
+      await pool.query(`CREATE TABLE IF NOT EXISTS reports (
+        id SERIAL PRIMARY KEY, reporter_id INTEGER, target_id INTEGER, target_name TEXT, room TEXT,
+        reason TEXT, messages TEXT, status TEXT NOT NULL DEFAULT 'open', created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
     },
     async create({ username, email, display, passHash, sessionKey }) {
       try {
@@ -91,6 +95,12 @@ function pgStore(url) {
       } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
     },
     top: async (n) => (await pool.query('SELECT * FROM users ORDER BY chips DESC, wins DESC LIMIT $1', [n])).rows,
+    // ---- hesap silme ve şikayetler ----
+    async deleteUser(id) { await pool.query('UPDATE reports SET reporter_id = NULL WHERE reporter_id = $1', [id]); return (await pool.query('DELETE FROM users WHERE id = $1', [id])).rowCount > 0; },
+    setMuted: (id, muted) => one('UPDATE users SET chat_muted = $2 WHERE id = $1 RETURNING *', [id, !!muted]),
+    addReport: (r) => one('INSERT INTO reports (reporter_id, target_id, target_name, room, reason, messages) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *', [r.reporterId, r.targetId, r.targetName, r.room, r.reason, r.messages]),
+    listReports: async (status) => (await pool.query('SELECT * FROM reports WHERE ($1::text IS NULL OR status = $1) ORDER BY id DESC LIMIT 200', [status || null])).rows,
+    setReport: (id, status) => one('UPDATE reports SET status = $2 WHERE id = $1 RETURNING *', [id, status]),
     // ---- yönetici ----
     adjust: (id, delta) => one('UPDATE users SET chips = GREATEST(0, chips + $2) WHERE id = $1 RETURNING *', [id, delta]),
     setChips: (id, n) => one('UPDATE users SET chips = $2 WHERE id = $1 RETURNING *', [id, Math.max(0, n)]),
@@ -147,6 +157,11 @@ function jsonStore(file) {
       return { user: upd(id, (x) => { x.chips += reward; x.streak = streak; x.last_daily = today; }), reward };
     },
     top: async (n) => Object.values(data.users).sort((a, b) => b.chips - a.chips || b.wins - a.wins).slice(0, n).map((u) => ({ ...u })),
+    async deleteUser(id) { if (!data.users[id]) return false; delete data.users[id]; (data.reports || []).forEach((r) => { if (r.reporter_id === +id) r.reporter_id = null; }); save(); return true; },
+    setMuted: async (id, muted) => upd(id, (u) => { u.chat_muted = !!muted; }),
+    async addReport(r) { data.reports = data.reports || []; data.rseq = (data.rseq || 0) + 1; const x = { id: data.rseq, reporter_id: r.reporterId, target_id: r.targetId, target_name: r.targetName, room: r.room, reason: r.reason, messages: r.messages, status: 'open', created_at: new Date().toISOString() }; data.reports.push(x); save(); return { ...x }; },
+    listReports: async (status) => (data.reports || []).filter((r) => !status || r.status === status).slice().reverse().slice(0, 200),
+    async setReport(id, status) { const r = (data.reports || []).find((x) => x.id === +id); if (!r) return null; r.status = status; save(); return { ...r }; },
     adjust: async (id, delta) => upd(id, (u) => { u.chips = Math.max(0, u.chips + delta); }),
     setChips: async (id, n) => upd(id, (u) => { u.chips = Math.max(0, n); }),
     adjustAll: async (delta) => Object.keys(data.users).map((id) => upd(id, (u) => { u.chips = Math.max(0, u.chips + delta); })),

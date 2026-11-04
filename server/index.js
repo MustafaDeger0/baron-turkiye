@@ -247,8 +247,20 @@ async function settle(room) {
 }
 
 function sysChat(room, text) { pushChat(room, null, text); }
-function pushChat(room, from, text) {
-  room.chat.push({ seq: ++room.chatSeq, from, text, t: Date.now() });
+// Sohbette küfür/hakaret süzgeci (Google Play kullanıcı içeriği politikası)
+const BAD_EXACT = ['amk', 'aq', 'amq', 'oç', 'oc', 'piç', 'pic', 'göt', 'got', 'sik', 'sg', 'mk', 'ibne', 'yavşak', 'fuck', 'shit', 'bitch', 'dick'];
+const BAD_PREFIX = ['orospu', 'siktir', 'sikerim', 'sikeyim', 'sikik', 'amına', 'amina', 'amcık', 'yarrak', 'yarak', 'pezevenk', 'kahpe', 'şerefsiz', 'serefsiz', 'gavat', 'puşt', 'pust', 'ananı', 'anani', 'fucking', 'motherf'];
+const lowerTr = (w) => w.toLocaleLowerCase('tr-TR');
+function cleanChat(text) {
+  return text.split(/(\s+)/).map((w) => {
+    const core = lowerTr(w.replace(/[^\p{L}]/gu, ''));
+    if (!core) return w;
+    if (BAD_EXACT.includes(core) || BAD_PREFIX.some((b) => core.startsWith(b))) return '*'.repeat(Math.min(6, Math.max(3, core.length)));
+    return w;
+  }).join('');
+}
+function pushChat(room, from, text, fromPid = null) {
+  room.chat.push({ seq: ++room.chatSeq, from, fromPid, text, t: Date.now() });
   if (room.chat.length > 60) room.chat.shift();
 }
 
@@ -475,12 +487,24 @@ io.on('connection', (socket) => {
     socket.on('debug:dice', (d) => { const { room } = ctx(); if (room && room.game) room.game.forceDice = Array.isArray(d) ? d : null; });
   }
 
-  socket.on('chat', guard((text) => {
+  socket.on('chat', guard(async (text, cb) => {
     const { room, me } = ctx();
     const t = String(text || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 200);
     if (!room || !me || !t) return;
-    pushChat(room, me.name, t);
+    const u = await db.byId(uid);
+    if (u && u.chat_muted) { if (typeof cb === 'function') cb({ error: 'Sohbetin yönetici tarafından kapatıldı.' }); return; }
+    pushChat(room, me.name, cleanChat(t), me.id);
     broadcast(room);
+  }));
+  // Oyuncu şikayeti: son mesajlarıyla birlikte yöneticiye gider
+  socket.on('chat:report', guard(async ({ pid, reason } = {}, cb = () => {}) => {
+    const { room, me } = ctx();
+    const target = room && room.players.find((p) => p.id === pid);
+    if (!room || !me || !target || target.isBot || target.id === me.id) return cb({ error: 'Bu oyuncu şikayet edilemez.' });
+    const msgs = room.chat.filter((m) => m.fromPid === target.id).slice(-20).map((m) => `[${new Date(m.t).toISOString().slice(11, 16)}] ${m.text}`).join('\n');
+    await db.addReport({ reporterId: uid, targetId: target.userId, targetName: target.name, room: room.code, reason: String(reason || '').slice(0, 300), messages: msgs });
+    console.log(`[ŞİKAYET] ${me.name} → ${target.name} (oda ${room.code})`);
+    cb({ ok: true });
   }));
 
   socket.on('game:act', guard((action, cb) => {
@@ -548,6 +572,43 @@ async function initDb() {
 }
 console.log(`DATABASE_URL ${process.env.DATABASE_URL && process.env.DATABASE_URL.trim() ? `bulundu → ${db && db.where ? db.where : '(geçersiz)'}` : 'TANIMLI DEĞİL → hesaplar geçici dosyaya yazılacak'}`);
 if (dbError) console.error(`HATA: ${dbError}`);
+// ---------- hesap silme (Google Play zorunluluğu) ----------
+function kickUser(userId) {
+  for (const room of [...rooms.values()]) {
+    const p = room.players.find((x) => x.userId === userId);
+    if (!p) continue;
+    if (room.status === 'lobby') removePlayer(room, p.id);
+    else if (room.game) {
+      const gp = room.game.player(p.id);
+      if (gp && !gp.bankrupt && room.game.phase !== 'gameover') room.game.bankrupt(gp, 'hesabını sildi');
+      p.connected = false; room.game.setConnected(p.id, false);
+      if (room.game.phase === 'gameover') settle(room).catch(console.error);
+    }
+    if (rooms.has(room.code)) broadcast(room);
+  }
+  markList();
+  io.in(`u:${userId}`).disconnectSockets(true);
+}
+app.post('/api/account/delete', wrap(async (req, res) => {
+  if (auth.rateLimited(ipOf(req), 8)) return res.status(429).json({ error: 'Çok fazla deneme. Biraz bekle.' });
+  const { login, password } = req.body || {};
+  let u = await userFromReq(req);
+  if (!u && login) { const id = String(login).trim(); u = id.includes('@') ? await db.byEmail(auth.normEmail(id)) : await db.byName(auth.normName(id)); }
+  if (!u || typeof password !== 'string' || !auth.verifyPassword(password, u.pass_hash)) return res.status(401).json({ error: 'Kullanıcı adı/e-posta veya şifre hatalı.' });
+  kickUser(u.id);
+  await db.deleteUser(u.id);
+  console.log(`[HESAP SİLİNDİ] #${u.id} ${u.username}`);
+  res.json({ ok: true });
+}));
+app.get('/api/site-info', (_req, res) => res.json({ contact: process.env.CONTACT_EMAIL || 'mustafaddeger@gmail.com', developer: process.env.DEVELOPER_NAME || 'DGR Studio', updated: '4 Kasım 2026' }));
+// Android uygulaması ile site arasındaki bağ (adres çubuğu gizlensin diye). Parmak izleri Render'da ANDROID_SHA256 ile verilir.
+app.get('/.well-known/assetlinks.json', (_req, res) => {
+  // Yükleme anahtarının parmak izi her zaman eklenir; Play Console'daki "uygulama imzalama anahtarı" parmak izi ANDROID_SHA256 ile eklenir
+  const UPLOAD_FP = 'D5:F0:D1:7D:FC:55:CB:77:F3:D8:90:DC:D5:B9:0C:36:4C:22:67:C3:6D:F6:28:5D:8E:2E:44:09:4A:0F:EC:5E';
+  const fps = [...new Set([...String(process.env.ANDROID_SHA256 || '').split(','), UPLOAD_FP].map((x) => x.trim().toUpperCase()).filter(Boolean))];
+  res.json(fps.length ? [{ relation: ['delegate_permission/common.handle_all_urls'], target: { namespace: 'android_app', package_name: process.env.ANDROID_PACKAGE || 'com.baronturkiye.oyun', sha256_cert_fingerprints: fps } }] : []);
+});
+
 // ---------- yönetici paneli ----------
 // Yöneticiler Render'da ADMIN_USERS ortam değişkeniyle belirlenir: kullanıcı adları ya da e-postalar, virgülle (örn. "mustafa,ali@mail.com")
 const ADMINS = new Set(String(process.env.ADMIN_USERS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
@@ -558,7 +619,7 @@ const adminOnly = (fn) => wrap(async (req, res) => {
   if (!isAdmin(u)) return res.status(403).json({ error: ADMINS.size ? 'Bu sayfa yalnızca yöneticiler içindir.' : 'Henüz yönetici tanımlanmamış. Render\'da ADMIN_USERS ortam değişkenine kullanıcı adını yaz.' });
   return fn(req, res, u);
 });
-const adminRow = (u) => ({ id: u.id, username: u.username, name: u.display, email: u.email || null, chips: u.chips, games: u.games, wins: u.wins, createdAt: u.created_at, admin: isAdmin(u), online: io.sockets.adapter.rooms.has(`u:${u.id}`) });
+const adminRow = (u) => ({ muted: !!u.chat_muted, id: u.id, username: u.username, name: u.display, email: u.email || null, chips: u.chips, games: u.games, wins: u.wins, createdAt: u.created_at, admin: isAdmin(u), online: io.sockets.adapter.rooms.has(`u:${u.id}`) });
 const intIn = (v, max = 1e9) => { const n = Math.trunc(Number(v)); return Number.isFinite(n) && Math.abs(n) <= max ? n : null; };
 app.get('/api/admin/check', adminOnly(async (_req, res, u) => res.json({ ok: true, name: u.display })));
 app.get('/api/admin/users', adminOnly(async (req, res) => {
@@ -581,6 +642,30 @@ app.post('/api/admin/chips-all', adminOnly(async (req, res, admin) => {
   list.forEach(pushUser);
   console.log(`[YÖNETİCİ] ${admin.username} → herkese ${delta > 0 ? '+' : ''}${delta} çip (${list.length} kişi)`);
   res.json({ count: list.length });
+}));
+app.get('/api/admin/reports', adminOnly(async (req, res) => {
+  const list = await db.listReports(req.query.all ? null : 'open');
+  const ids = [...new Set(list.map((r) => r.target_id).filter(Boolean))];
+  const muted = {}; for (const id of ids) { const u = await db.byId(id); muted[id] = u ? !!u.chat_muted : null; }
+  res.json({ reports: list.map((r) => ({ id: r.id, target: r.target_name, targetId: r.target_id, room: r.room, reason: r.reason, messages: r.messages, status: r.status, at: r.created_at, muted: muted[r.target_id] })) });
+}));
+app.post('/api/admin/report', adminOnly(async (req, res) => {
+  const r = await db.setReport(intIn(req.body.id), req.body.status === 'open' ? 'open' : 'closed');
+  res.json({ ok: !!r });
+}));
+app.post('/api/admin/mute', adminOnly(async (req, res, admin) => {
+  const u = await db.setMuted(intIn(req.body.id), !!req.body.muted);
+  if (!u) return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
+  console.log(`[YÖNETİCİ] ${admin.username} → ${u.username} sohbet ${u.chat_muted ? 'kapatıldı' : 'açıldı'}`);
+  res.json({ user: adminRow(u) });
+}));
+app.post('/api/admin/delete-user', adminOnly(async (req, res, admin) => {
+  const u = await db.byId(intIn(req.body.id));
+  if (!u) return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
+  if (isAdmin(u)) return res.status(400).json({ error: 'Yönetici hesabı buradan silinemez.' });
+  kickUser(u.id); await db.deleteUser(u.id);
+  console.log(`[YÖNETİCİ] ${admin.username} → ${u.username} hesabını sildi`);
+  res.json({ ok: true });
 }));
 app.get('/api/admin/rooms', adminOnly(async (_req, res) => {
   const list = [...rooms.values()].map((r) => ({

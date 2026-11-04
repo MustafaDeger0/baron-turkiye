@@ -1,0 +1,40 @@
+{
+  "packageId": "com.baronturkiye.oyun",
+  "host": "baron-turkiye.onrender.com",
+  "name": "Baron Türkiye",
+  "launcherName": "Baron",
+  "display": "fullscreen",
+  "themeColor": "#0B2034",
+  "themeColorDark": "#0B2034",
+  "navigationColor": "#0B2034",
+  "navigationColorDark": "#0B2034",
+  "navigationDividerColor": "#0B2034",
+  "navigationDividerColorDark": "#0B2034",
+  "backgroundColor": "#0B2034",
+  "enableNotifications": false,
+  "startUrl": "/?kaynak=uygulama",
+  "iconUrl": "https://baron-turkiye.onrender.com/icon-512.png",
+  "maskableIconUrl": "https://baron-turkiye.onrender.com/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./baron-upload.keystore",
+    "alias": "baron"
+  },
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": false,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 21,
+  "orientation": "any",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "displayOverride": []
+}

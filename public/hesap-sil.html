@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hesap Silme — Baron Türkiye</title>
+<link rel="stylesheet" href="/fonts.css">
+<link rel="stylesheet" href="/legal.css">
+</head>
+<body>
+<header><a href="/" class="brand">BARON<small>TÜRKİYE</small></a></header>
+<main>
+<h1>Baron Türkiye hesabını sil</h1>
+<p>Bu sayfadan <b>Baron Türkiye</b> hesabını ve ona bağlı tüm verileri kalıcı olarak silebilirsin. Aynı işlemi oyunun içinden de yapabilirsin: <b>Ana sayfa → profil menüsü → “Hesabımı sil”</b>.</p>
+
+<div class="box">
+  <h2>Ne silinir?</h2>
+  <ul>
+    <li>Kullanıcı adın, e-posta adresin ve şifren</li>
+    <li>Çip bakiyen, oyun ve galibiyet sayıların, günlük ödül serin</li>
+    <li>Sıralama tablosundaki kaydın</li>
+  </ul>
+  <p>Silme işlemi <b>hemen</b> gerçekleşir ve <b>geri alınamaz</b>. Yalnızca, kötüye kullanımı önlemek için başka oyuncuların senin hakkında yaptığı şikayet kayıtları en fazla 1 yıl, teknik sunucu kayıtları en fazla 30 gün saklanabilir.</p>
+</div>
+
+<form id="f" class="box">
+  <h2>Hesabını sil</h2>
+  <label>Kullanıcı adı veya e-posta<input id="login" required autocomplete="username"></label>
+  <label>Şifre<input id="pass" type="password" required autocomplete="current-password"></label>
+  <label class="chk"><input type="checkbox" id="ok" required> Hesabımın ve tüm verilerimin kalıcı olarak silineceğini anlıyorum.</label>
+  <button type="submit">Hesabımı kalıcı olarak sil</button>
+  <p id="msg" class="msg"></p>
+</form>
+
+<p>Şifreni hatırlamıyorsan ya da hesabına giremiyorsan, hesabına kayıtlı e-posta adresinden <a data-contact href="mailto:mustafaddeger@gmail.com">mustafaddeger@gmail.com</a> adresine “Hesap silme talebi” konulu bir e-posta gönder. Talebin en geç 30 gün içinde işleme alınır.</p>
+</main>
+<footer><a href="/">Oyuna dön</a> · <a href="/gizlilik.html">Gizlilik Politikası</a> · <a href="/kosullar.html">Kullanım Koşulları</a></footer>
+<script src="/legal.js"></script>
+<script>
+  document.getElementById('f').onsubmit = async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById('msg'), btn = e.target.querySelector('button');
+    if (!confirm('Hesabın kalıcı olarak silinecek. Emin misin?')) return;
+    btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Siliniyor…';
+    try {
+      const r = await fetch('/api/account/delete', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ login: document.getElementById('login').value, password: document.getElementById('pass').value }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Silinemedi.');
+      msg.className = 'msg ok'; msg.textContent = 'Hesabın ve tüm verilerin silindi.';
+      try { localStorage.removeItem('baron_token'); } catch (x) { /* yok */ }
+      e.target.reset();
+    } catch (err) { msg.className = 'msg err'; msg.textContent = err.message; }
+    btn.disabled = false;
+  };
+</script>
+</body>
+</html>

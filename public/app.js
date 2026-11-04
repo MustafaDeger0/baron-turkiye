@@ -700,8 +700,13 @@
   };
 
   // ---------- sohbet ----------
+  // sessize alınan oyuncular (bu cihazda hatırlanır)
+  const mutedNames = new Set(store.get('baron_muted') || []);
   function renderChat(r) {
-    const html = r.chat.map((m) => (m.from ? `<li><b>${esc(m.from)}:</b>${esc(m.text)}</li>` : `<li class="sys">${esc(m.text)}</li>`)).join('');
+    const mine = session && session.pid;
+    const html = r.chat.filter((m) => !m.from || !mutedNames.has(m.from)).map((m) => (m.from
+      ? `<li><b>${esc(m.from)}:</b>${esc(m.text)}${m.fromPid && m.fromPid !== mine ? `<button class="msg-more" data-pid="${esc(m.fromPid)}" data-name="${esc(m.from)}" title="Sessize al / şikayet et" aria-label="Seçenekler">⋯</button>` : ''}</li>`
+      : `<li class="sys">${esc(m.text)}</li>`)).join('');
     ['#lobbyChat', '#gameChat'].forEach((id) => {
       const ul = $(id);
       const atBottom = ul.scrollHeight - ul.scrollTop - ul.clientHeight < 40;
@@ -718,11 +723,43 @@
     $('#chatBadge').classList.toggle('hidden', !unread);
     unreadChat = unread; updateMenuBadge();
   }
+  // sohbette bir oyuncuyu sessize al ya da şikayet et
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('.msg-more'); if (!b) return;
+    const pid = b.dataset.pid, name = b.dataset.name;
+    openModal((el) => {
+      el.innerHTML = `<h3>${esc(name)}</h3><p class="muted">Bu oyuncunun mesajlarını rahatsız edici buluyorsan sessize alabilir ya da yöneticilere şikayet edebilirsin.</p>
+        <div class="modal-actions" style="flex-direction:column;align-items:stretch">
+          <button class="btn" id="muteBtn">🔇 Sessize al (mesajlarını görme)</button>
+          <label class="field"><span>Şikayet nedeni</span><select id="repReason"><option>Küfür / hakaret</option><option>Taciz ya da tehdit</option><option>Spam / reklam</option><option>Uygunsuz kullanıcı adı</option><option>Hile / oyunu bozma</option><option>Diğer</option></select></label>
+          <button class="btn primary" id="repBtn">🚩 Şikayet et</button>
+        </div>`;
+      $('#muteBtn', el).onclick = () => { mutedNames.add(name); store.set('baron_muted', [...mutedNames]); closeModal(); if (latest) renderChat(latest); toast(`${name} sessize alındı`); };
+      $('#repBtn', el).onclick = () => socket.emit('chat:report', { pid, reason: $('#repReason', el).value }, (r) => { if (r && r.error) toast(r.error, 'err'); else { closeModal(); toast('Şikayetin yöneticilere iletildi. Teşekkürler!'); } });
+    });
+  });
+  // hesabı kalıcı olarak silme (Google Play zorunluluğu)
+  $('#deleteAccBtn').onclick = (e) => {
+    e.preventDefault();
+    openModal((el) => {
+      el.innerHTML = `<h3>Hesabımı sil</h3><p>Hesabın, çiplerin, istatistiklerin ve e-posta adresin <b>kalıcı olarak</b> silinir. Bu işlem geri alınamaz. Devam eden bir oyunun varsa o oyundan çıkarılırsın.</p>
+        <form class="create-form" id="delForm"><label class="field"><span>Onay için şifren</span><input type="password" id="delPass" required autocomplete="current-password"></label>
+        <button class="btn big" style="background:var(--red);color:#fff" type="submit">Hesabımı kalıcı olarak sil</button></form>`;
+      $('#delForm', el).onsubmit = async (ev) => {
+        ev.preventDefault();
+        const r = await api('/api/account/delete', { password: $('#delPass', el).value });
+        if (!r.ok) return toast(r.error || 'Silinemedi', 'err');
+        closeModal(); toast('Hesabın silindi. Hoşça kal!');
+        store.set('baron_token', null);
+        setTimeout(() => location.reload(), 1200);
+      };
+    });
+  };
   $$('[data-chat]').forEach((f) => {
     f.onsubmit = (e) => {
       e.preventDefault();
       const inp = $('input', f);
-      if (inp.value.trim()) socket.emit('chat', inp.value);
+      if (inp.value.trim()) socket.emit('chat', inp.value, (r) => { if (r && r.error) toast(r.error, 'err'); });
       inp.value = '';
     };
   });
