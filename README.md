@@ -41,7 +41,7 @@ Tarayıcıdan oynanan, çevrimiçi ve çok oyunculu emlak ticareti oyunu
 
 ## 🎮 Nasıl Oynanır?
 
-1. Adını yaz, **Oda Kur**'a bas ve davet linkini arkadaşlarına gönder — ya da **Hızlı Eşleş** ile rastgele rakiplere katıl.
+1. Adını yaz, **Oda Kur**'a bas ve davet linkini arkadaşlarına gönder - ya da **Hızlı Eşleş** ile rastgele rakiplere katıl.
 2. Sırası gelen zar atar; sahipsiz bir ile gelirsen satın al ya da açık artırmaya çıkar.
 3. Bir renk grubunun tamamını topla, ev ve otel dikerek kiraları katla.
 4. Paran biterse ev sat ya da ipotek et. Kapatamazsan iflas edersin.
