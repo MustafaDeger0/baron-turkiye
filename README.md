@@ -48,6 +48,7 @@ Tarayıcıdan oynanan, çevrimiçi ve çok oyunculu emlak ticareti oyunu
 5. Ayakta kalan son oyuncu **Baron** olur! 🏆
 
 ```
+---
 
 <div align="center">
 <sub>Bu proje Hasbro'nun Monopoly markasıyla ilişkili değildir; klasik emlak ticareti oyun mekaniklerini kullanan bağımsız bir yapımdır.</sub>
