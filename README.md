@@ -47,7 +47,6 @@ Tarayıcıdan oynanan, çevrimiçi ve çok oyunculu emlak ticareti oyunu
 4. Paran biterse ev sat ya da ipotek et. Kapatamazsan iflas edersin.
 5. Ayakta kalan son oyuncu **Baron** olur! 🏆
 
-```
 ---
 
 <div align="center">
