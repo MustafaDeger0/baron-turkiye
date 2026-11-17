@@ -43,14 +43,13 @@ Tarayıcıdan oynanan, çevrimiçi ve çok oyunculu emlak ticareti oyunu
 
 Kurulum, kalıcı maç kurtarma, yönetici hesabı, Resend şifre kurtarma ve test bilgileri: [Yayın ve kurtarma rehberi](docs/yayin-ve-kurtarma.md).
 
-1. Adını yaz, **Oda Kur**'a bas ve davet linkini arkadaşlarına gönder — ya da **Hızlı Eşleş** ile rastgele rakiplere katıl.
+1. Adını yaz, **Oda Kur**'a bas ve davet linkini arkadaşlarına gönder - ya da **Hızlı Eşleş** ile rastgele rakiplere katıl.
 2. Sırası gelen zar atar; sahipsiz bir ile gelirsen satın al ya da açık artırmaya çıkar.
 3. Bir renk grubunun tamamını topla, ev ve otel dikerek kiraları katla.
 4. Paran biterse ev sat ya da ipotek et. Kapatamazsan iflas edersin.
 5. Ayakta kalan son oyuncu **Baron** olur! 🏆
 
-```
-
+---
 
 <div align="center">
 <sub>Bu proje Hasbro'nun Monopoly markasıyla ilişkili değildir; klasik emlak ticareti oyun mekaniklerini kullanan bağımsız bir yapımdır.</sub>
