@@ -338,12 +338,16 @@ const markList = () => { listDirty = true; };
 
 // Kullanıcının bulunduğu (bitmemiş) oda
 function roomOfUser(uid) {
+  let spectator = null;
   for (const r of rooms.values()) {
     if (r.status === 'ended') continue;
     const p = r.players.find((x) => x.userId === uid);
-    if (p) return { room: r, p };
+    if (p) {
+      if (r.game?.player(p.id)?.bankrupt) { spectator ||= { room: r, p }; continue; }
+      return { room: r, p };
+    }
   }
-  return null;
+  return spectator;
 }
 
 // ---------- soket ----------

@@ -32,7 +32,7 @@ function client(token) {
   });
 }
 (async () => {
-  await ready; base = `http://127.0.0.1:${server.address().port}`;
+  await ready; clearInterval(ticker); base = `http://127.0.0.1:${server.address().port}`;
   const reg = (name, email = `${name}@test.co`) => api('/api/register', { username: name, email, password: 'secret123' });
   const a = await reg('attacker', 'owner@test.co'), b = await reg('second'), c = await reg('third');
   assert.equal((await api('/api/admin/check', null, a.token)).status, 403, 'e-posta ve ad eşleşmesi yönetici yapmaz');
@@ -65,6 +65,10 @@ function client(token) {
   const parallel = await Promise.all([emit(sd1, 'room:bots', { bots: 1 }), emit(sd2, 'room:bots', { bots: 1 })]);
   assert.equal(parallel.filter((x) => x.ok).length, 1);
   assert.equal([...rooms.values()].flatMap((r) => r.players).filter((p) => p.userId === d.user.id).length, 1);
+  const oldRoom = rooms.get(parallel.find((x) => x.ok).code);
+  await runWorld(() => oldRoom.game.bankrupt(oldRoom.game.players.find((p) => !p.isBot)));
+  assert.ok((await emit(sd2, 'room:bots', { bots: 1 })).ok, 'iflas eden oyuncu yeni oyuna geçebilir');
+  assert.ok((await emit(sd2, 'room:bots', { bots: 1 })).error, 'eski seyirci koltuğu etkin oyunun kontrolünü atlatamaz');
   // E-posta çağrısı yerelde taklit edilir; gerçek e-posta gönderilmez.
   const forgot = await api('/api/password/forgot', { email: 'parallel@test.co' }); assert.equal(forgot.status, 200);
   const resetToken = new URLSearchParams(new URL(resetLink).hash.slice(1)).get('reset');
