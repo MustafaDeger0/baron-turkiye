@@ -2,9 +2,10 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { io } = require('socket.io-client');
 const PORT = 3177, URL = `http://localhost:${PORT}`;
-const dataDir = fs.mkdtempSync('/tmp/baron-play-');
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'baron-play-'));
 let fails = 0;
 const ok = (c, m) => { console.log(`${c ? 'ok' : 'HATA'} - ${m}`); if (!c) fails++; };
 const post = (p, body, tok) => fetch(URL + p, { method: 'POST', headers: { 'content-type': 'application/json', ...(tok ? { authorization: `Bearer ${tok}` } : {}) }, body: JSON.stringify(body) }).then(async (r) => ({ status: r.status, ...(await r.json().catch(() => ({}))) }));
@@ -14,14 +15,17 @@ const conn = (tok) => new Promise((res) => { const s = io(URL, { auth: { token: 
 const emit = (s, ev, d) => new Promise((res) => s.emit(ev, d, res));
 
 (async () => {
-  const srv = spawn('node', [path.join(__dirname, '..', 'server', 'index.js')], { env: { ...process.env, PORT, DATABASE_URL: process.env.PG_TEST_URL || '', DATA_FILE: path.join(dataDir, 'db.json'), ADMIN_USERS: 'yonetici', ANDROID_SHA256: 'AA:BB', CONTACT_EMAIL: 'destek@ornek.com' }, stdio: 'ignore' });
+  // Yönetici yalnızca mevcut bir hesap kimliğinden atanır; kayıtla yetki verilmez.
+  const passHash = require('../server/auth').hashPassword('secret123');
+  fs.writeFileSync(path.join(dataDir, 'db.json'), JSON.stringify({ seq: 1, users: { 1: { id: 1, username: 'yonetici', display: 'yonetici', email: 'yonetici@x.co', pass_hash: passHash, session_key: 'play-admin-session', chips: 1000, games: 0, wins: 0, streak: 0, last_daily: null } } }));
+  const srv = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'index.js')], { env: { ...process.env, PORT, DATABASE_URL: '', DATA_FILE: path.join(dataDir, 'db.json'), ADMIN_USER_IDS: '1', ANDROID_SHA256: 'AA:BB', CONTACT_EMAIL: 'destek@ornek.com' }, stdio: 'ignore' });
   for (let k = 0; k < 120; k++) { try { await fetch(URL + '/health'); break; } catch { await sleep(250); } }
   try {
     const reg = (n) => post('/api/register', { username: n, email: `${n}@x.co`, password: 'secret123' });
-    const A = await reg('yonetici'), B = await reg('ahmet'), C = await reg('zeynep');
+    const A = await post('/api/login', { login: 'yonetici', password: 'secret123' }), B = await reg('ahmet'), C = await reg('zeynep');
     ok(A.token && B.token && C.token, 'hesaplar açıldı');
     const al = await get('/.well-known/assetlinks.json');
-    ok(al.body[0] && al.body[0].target.sha256_cert_fingerprints[0] === 'AA:BB' && al.body[0].target.package_name === 'com.baronturkiye.oyun', 'assetlinks.json doğru');
+    ok(al.body[0] && al.body[0].target.sha256_cert_fingerprints.includes('AA:BB') && al.body[0].target.package_name === 'com.baronturkiye.oyun', 'assetlinks.json doğru');
     const si = await get('/api/site-info'); ok(si.body.contact === 'destek@ornek.com', 'iletişim adresi');
     for (const pg of ['/gizlilik.html', '/kosullar.html', '/hesap-sil.html']) ok((await fetch(URL + pg)).status === 200, `${pg} açılıyor`);
 

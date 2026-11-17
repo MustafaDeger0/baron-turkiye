@@ -239,11 +239,12 @@ const UPROT = { 1: [0, 0, 0], 6: [Math.PI, 0, 0], 2: [-Math.PI / 2, 0, 0], 5: [M
 const dieQuat = (v, yaw) => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...UPROT[v])));
 
 // ---------------------------------------------------------------- görünüm
-export async function createView(canvas, { squares, groups, ART, ICON, onPick }) {
+export async function createView(canvas, { squares, groups, ART, ICON, onPick, quality = 'medium' }) {
+  const preset = { low: { ratio: 1, shadow: 0, texture: 2048, fps: 30 }, medium: { ratio: 1.5, shadow: 1024, texture: 4096, fps: 45 }, high: { ratio: 2.5, shadow: 2048, texture: 4096, fps: 60 } }[quality] || { ratio: 1, shadow: 0, texture: 2048, fps: 30 };
   const small = Math.min(screen.width, screen.height) < 700;
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(2.5, Math.max(1.5, devicePixelRatio)));   // 1x ekranlarda da kenar yumuşatma için 1.5x çiz
-  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: quality !== 'low', alpha: true });
+  renderer.setPixelRatio(Math.min(preset.ratio, devicePixelRatio || 1));
+  renderer.shadowMap.enabled = !!preset.shadow; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
   const scene = new THREE.Scene();
@@ -251,7 +252,7 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   scene.add(new THREE.HemisphereLight('#ffffff', '#8aa4b8', 1.1));
   const sun = new THREE.DirectionalLight('#fff4e0', 1.9);
   sun.position.set(-8, 16, 10); sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(preset.shadow || 512, preset.shadow || 512);
   Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 50 });
   sun.shadow.bias = -0.0006;
   scene.add(sun);
@@ -264,7 +265,7 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
   const base = new THREE.Mesh(new RoundedBoxGeometry(B + 0.7, 0.35, B + 0.7, 4, 0.12), new THREE.MeshStandardMaterial({ color: '#1d4a6e', roughness: 0.6 }));
   base.position.y = -THICK - 0.15; base.castShadow = true; scene.add(base);
   const maxTex = renderer.capabilities.maxTextureSize || 4096;
-  const tcv = await paintBoard(Math.min(4096, maxTex), squares, groups, ART, ICON);
+  const tcv = await paintBoard(Math.min(preset.texture, maxTex), squares, groups, ART, ICON);
   const tex = new THREE.CanvasTexture(tcv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const top = new THREE.Mesh(new THREE.PlaneGeometry(B, B), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75 }));
   top.rotation.x = -Math.PI / 2; top.receiveShadow = true; scene.add(top);
@@ -624,11 +625,12 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
 
   // dokunma: kaydır / iki parmak yakınlaştır / tıkla
   const ptrs = new Map(); let pinch0 = 0, zoom0 = 1, down = null;
+  const inputs = new AbortController();
   canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     down = ptrs.size === 1 ? { x: e.clientX, y: e.clientY, t: performance.now(), moved: false } : null;
     if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); zoom0 = view.wantZoom; }
-  });
+  }, { signal: inputs.signal });
   canvas.addEventListener('pointermove', (e) => {
     const prev = ptrs.get(e.pointerId); if (!prev) return;
     const cur = { x: e.clientX, y: e.clientY }; ptrs.set(e.pointerId, cur);
@@ -640,14 +642,14 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
     const right = new THREE.Vector3(Math.cos(AZ), 0, -Math.sin(AZ)), fwd = new THREE.Vector3(-Math.sin(AZ), 0, -Math.cos(AZ));
     view.wantTarget.addScaledVector(right, -(cur.x - prev.x) * k).addScaledVector(fwd, (cur.y - prev.y) * k / Math.sin(EL));
     view.wantTarget.clampLength(0, 6);
-  });
+  }, { signal: inputs.signal });
   const up = (e) => {
     ptrs.delete(e.pointerId);
     if (down && !down.moved && performance.now() - down.t < 500 && e.type === 'pointerup') { const i = pick(e.clientX, e.clientY); if (i != null && onPick) onPick(i); }
     down = null;
   };
-  canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
-  canvas.addEventListener('wheel', (e) => { e.preventDefault(); view.manual = true; view.wantZoom = Math.min(3.2, Math.max(0.85, view.wantZoom * (e.deltaY < 0 ? 1.12 : 0.89))); if (view.wantZoom <= 1.02) view.wantTarget.set(0, 0, 0); }, { passive: false });
+  canvas.addEventListener('pointerup', up, { signal: inputs.signal }); canvas.addEventListener('pointercancel', up, { signal: inputs.signal });
+  canvas.addEventListener('wheel', (e) => { e.preventDefault(); view.manual = true; view.wantZoom = Math.min(3.2, Math.max(0.85, view.wantZoom * (e.deltaY < 0 ? 1.12 : 0.89))); if (view.wantZoom <= 1.02) view.wantTarget.set(0, 0, 0); }, { passive: false, signal: inputs.signal });
 
   const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   function pick(x, y) {
@@ -670,8 +672,10 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
 
   // ---------- döngü ----------
   const anims = [];
-  let last = performance.now();
-  renderer.setAnimationLoop((now) => {
+  let last = performance.now(), renderedAt = 0;
+  const frame = (now) => {
+    if (now - renderedAt < 1000 / preset.fps) return;
+    renderedAt = now;
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (!canvas.offsetParent) return;                       // oyun ekranı kapalıyken çizme
     for (let k = anims.length - 1; k >= 0; k--) { const a = anims[k]; a.t = Math.min(1, a.t + dt * 1000 / a.dur); a.fn(a.t); if (a.t >= 1) anims.splice(k, 1); }
@@ -712,13 +716,22 @@ export async function createView(canvas, { squares, groups, ART, ICON, onPick })
     camera.position.copy(view.target).add(jit).addScaledVector(camDir, 40);
     camera.lookAt(view.target.clone().add(jit));
     renderer.render(scene, camera);
-  });
-  addEventListener('resize', () => requestAnimationFrame(resize));
+  };
+  const visible = () => renderer.setAnimationLoop(document.hidden ? null : frame);
+  document.addEventListener('visibilitychange', visible); visible();
+  const onResize = () => requestAnimationFrame(resize);
+  addEventListener('resize', onResize);
   resize();
   // gölgelendiricileri şimdiden derle: oyun ekranı açılınca ilk kare beklemesin
   try { const hold = makeToken('araba', '#888'); scene.add(hold); renderer.compile(scene, camera); scene.remove(hold); } catch { /* sorun değil */ }
 
   const debugPawns = () => Object.fromEntries(Object.entries(pawns).map(([k, p]) => [k, { pos: p.root.position.toArray().map((v) => +v.toFixed(2)), vis: p.root.visible, anim: !!p.anim }]));
-  return { setPortrait, fx, reset, setBank, setPot, potScreen, bankScreen, debugPawns, ensurePawn, setVisible, setTurn, layout, step, setProp, popBuilding, preview, clearPreview, removeStep, landed, pulse, setDice, drawDeck, setCamMode, get camMode() { return view.mode; }, setMargins, resize, pawnScreen, squareScreen, centerScreen, shake, pick };
+  function dispose() {
+    inputs.abort();
+    renderer.setAnimationLoop(null); document.removeEventListener('visibilitychange', visible); removeEventListener('resize', onResize);
+    scene.traverse((obj) => { obj.geometry?.dispose(); const materials = Array.isArray(obj.material) ? obj.material : [obj.material]; materials.filter(Boolean).forEach((mat) => { for (const val of Object.values(mat)) if (val?.isTexture) val.dispose(); mat.dispose(); }); });
+    renderer.dispose();
+  }
+  return { dispose, setPortrait, fx, reset, setBank, setPot, potScreen, bankScreen, debugPawns, ensurePawn, setVisible, setTurn, layout, step, setProp, popBuilding, preview, clearPreview, removeStep, landed, pulse, setDice, drawDeck, setCamMode, get camMode() { return view.mode; }, setMargins, resize, pawnScreen, squareScreen, centerScreen, shake, pick };
 }
 export { pipTex, FACE, dieQuat };

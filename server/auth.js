@@ -4,6 +4,20 @@ const fs = require('fs');
 const path = require('path');
 
 const TOKEN_DAYS = 30;
+const scrypt = require('util').promisify(crypto.scrypt);
+async function hashPasswordAsync(pw) {
+  const salt = crypto.randomBytes(16), hash = await scrypt(pw, salt, 64);
+  return `scrypt$${salt.toString('base64')}$${hash.toString('base64')}`;
+}
+async function verifyPasswordAsync(pw, stored) {
+  if (typeof pw !== 'string' || pw.length > 100) return false;
+  const [alg, s, h] = String(stored).split('$');
+  if (alg !== 'scrypt' || !s || !h) return false;
+  const want = Buffer.from(h, 'base64');
+  if (want.length !== 64) return false;
+  const got = await scrypt(pw, Buffer.from(s, 'base64'), want.length);
+  return crypto.timingSafeEqual(want, got);
+}
 
 function loadSecret() {
   if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
@@ -40,6 +54,7 @@ function makeToken(user) {
 }
 function readToken(token) {
   if (typeof token !== 'string' || token.length > 400) return null;
+  if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(token)) return null;
   const [payload, sig] = token.split('.');
   if (!payload || !sig) return null;
   const want = sign(payload);
@@ -69,10 +84,10 @@ const attempts = new Map();
 function rateLimited(ip, max = 12, windowMs = 60_000) {
   const now = Date.now();
   const a = (attempts.get(ip) || []).filter((t) => now - t < windowMs);
-  a.push(now);
+  if (a.length <= max) a.push(now);
   attempts.set(ip, a);
   return a.length > max;
 }
-setInterval(() => { const now = Date.now(); for (const [k, v] of attempts) if (v.every((t) => now - t > 60_000)) attempts.delete(k); }, 60_000).unref();
+setInterval(() => { const now = Date.now(); for (const [k, v] of attempts) if (v.every((t) => now - t > 15 * 60_000)) attempts.delete(k); }, 60_000).unref();
 
-module.exports = { hashPassword, verifyPassword, makeToken, readToken, userFromToken, NAME_RE, normName, EMAIL_RE, normEmail, newSessionKey, rateLimited };
+module.exports = { hashPassword, verifyPassword, hashPasswordAsync, verifyPasswordAsync, makeToken, readToken, userFromToken, NAME_RE, normName, EMAIL_RE, normEmail, newSessionKey, rateLimited };

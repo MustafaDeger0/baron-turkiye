@@ -1,6 +1,7 @@
 // Hesap deposu. DATABASE_URL tanımlıysa PostgreSQL, değilse yerel JSON dosyası kullanılır.
 const fs = require('fs');
 const path = require('path');
+const { validateOperations } = require('./persistence');
 
 const START_CHIPS = 1000;
 const DAILY_REWARDS = [100, 150, 200, 250, 300, 400, 500]; // 1.–7. gün (7+ gün: 500)
@@ -39,6 +40,7 @@ function pgStore(url) {
   const pool = new Pool({ connectionString: u.toString(), ssl, max: 5, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 15_000 });
   pool.on('error', (e) => console.warn('Veritabanı bağlantısı koptu (otomatik yeniden bağlanılacak):', e.message));
   const one = async (q, args) => (await pool.query(q, args)).rows[0] || null;
+  let worldRevision = 0;
   return {
     kind: 'postgres',
     where: maskDbUrl(u.toString()),
@@ -62,6 +64,12 @@ function pgStore(url) {
       await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS users_email_uq ON users (email)');
       await pool.query('CREATE INDEX IF NOT EXISTS users_chips_idx ON users (chips DESC)');
       await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_muted BOOLEAN NOT NULL DEFAULT false');
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false');
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_hash TEXT');
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires BIGINT');
+      await pool.query('CREATE TABLE IF NOT EXISTS game_world (id INTEGER PRIMARY KEY CHECK (id = 1), payload JSONB NOT NULL)');
+      await pool.query('ALTER TABLE game_world ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 0');
+      await pool.query('CREATE TABLE IF NOT EXISTS chip_ledger (operation_key TEXT PRIMARY KEY, entries JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now())');
       await pool.query(`CREATE TABLE IF NOT EXISTS reports (
         id SERIAL PRIMARY KEY, reporter_id INTEGER, target_id INTEGER, target_name TEXT, room TEXT,
         reason TEXT, messages TEXT, status TEXT NOT NULL DEFAULT 'open', created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
@@ -77,6 +85,40 @@ function pgStore(url) {
     byName: (username) => one('SELECT * FROM users WHERE username = $1', [username]),
     byEmail: (email) => one('SELECT * FROM users WHERE email = $1', [email]),
     byId: (id) => one('SELECT * FROM users WHERE id = $1', [id]),
+    async loadWorld() { const row = await one('SELECT payload, revision FROM game_world WHERE id = 1'); worldRevision = Number(row?.revision || 0); return row?.payload || null; },
+    async commitWorld(world, operations = []) {
+      validateOperations(operations);
+      const client = await pool.connect();
+      const touched = new Set();
+      let users;
+      try {
+        await client.query('BEGIN');
+        for (const op of operations) {
+          const ins = await client.query('INSERT INTO chip_ledger (operation_key, entries) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING operation_key', [op.key, JSON.stringify(op.entries)]);
+          if (!ins.rowCount) continue;
+          for (const e of [...op.entries].sort((a, b) => a.uid - b.uid)) {
+            const r = await client.query('UPDATE users SET chips = chips + $2, games = games + $3, wins = wins + $4 WHERE id = $1 AND chips + $2 >= 0 RETURNING id', [e.uid, e.chips || 0, e.games || 0, e.wins || 0]);
+            if (!r.rowCount && !e.optional) throw new Error('Çip işlemi tamamlanamadı; bakiye veya hesap değişti.');
+            touched.add(e.uid);
+          }
+        }
+        const updated = await client.query('INSERT INTO game_world (id, payload, revision) VALUES (1,$1,1) ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, revision = game_world.revision + 1 WHERE game_world.revision = $2 RETURNING revision', [JSON.stringify(world), worldRevision]);
+        if (!updated.rowCount) { const e = new Error('Başka bir sunucu maç kaydını devraldı.'); e.code = 'WORLD_STALE'; throw e; }
+        users = touched.size ? (await client.query('SELECT * FROM users WHERE id = ANY($1::integer[])', [[...touched]])).rows : [];
+        await client.query('COMMIT');
+        worldRevision = Number(updated.rows[0].revision);
+      } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+      return users;
+    },
+    async provisionAdmins(ids) {
+      if (ids.length) await pool.query('UPDATE users SET is_admin = true WHERE id = ANY($1::integer[])', [ids]);
+    },
+    rotateSession: (id, key) => one('UPDATE users SET session_key = $2 WHERE id = $1 RETURNING *', [id, key]),
+    async changePassword(id, oldKey, passHash, key) {
+      return one('UPDATE users SET pass_hash = $3, session_key = $4, reset_hash = NULL, reset_expires = NULL WHERE id = $1 AND session_key = $2 RETURNING *', [id, oldKey, passHash, key]);
+    },
+    setReset: (id, hash, expires) => one('UPDATE users SET reset_hash = $2, reset_expires = $3 WHERE id = $1 RETURNING *', [id, hash, expires]),
+    consumeReset: (hash, now, passHash, key) => one('UPDATE users SET pass_hash = $3, session_key = $4, reset_hash = NULL, reset_expires = NULL WHERE reset_hash = $1 AND reset_expires > $2 RETURNING *', [hash, now, passHash, key]),
     debit: (id, amt) => one('UPDATE users SET chips = chips - $2 WHERE id = $1 AND chips >= $2 RETURNING *', [id, amt]),
     credit: (id, amt) => one('UPDATE users SET chips = chips + $2 WHERE id = $1 RETURNING *', [id, amt]),
     addStats: (id, games, wins) => one('UPDATE users SET games = games + $2, wins = wins + $3 WHERE id = $1 RETURNING *', [id, games, wins]),
@@ -118,14 +160,11 @@ function pgStore(url) {
 // ---------------- JSON dosyası (geliştirme / tek sunucu) ----------------
 function jsonStore(file) {
   let data = { seq: 0, users: {} };
-  let timer = null;
   const save = () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
       const tmp = `${file}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify(data));
+      const fd = fs.openSync(tmp, 'w');
+      try { fs.writeFileSync(fd, JSON.stringify(data)); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
       fs.renameSync(tmp, file);
-    }, 200);
   };
   const find = (pred) => Object.values(data.users).find(pred) || null;
   const upd = (id, fn) => { const u = data.users[id]; if (!u) return null; fn(u); save(); return { ...u }; };
@@ -145,6 +184,35 @@ function jsonStore(file) {
     byName: async (username) => { const u = find((x) => x.username === username); return u && { ...u }; },
     byEmail: async (email) => { const u = find((x) => x.email === email); return u && { ...u }; },
     byId: async (id) => (data.users[id] ? { ...data.users[id] } : null),
+    loadWorld: async () => data.world ? structuredClone(data.world) : null,
+    async commitWorld(world, operations = []) {
+      validateOperations(operations);
+      const before = structuredClone(data), touched = new Set();
+      try {
+        data.ledger ||= {};
+        for (const op of operations) {
+          if (data.ledger[op.key]) continue;
+          for (const e of op.entries) {
+            const u = data.users[e.uid];
+            if (!u && e.optional) continue;
+            if (!u || u.chips + (e.chips || 0) < 0) throw new Error('Çip işlemi tamamlanamadı; bakiye veya hesap değişti.');
+            u.chips += e.chips || 0; u.games += e.games || 0; u.wins += e.wins || 0;
+            touched.add(e.uid);
+          }
+          data.ledger[op.key] = { entries: op.entries, at: Date.now() };
+        }
+        data.world = structuredClone(world); save();
+      } catch (e) { data = before; throw e; }
+      return [...touched].map((id) => ({ ...data.users[id] }));
+    },
+    async provisionAdmins(ids) { ids.forEach((id) => { if (data.users[id]) data.users[id].is_admin = true; }); save(); },
+    rotateSession: async (id, key) => upd(id, (u) => { u.session_key = key; }),
+    changePassword: async (id, oldKey, passHash, key) => data.users[id]?.session_key === oldKey ? upd(id, (u) => { u.pass_hash = passHash; u.session_key = key; u.reset_hash = null; u.reset_expires = null; }) : null,
+    setReset: async (id, hash, expires) => upd(id, (u) => { u.reset_hash = hash; u.reset_expires = expires; }),
+    async consumeReset(hash, now, passHash, key) {
+      const u = find((x) => x.reset_hash === hash && x.reset_expires > now);
+      return u ? upd(u.id, (x) => { x.pass_hash = passHash; x.session_key = key; x.reset_hash = null; x.reset_expires = null; }) : null;
+    },
     debit: async (id, amt) => (data.users[id] && data.users[id].chips >= amt ? upd(id, (u) => { u.chips -= amt; }) : null),
     credit: async (id, amt) => upd(id, (u) => { u.chips += amt; }),
     addStats: async (id, games, wins) => upd(id, (u) => { u.games += games; u.wins += wins; }),

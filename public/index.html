@@ -54,6 +54,7 @@
         <p class="muted small" id="authHint">Yeni hesaplar <b class="chipv">1.000</b> çiple başlar.</p>
         <p class="muted small legal-note">Devam ederek <a href="/kosullar.html" target="_blank">Kullanım Koşulları</a>'nı ve <a href="/gizlilik.html" target="_blank">Gizlilik Politikası</a>'nı kabul etmiş olursun.</p>
         <button class="btn big primary" type="submit" id="authBtn">Giriş Yap</button>
+        <button class="btn ghost" type="button" id="forgotPasswordBtn">Şifremi unuttum</button>
       </form>
     </div>
   </div>
@@ -137,6 +138,9 @@
         <label class="set-row"><span>Ses efektleri</span><button class="toggle" data-toggle="sfx"></button></label>
         <button class="btn" data-rules>📖 Nasıl Oynanır?</button>
         <button class="btn" id="homeFsBtn">Tam ekran / Ana ekrana ekle</button>
+        <label class="field"><span>Grafik kalitesi</span><select id="graphicsQuality"><option value="auto">Otomatik</option><option value="low">Düşük</option><option value="medium">Orta</option><option value="high">Yüksek</option><option value="2d">2D tahta</option></select></label>
+        <button class="btn" id="changePasswordBtn">Şifremi değiştir</button>
+        <button class="btn ghost" id="logoutAllBtn">Tüm cihazlardan çıkış yap</button>
         <a class="btn gold hidden" id="adminLink" href="/admin.html" style="text-align:center;text-decoration:none">Yönetici Paneli</a>
         <button class="btn ghost" id="logoutBtn2">Çıkış yap</button>
       </div>
@@ -252,6 +256,7 @@
       <button class="tbb snd" data-snd="sfx" title="Ses efektleri aç/kapat">🔊</button>
       <button class="tbb" id="fsBtn" title="Tam ekran (F)">⛶</button>
       <button class="tbb" data-rules title="Nasıl oynanır?">📖</button>
+      <button class="tbb" id="graphicsBtn" aria-label="Grafik ayarları">Grafik</button>
     </div>
     <button class="tbb" id="camBtn" title="Kamera: yakın / tüm tahta">🔍</button>
     <button class="tbb" id="leaveGameBtn" title="Oyundan çık">Çık</button>

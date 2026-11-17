@@ -10,9 +10,12 @@ const { SQUARES, GROUPS, K } = require('./board');
 const { BOT_NAMES, driveBots } = require('./bots');
 const { createStore, publicUser } = require('./db');
 const auth = require('./auth');
+const { snapshot, restore } = require('./persistence');
+const { installAccountRoutes } = require('./accounts');
 
 const PORT = process.env.PORT || 3000;
 const app = express();
+app.set('trust proxy', process.env.TRUST_PROXY_HOPS ? Number(process.env.TRUST_PROXY_HOPS) : false);
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: process.env.CORS_ORIGIN || false }, pingInterval: 10000, pingTimeout: 8000 });
 let db, dbError = null;
@@ -40,7 +43,7 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
     else res.setHeader('Cache-Control', 'public, max-age=604800');
   },
 }));
-app.get('/health', (_req, res) => res.json({
+app.get('/health', (_req, res) => res.status(dbError ? 503 : 200).json({
   ok: !dbError, rooms: rooms.size, players: io.engine.clientsCount,
   db: dbError ? 'hata' : db.kind,
   ...(dbError ? { dbHata: dbError } : {}),
@@ -55,7 +58,7 @@ app.use('/api', (req, res, next) => {
 app.get('/api/board', (_req, res) => res.json({ squares: SQUARES, groups: GROUPS, K }));
 
 // ---------- hesap API ----------
-const ipOf = (req) => (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+const ipOf = (req) => req.ip;
 const wrap = (fn) => (req, res) => fn(req, res).catch((e) => { console.error(e); res.status(500).json({ error: 'Sunucu hatası.' }); });
 async function userFromReq(req) {
   const m = /^Bearer (.+)$/.exec(req.headers.authorization || '');
@@ -70,7 +73,7 @@ app.post('/api/register', wrap(async (req, res) => {
   if (!auth.NAME_RE.test(display)) return res.status(400).json({ error: 'Kullanıcı adı 3–16 karakter olmalı; harf, rakam ve _ kullanabilirsin.' });
   if (!auth.EMAIL_RE.test(mail)) return res.status(400).json({ error: 'Geçerli bir e-posta adresi gir.' });
   if (typeof password !== 'string' || password.length < 6 || password.length > 100) return res.status(400).json({ error: 'Şifre en az 6 karakter olmalı.' });
-  const r = await db.create({ username: auth.normName(display), email: mail, display, passHash: auth.hashPassword(password), sessionKey: auth.newSessionKey() });
+  const r = await db.create({ username: auth.normName(display), email: mail, display, passHash: await auth.hashPasswordAsync(password), sessionKey: auth.newSessionKey() });
   if (r.conflict) return res.status(409).json({ error: r.conflict === 'email' ? 'Bu e-posta ile zaten bir hesap var.' : 'Bu kullanıcı adı alınmış.' });
   res.json({ token: auth.makeToken(r.user), user: publicUser(r.user) });
 }));
@@ -81,7 +84,7 @@ app.post('/api/login', wrap(async (req, res) => {
   const { login, username, password } = req.body || {};
   const id = String(login || username || '').trim();
   const u = id.includes('@') ? await db.byEmail(auth.normEmail(id)) : await db.byName(auth.normName(id));
-  if (!u || typeof password !== 'string' || !auth.verifyPassword(password, u.pass_hash)) return res.status(401).json({ error: 'Kullanıcı adı/e-posta veya şifre hatalı.' });
+  if (!u || !await auth.verifyPasswordAsync(password, u.pass_hash)) return res.status(401).json({ error: 'Kullanıcı adı/e-posta veya şifre hatalı.' });
   res.json({ token: auth.makeToken(u), user: publicUser(u) });
 }));
 
@@ -110,6 +113,48 @@ const pushUser = (u) => { if (u) io.to(`u:${u.id}`).emit('me', publicUser(u)); }
 // ---------- odalar ----------
 /** @type {Map<string, any>} */
 const rooms = new Map();
+let worldQueue = Promise.resolve(), unit = null, tickPending = false;
+// Oda işlemleri ve zamanlayıcılar aynı sırada çalışır; kayıt bitmeden yanıt gönderilmez.
+function runWorld(fn) {
+  const job = worldQueue.then(async () => {
+    if (dbError) throw new Error('Veritabanı hazır değil.');
+    const before = JSON.parse(JSON.stringify(snapshot(rooms)));
+    const socketData = new Map([...io.sockets.sockets.values()].map((s) => [s.id, { code: s.data.code, pid: s.data.pid }]));
+    let committed = false;
+    unit = { operations: [], broadcasts: new Set(), callbacks: [], after: [] };
+    try {
+      const result = await fn();
+      const users = await db.commitWorld(snapshot(rooms, true), unit.operations);
+      committed = true;
+      const completed = unit; unit = null;
+      users.forEach(pushUser);
+      completed.callbacks.forEach((f) => f());
+      completed.broadcasts.forEach((code) => { const r = rooms.get(code); if (r) broadcast(r); });
+      completed.after.forEach((f) => f());
+      return result;
+    } catch (e) {
+      if (committed) { unit = null; console.error('Kayıt sonrası bildirim hatası:', e.message); throw e; }
+      unit = null; restore(rooms, before);
+      if (e.code === 'WORLD_STALE') {
+        dbError = 'Bu sunucu artık güncel maç kaydını yönetmiyor.';
+        io.disconnectSockets(true);
+      }
+      for (const s of io.sockets.sockets.values()) {
+        Object.assign(s.data, socketData.get(s.id) || { code: null, pid: null });
+        for (const code of s.rooms) if (code !== s.id && !code.startsWith('u:')) s.leave(code);
+        const r = rooms.get(s.data.code), p = r?.players.find((x) => x.id === s.data.pid && x.socketId === s.id);
+        if (p) s.join(r.code); else { s.data.code = null; s.data.pid = null; }
+      }
+      throw e;
+    }
+  });
+  worldQueue = job.catch(() => {});
+  return job;
+}
+function chipOperation(key, entries) {
+  if (!unit) throw new Error('Çip işlemi kayıt kuyruğu dışında.');
+  unit.operations.push({ key, entries });
+}
 const rid = (n = 8) => crypto.randomBytes(n).toString('hex');
 function newCode() {
   const A = 'ABCDEFGHJKLMNPRSTUVYZ23456789';
@@ -122,6 +167,7 @@ function createRoom({ roomName, isPublic, maxPlayers, startMoney, quick, stake, 
   const code = newCode();
   const room = {
     code,
+    matchId: rid(16),
     name: String(roomName || '').replace(/[<>]/g, '').trim().slice(0, 30) || `Oda ${code}`,
     isPublic: !!isPublic,
     quick: !!quick,
@@ -197,8 +243,8 @@ async function startGame(room) {
   try {
     if (room.stake > 0) {
       for (const p of room.players.filter((x) => !x.isBot)) {
-        const u = await db.debit(p.userId, room.stake);
-        if (u) { room.paid.push(p.userId); room.pot += room.stake; p.chips = u.chips; pushUser(u); }
+        const u = await db.byId(p.userId);
+        if (u && u.chips >= room.stake) { room.paid.push(p.userId); room.pot += room.stake; p.chips = u.chips - room.stake; }
         else { sysChat(room, `${p.name} giriş ücretini (${room.stake} çip) karşılayamadı ve masadan kalktı.`); removePlayer(room, p.id); }
       }
       if (!rooms.has(room.code)) return 'Oda kapandı.';
@@ -213,11 +259,14 @@ async function startGame(room) {
       { startMoney: room.startMoney, roundLimit: room.roundLimit, startDelay: 3600, botLevel: room.botLevel });
     room.players.forEach((p) => { if (!p.connected) room.game.setConnected(p.id, false); });
     sysChat(room, room.pot ? `Oyun başladı! Masadaki ödül: ${room.pot} çip.` : 'Oyun başladı, bol şans!');
+    chipOperation(`${room.matchId}:start`, room.paid.map((uid) => ({ uid, chips: -room.stake })));
     return null;
   } finally { room.starting = false; }
 }
 async function refundAll(room) {
-  for (const uid of room.paid) pushUser(await db.credit(uid, room.stake));
+  // Başlayamayan odalarda ücret henüz tahsil edilmediği için iade yazılmaz.
+  if (room.status === 'playing') chipOperation(`${room.matchId}:refund`, room.paid.map((uid) => ({ uid, chips: room.stake, optional: true })));
+  else room.players.forEach((p) => { if (room.paid.includes(p.userId)) p.chips += room.stake; });
   room.paid = []; room.pot = 0;
 }
 
@@ -235,12 +284,10 @@ async function settle(room) {
     prize = room.pot;
     const bots = room.players.filter((p) => p.isBot).length;
     if (room.botGame) prize += bots * (BOT_WIN_BY_LEVEL[room.botLevel] || BOT_WIN_PER_BOT);
-    if (prize) pushUser(await db.credit(winner.userId, prize));
     deltas[winner.id] = (deltas[winner.id] || 0) + prize;
   }
-  for (const p of room.players.filter((x) => !x.isBot)) {
-    pushUser(await db.addStats(p.userId, 1, winner && winner.id === p.id ? 1 : 0));
-  }
+  chipOperation(`${room.matchId}:finish`, room.players.filter((x) => !x.isBot).map((p) => ({ uid: p.userId, games: 1,
+    wins: winner && winner.id === p.id ? 1 : 0, chips: winner && winner.id === p.id ? prize : 0, optional: true })));
   room.result = { winner: winner ? winner.id : null, pot: room.pot, prize, deltas };
   sysChat(room, winner ? `${winner.name} kazandı${prize ? ` ve ${prize} çip aldı` : ''}!` : 'Oyun bitti.');
   broadcast(room);
@@ -275,7 +322,10 @@ function publicRoom(room) {
     game: room.game ? room.game.toJSON() : null,
   };
 }
-function broadcast(room) { if (rooms.has(room.code)) io.to(room.code).emit('room:state', publicRoom(room)); }
+function broadcast(room) {
+  if (unit) { unit.broadcasts.add(room.code); return; }
+  if (rooms.has(room.code)) io.to(room.code).emit('room:state', publicRoom(room));
+}
 
 function listPublic() {
   return [...rooms.values()]
@@ -302,7 +352,7 @@ io.use(async (socket, next) => {
   try {
     const u = await auth.userFromToken(db, socket.handshake.auth && socket.handshake.auth.token);
     if (!u) return next(new Error('auth'));
-    socket.data = { uid: u.id, uname: u.display };
+    socket.data = { uid: u.id, uname: u.display, sessionKey: u.session_key };
     next();
   } catch (e) { next(new Error('server')); }
 });
@@ -313,9 +363,14 @@ io.on('connection', (socket) => {
   let bucket = 0;
   const limiter = setInterval(() => { bucket = 0; }, 1000);
   const guard = (fn) => (...args) => {
-    if (++bucket > 25) return;
     const cb = args.find((a) => typeof a === 'function');
-    Promise.resolve().then(() => fn(...args)).catch((e) => { console.error(e); if (cb) cb({ error: 'Sunucu hatası.' }); });
+    if (++bucket > 25) { if (cb) cb({ error: 'Çok hızlı işlem yapıyorsun.' }); return; }
+    runWorld(async () => {
+      const u = await db.byId(uid);
+      if (!socket.connected || !u || u.session_key !== socket.data.sessionKey) throw new Error('Oturum geçersiz.');
+      const buffered = args.map((a) => typeof a === 'function' ? (...values) => unit.callbacks.push(() => a(...values)) : a);
+      return fn(...buffered);
+    }).catch((e) => { console.error(e.message); if (cb) cb({ error: 'İşlem kaydedilemedi. Lütfen tekrar dene.' }); });
   };
   const ctx = () => {
     const room = rooms.get(socket.data.code);
@@ -326,9 +381,10 @@ io.on('connection', (socket) => {
     clearTimeout(p.leaveTimer);
     if (p.socketId && p.socketId !== socket.id) {
       const old = io.sockets.sockets.get(p.socketId);
-      if (old) { old.emit('kicked', 'Hesabına başka bir sekmeden bağlanıldı.'); old.leave(room.code); old.data.code = null; old.data.pid = null; }
+      if (old) { unit.after.push(() => old.emit('kicked', 'Hesabına başka bir sekmeden bağlanıldı.')); old.leave(room.code); old.data.code = null; old.data.pid = null; }
     }
     p.socketId = socket.id; p.connected = true;
+    p.disconnectedAt = null;
     socket.data.code = room.code; socket.data.pid = p.id;
     socket.join(room.code);
     room.emptySince = null;
@@ -518,44 +574,53 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     clearInterval(limiter);
+    runWorld(() => {
     const { room, me } = ctx();
     if (!room || !me || me.socketId !== socket.id) return;
     me.connected = false; me.socketId = null;
     if (room.status === 'lobby') {
-      me.leaveTimer = setTimeout(() => {
-        if (!me.connected && rooms.has(room.code) && room.status === 'lobby') { removePlayer(room, me.id); broadcast(room); markList(); }
-      }, LOBBY_GRACE_MS);
+      // Bağlantısız lobi koltuklarını ana döngü temizler; diske zamanlayıcı yazılmaz.
+      me.disconnectedAt = Date.now();
     } else if (room.game) {
       room.game.setConnected(me.id, false);
     }
     broadcast(room);
+    }).catch(console.error);
   });
 });
 
 // ---------- ana döngü ----------
-setInterval(() => {
+const ticker = setInterval(() => {
+  if (tickPending || dbError || !dbReady) return;
+  tickPending = true;
+  runWorld(async () => {
   const now = Date.now();
   for (const room of rooms.values()) {
+    if (room.status === 'lobby') {
+      for (const p of [...room.players]) if (!p.isBot && !p.connected && now - (p.disconnectedAt || room.emptySince || now) > LOBBY_GRACE_MS) removePlayer(room, p.id);
+      if (!rooms.has(room.code)) continue;
+    }
     if (room.status === 'lobby' && room.autoStartAt && now >= room.autoStartAt && !room.starting) {
       room.autoStartAt = null;
-      startGame(room).then((err) => { if (!err) { broadcast(room); markList(); } }).catch(console.error);
+      const err = await startGame(room); if (!err) { broadcast(room); markList(); }
     }
     if (room.status === 'playing' && room.game) {
       if (room.game.phase !== 'gameover' && !room.game.players.some((p) => !p.isBot && !p.bankrupt)) room.game.forceEnd('masada oyuncu kalmadı');
       const a = room.game.tick(now);
       const b = driveBots(room.game, now);
       if (a || b) broadcast(room);
-      if (room.game.phase === 'gameover') settle(room).catch(console.error);
+      if (room.game.phase === 'gameover') await settle(room);
     }
     const anyOnline = room.players.some((p) => !p.isBot && p.connected);
     if (anyOnline) room.emptySince = null;
     else if (!room.emptySince) room.emptySince = now;
     else if (now - room.emptySince > (room.status === 'playing' ? 10 * 60_000 : 2 * 60_000)) {
       rooms.delete(room.code);
-      if (room.status === 'playing' && !room.settled) refundAll(room).catch(console.error); // yarım kalan oyun: ücret iadesi
+      if (room.status === 'playing' && !room.settled) await refundAll(room); // yarım kalan oyun: ücret iadesi
     }
   }
-  if (listDirty) { listDirty = false; io.emit('rooms:list', listPublic()); }
+  if (listDirty) { listDirty = false; unit.after.push(() => io.emit('rooms:list', listPublic())); }
+  }).catch((e) => console.error('Maç kaydı:', e.message)).finally(() => { tickPending = false; });
 }, 1000);
 
 // Veritabanını hazırla (Neon uykudaysa birkaç kez dene). Başaramazsa sunucu yine açılır,
@@ -594,8 +659,8 @@ app.post('/api/account/delete', wrap(async (req, res) => {
   const { login, password } = req.body || {};
   let u = await userFromReq(req);
   if (!u && login) { const id = String(login).trim(); u = id.includes('@') ? await db.byEmail(auth.normEmail(id)) : await db.byName(auth.normName(id)); }
-  if (!u || typeof password !== 'string' || !auth.verifyPassword(password, u.pass_hash)) return res.status(401).json({ error: 'Kullanıcı adı/e-posta veya şifre hatalı.' });
-  kickUser(u.id);
+  if (!u || !await auth.verifyPasswordAsync(password, u.pass_hash)) return res.status(401).json({ error: 'Kullanıcı adı/e-posta veya şifre hatalı.' });
+  await runWorld(() => kickUser(u.id));
   await db.deleteUser(u.id);
   console.log(`[HESAP SİLİNDİ] #${u.id} ${u.username}`);
   res.json({ ok: true });
@@ -610,13 +675,13 @@ app.get('/.well-known/assetlinks.json', (_req, res) => {
 });
 
 // ---------- yönetici paneli ----------
-// Yöneticiler Render'da ADMIN_USERS ortam değişkeniyle belirlenir: kullanıcı adları ya da e-postalar, virgülle (örn. "mustafa,ali@mail.com")
-const ADMINS = new Set(String(process.env.ADMIN_USERS || '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
-const isAdmin = (u) => !!u && (ADMINS.has(String(u.username).toLowerCase()) || (u.email && ADMINS.has(String(u.email).toLowerCase())));
+// Yöneticiler yalnızca mevcut hesap kimliklerinden atanır; ad/e-posta yetki vermez.
+const ADMIN_IDS = String(process.env.ADMIN_USER_IDS || '').split(',').map(Number).filter((n) => Number.isSafeInteger(n) && n > 0);
+const isAdmin = (u) => !!u && !!u.is_admin;
 const adminOnly = (fn) => wrap(async (req, res) => {
   const u = await userFromReq(req);
   if (!u) return res.status(401).json({ error: 'Önce giriş yapmalısın.' });
-  if (!isAdmin(u)) return res.status(403).json({ error: ADMINS.size ? 'Bu sayfa yalnızca yöneticiler içindir.' : 'Henüz yönetici tanımlanmamış. Render\'da ADMIN_USERS ortam değişkenine kullanıcı adını yaz.' });
+  if (!isAdmin(u)) return res.status(403).json({ error: 'Bu sayfa yalnızca yöneticiler içindir.' });
   return fn(req, res, u);
 });
 const adminRow = (u) => ({ muted: !!u.chat_muted, id: u.id, username: u.username, name: u.display, email: u.email || null, chips: u.chips, games: u.games, wins: u.wins, createdAt: u.created_at, admin: isAdmin(u), online: io.sockets.adapter.rooms.has(`u:${u.id}`) });
@@ -663,7 +728,7 @@ app.post('/api/admin/delete-user', adminOnly(async (req, res, admin) => {
   const u = await db.byId(intIn(req.body.id));
   if (!u) return res.status(404).json({ error: 'Kullanıcı bulunamadı.' });
   if (isAdmin(u)) return res.status(400).json({ error: 'Yönetici hesabı buradan silinemez.' });
-  kickUser(u.id); await db.deleteUser(u.id);
+  await runWorld(() => kickUser(u.id)); await db.deleteUser(u.id);
   console.log(`[YÖNETİCİ] ${admin.username} → ${u.username} hesabını sildi`);
   res.json({ ok: true });
 }));
@@ -675,25 +740,38 @@ app.get('/api/admin/rooms', adminOnly(async (_req, res) => {
   res.json({ rooms: list });
 }));
 app.post('/api/admin/cash', adminOnly(async (req, res, admin) => {
-  const room = rooms.get(String(req.body.code || '').toUpperCase());
-  const delta = intIn(req.body.delta);
-  if (!room || !room.game || room.game.phase === 'gameover') return res.status(404).json({ error: 'Devam eden oyun bulunamadı.' });
-  if (!delta) return res.status(400).json({ error: 'Geçersiz miktar.' });
-  const g = room.game;
-  const targets = req.body.pid === '*' ? g.active() : [g.player(String(req.body.pid))].filter((p) => p && !p.bankrupt);
-  if (!targets.length) return res.status(404).json({ error: 'Oyuncu bulunamadı.' });
-  for (const p of targets) {
-    p.cash += delta;
-    if (p.cash < 0 && !p.debtSince) { p.debtSince = Date.now(); p.debtTo = null; }
-    g.addLog(delta > 0 ? `Yönetici ${p.name} oyuncusuna ${tl(delta)} verdi.` : `Yönetici ${p.name} oyuncusundan ${tl(-delta)} aldı.`);
-  }
-  g.refreshDebts();
-  console.log(`[YÖNETİCİ] ${admin.username} → oda ${room.code} ${req.body.pid}: ${delta}`);
-  broadcast(room);
+  const error = await runWorld(() => {
+    const room = rooms.get(String(req.body.code || '').toUpperCase()), delta = intIn(req.body.delta);
+    if (!room || !room.game || room.game.phase === 'gameover') return 'Devam eden oyun bulunamadı.';
+    if (!delta) return 'Geçersiz miktar.';
+    const g = room.game;
+    const targets = req.body.pid === '*' ? g.active() : [g.player(String(req.body.pid))].filter((p) => p && !p.bankrupt);
+    if (!targets.length) return 'Oyuncu bulunamadı.';
+    for (const p of targets) {
+      p.cash += delta;
+      if (p.cash < 0 && !p.debtSince) { p.debtSince = Date.now(); p.debtTo = null; }
+      g.addLog(delta > 0 ? `Yönetici ${p.name} oyuncusuna ${tl(delta)} verdi.` : `Yönetici ${p.name} oyuncusundan ${tl(-delta)} aldı.`);
+    }
+    g.refreshDebts(); broadcast(room);
+    console.log(`[YÖNETİCİ] ${admin.username} → oda ${room.code} ${req.body.pid}: ${delta}`);
+    return null;
+  });
+  if (error) return res.status(400).json({ error });
   res.json({ ok: true });
 }));
 
-const ready = initDb().then(() => new Promise((ok) => {
+installAccountRoutes({ app, db: () => db, auth, wrap, userFromReq, ipOf, io, runWorld });
+let dbReady = false;
+const ready = initDb().then(async () => {
+  if (!dbError) {
+    try {
+      await db.provisionAdmins(ADMIN_IDS);
+      restore(rooms, await db.loadWorld(), true);
+      await db.commitWorld(snapshot(rooms, true));
+      dbReady = true;
+    } catch (e) { dbError = e.message; }
+  }
+}).then(() => new Promise((ok) => {
   server.listen(PORT, () => {
     console.log(`Baron Türkiye sunucusu http://localhost:${PORT} (veri: ${dbError ? 'HATA' : db.kind})`);
     if (dbError) console.error(`Veritabanı çalışmıyor: ${dbError}. /health sayfasına bak.`);
@@ -702,4 +780,4 @@ const ready = initDb().then(() => new Promise((ok) => {
   });
 }));
 
-module.exports = { server, io, db, ready, rooms };
+module.exports = { server, io, db, ready, rooms, runWorld, settle, ticker };

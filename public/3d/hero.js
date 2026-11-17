@@ -6,7 +6,7 @@ import { pipTex, FACE, dieQuat } from './view.js';
 
 export function createHero(canvas, isVisible) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(2.5, Math.max(1.5, devicePixelRatio)));
+  renderer.setPixelRatio(Math.min(1.5, devicePixelRatio || 1));
   renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const scene = new THREE.Scene();
@@ -45,9 +45,8 @@ export function createHero(canvas, isVisible) {
   function startRoll(now) {
     roll = { t0: now, dur: 1300, from: dice.map((d) => d.quaternion.clone()), to: dice.map(() => dieQuat(1 + Math.floor(Math.random() * 6), Math.random() * Math.PI * 2)), spin: dice.map(() => new THREE.Vector3(Math.random() * 12 + 8, Math.random() * 8, Math.random() * 12 + 8)) };
   }
-  renderer.setAnimationLoop((now) => {
+  const frame = (now) => {
     if (!isVisible()) return;
-    resize();
     tokens.forEach((t, i) => {
       const ph = now / 520 - i * 0.7;
       t.position.y = Math.max(0, Math.sin(ph)) * 0.32;                 // sırayla zıplasınlar
@@ -65,5 +64,8 @@ export function createHero(canvas, isVisible) {
       if (t >= 1) { roll = null; nextRoll = now + 3400; }
     }
     renderer.render(scene, camera);
-  });
+  };
+  const visible = () => renderer.setAnimationLoop(document.hidden ? null : frame);
+  document.addEventListener('visibilitychange', visible); visible();
+  return { dispose() { renderer.setAnimationLoop(null); removeEventListener('resize', resize); document.removeEventListener('visibilitychange', visible); scene.traverse((obj) => { obj.geometry?.dispose(); (Array.isArray(obj.material) ? obj.material : [obj.material]).filter(Boolean).forEach((m) => { m.map?.dispose(); m.dispose(); }); }); renderer.dispose(); } };
 }

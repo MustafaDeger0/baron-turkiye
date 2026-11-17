@@ -63,3 +63,4 @@ for (let g = 0; g < 300; g++) {
   JSON.stringify(game.toJSON());
 }
 console.log({ games, avgSteps: Math.round(totalTurns / games), errors });
+process.exitCode = errors ? 1 : 0;

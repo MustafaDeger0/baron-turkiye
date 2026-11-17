@@ -17,6 +17,26 @@
   --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35 0 0 0 0 .28 0 0 0 0 .18 0 0 0 .09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
   font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
+
+/* WebGL gerektirmeyen, aynı oyun kontrollerini kullanan tahta. */
+#game.g2d { display: flex; flex-direction: column; align-items: center; overflow: auto; padding: 12px 8px 100px; }
+#game.g2d.hidden { display: none; }
+#game.g2d #gl3d { display: none; }
+#game.g2d .board-dom { position: relative; left: auto; top: auto; width: var(--fallback-side); height: var(--fallback-side); visibility: visible; pointer-events: auto; flex: none; --side: var(--fallback-side); }
+#game.g2d .board-dom .board-frame { position: relative; width: var(--fallback-side); height: var(--fallback-side); }
+#game.g2d .hud-sq { width: 65%; height: 65%; top: 50%; left: 50%; }
+#game.g2d .hud-top { top: 5cqw; }
+#game.g2d .hud-low { top: 55cqw; }
+#game.g2d .landing { display: none; }
+#game.g2d .hud-sq .dice-row .die { display: block; width: 8cqw; height: 8cqw; }
+#game.g2d #playerList.p-corners { position: relative; inset: auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; order: -1; margin-bottom: 10px; }
+#game.g2d #playerList.p-corners li { position: static; width: clamp(130px, 22vw, 200px); transform: none; }
+#game.g2d .tb { position: fixed; top: auto; bottom: 8px; transform: none; z-index: 20; }
+#game.g2d .tb-left { left: 8px; }
+#game.g2d .tb-right { right: 8px; }
+#game.g2d .room-tag { display: none; }
+#game.g2d .tb-more { bottom: 100%; top: auto; }
+.sq:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; z-index: 2; }
 * { box-sizing: border-box; }
 html { background: var(--bg); }
 html, body { margin: 0; height: 100%; }
@@ -1578,6 +1598,18 @@ body.ingame { position: fixed; inset: 0; overflow: hidden; overscroll-behavior: 
 .legal-note a { color: inherit; font-weight: 700; }
 select { font: inherit; border: 2px solid #d4cbb2; border-radius: 10px; padding: 8px 10px; background: #fff; }
 /* dar bilgisayar / yatay telefon: BARON yazısı profil kartına binmesin */
+.home2 .settings-card { display: flex; }
+#game.g3d.g2d { overflow: auto; padding: 12px 8px 100px; }
+#game.g2d #playerList.p-corners { flex-direction: row; }
+#game.g2d .hud-top { top: 3cqw; bottom: auto; padding: 0; }
+#game.g2d .hud-sq .dice-row { display: flex !important; }
+#game.g2d .hud-sq .bank-stock { display: flex !important; }
+#game.g2d .hud-sq .pot:not(.hidden) { display: flex !important; top: 80%; left: 50%; }
+#game.g2d.g-portrait .tb-left { top: auto; bottom: 8px; left: 8px; transform: none; }
+#game.g2d.g-portrait .tb-right { top: auto; bottom: 8px; left: auto; right: 8px; transform: none; }
+#game.g2d #playerList.p-corners li:nth-child(n) { position: static; margin: 0; transform: none; }
+#game.g2d .tb-left .tb-more { top: auto; bottom: calc(100% + 8px); left: 0; transform: none; }
+#game.g2d #graphicsBtn { width: auto; padding: 0 6px; }
 @media (min-width: 921px) and (max-width: 1180px) {
   .home2 { grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
   .hero { gap: 12px; }

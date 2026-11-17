@@ -158,7 +158,36 @@
     return { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
   }
   // ---------- 3D görünüm (three.js) ----------
-  let V3 = null, v3Loading = null;
+  let V3 = null, v3Loading = null, heroView = null;
+  let quality = store.get('baron_graphics') || 'auto', viewGeneration = 0;
+  const effectiveQuality = () => quality === 'auto' ? (Math.min(innerWidth, innerHeight) < 700 || (navigator.deviceMemory || 8) <= 4 ? 'low' : 'medium') : quality;
+  function use2D(message) {
+    if (V3) { V3.dispose(); V3 = null; }
+    $('#game').classList.add('g2d');
+    $('.board-dom .board-frame').appendChild($('#center'));
+    $('.board-dom').setAttribute('aria-hidden', 'false');
+    $('#camBtn').disabled = true;
+    fitLayout();
+    if (boardBuilt) layoutPawns(false);
+    if (message) toast(message);
+  }
+  async function setGraphics(value) {
+    if (!['auto', 'low', 'medium', 'high', '2d'].includes(value)) return;
+    quality = value; store.set('baron_graphics', value); $('#graphicsQuality').value = value;
+    viewGeneration++; v3Loading = null;
+    if (V3) { V3.dispose(); V3 = null; }
+    if (heroView) { heroView.dispose(); heroView = null; }
+    if (quality === '2d') use2D(); else await load3D();
+    window.dispatchEvent(new CustomEvent('baron:graphics'));
+  }
+  $('#graphicsQuality').value = quality;
+  $('#graphicsQuality').onchange = (e) => setGraphics(e.target.value);
+  $('#graphicsBtn').onclick = () => { $('#tbMore').classList.add('hidden'); openModal((el) => {
+    el.innerHTML = '<h3>Grafik kalitesi</h3><label class="field"><span>Görünüm</span><select id="gameQuality">' + $('#graphicsQuality').innerHTML + '</select></label>';
+    $('#gameQuality').value = quality;
+    $('#gameQuality').onchange = (e) => { const value = e.target.value; closeModal(); setGraphics(value); };
+  }); };
+  $('#gl3d').addEventListener('webglcontextlost', (e) => { e.preventDefault(); viewGeneration++; v3Loading = null; use2D('Grafik bağlantısı kesildi. 2D tahtadan devam edebilirsin.'); });
   function fitLayout() {
     const sa = safeArea(), root = document.documentElement.style;
     const fullW = window.innerWidth, fullH = window.innerHeight;
@@ -170,6 +199,11 @@
     const hs = Math.round(portrait ? Math.min(W, H * 0.6) : Math.min(H, W * 0.62));
     root.setProperty('--hs', `${hs}px`);
     const gm = $('#game');
+    if (gm.classList.contains('g2d')) {
+      const side = Math.max(280, Math.min(W - 16, H - 175));
+      root.setProperty('--fallback-side', `${side}px`);
+      root.setProperty('--hs', `${side * 0.68}px`);
+    }
     gm.classList.toggle('g-portrait', portrait);
     gm.classList.toggle('g-small', small);
     if (V3) {
@@ -197,15 +231,22 @@
   if (window.ResizeObserver) new ResizeObserver(() => fitHome()).observe($('#home2'));
   // 3D görünümü yükle ve oyunun o anki hâliyle eşitle
   function load3D() {
+    if (!BOARD) return Promise.resolve();
+    if (quality === '2d') { use2D(); return Promise.resolve(); }
     if (v3Loading) return v3Loading;
+    const generation = viewGeneration;
     v3Loading = import('/3d/view.js').then(async (mod) => {
-      V3 = await mod.createView($('#gl3d'), { squares: BOARD.squares, groups: BOARD.groups, ART, ICON, onPick: (i) => openDeed(i) });
+      const view = await mod.createView($('#gl3d'), { squares: BOARD.squares, groups: BOARD.groups, ART, ICON, onPick: (i) => openDeed(i), quality: effectiveQuality() });
+      if (generation !== viewGeneration) { view.dispose(); return; }
+      V3 = view;
+      $('#game').appendChild($('#center'));
+      $('#game').classList.remove('g2d'); $('.board-dom').setAttribute('aria-hidden', 'true'); $('#camBtn').disabled = false;
       if (location.hostname === 'localhost') window.__V3 = V3;
       const portrait = innerHeight > innerWidth * 1.05;
       V3.setCamMode('all'); renderCamBtn();
       fitLayout();
       const g = game(); if (g) sync3D(g);
-    }).catch((e) => { console.error(e); toast('3D görünüm yüklenemedi: ' + (e && e.message), 'err'); });
+    }).catch((e) => { console.error(e); if (generation === viewGeneration) use2D('3D açılamadı. 2D tahtadan oyuna devam edebilirsin.'); });
     return v3Loading;
   }
   function sync3D(g) {
@@ -275,6 +316,9 @@
     if (res && res.pid) { saveSession(res); if ($('#modalBody').querySelector('#botsForm, #createForm')) closeModal(); }
     return true;
   };
+  function leaveRoom(onLeft = clearSession) {
+    socket.emit('room:leave', (res) => { if (handle(res)) onLeft(); });
+  }
   function act(type, extra = {}) {
     socket.emit('game:act', { type, ...extra }, (res) => { if (res && res.error) toast(res.error, 'err'); });
   }
@@ -462,7 +506,7 @@
     if (socket.connected) socket.disconnect();
     socket.connect();
   }
-  function logout() {
+  function clearLogin() {
     token = null; user = null; store.set('baron_token', null);
     socket.disconnect();
     session = null; room = null;
@@ -470,6 +514,38 @@
     $('#authUser').value = ''; $('#authPass').value = '';
     showScreen('auth');
   }
+  async function logout() {
+    try {
+      const r = await api('/api/logout', {});
+      if (!r.ok && r.status !== 401) return toast(r.error || 'Çıkış tamamlanamadı.', 'err');
+      clearLogin();
+    } catch { toast('Çıkış kaydedilemedi. Bağlantını kontrol et.', 'err'); }
+  }
+  $('#logoutAllBtn').onclick = () => confirmBox('Tüm cihazlardaki oturumların kapatılsın mı?', 'Çıkış yap', logout);
+  function passwordForm(mode, resetToken) {
+    openModal((el) => {
+      el.innerHTML = `<h3>${mode === 'forgot' ? 'Şifremi unuttum' : 'Şifreni yenile'}</h3><form id="passwordForm" class="create-form">
+        ${mode === 'forgot' ? '<label class="field"><span>E-posta</span><input name="email" type="email" autocomplete="email" required maxlength="254"></label>' : `${mode === 'change' ? '<label class="field"><span>Mevcut şifre</span><input name="current" type="password" autocomplete="current-password" required maxlength="100"></label>' : ''}<label class="field"><span>Yeni şifre</span><input name="password" type="password" autocomplete="new-password" required minlength="6" maxlength="100"></label><label class="field"><span>Yeni şifre tekrar</span><input name="confirm" type="password" autocomplete="new-password" required minlength="6" maxlength="100"></label>`}
+        <p id="passwordStatus" role="status"></p><button class="btn primary" type="submit">${mode === 'forgot' ? 'Bağlantı gönder' : 'Şifreyi kaydet'}</button></form>`;
+      const form = $('#passwordForm');
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const fields = new FormData(form), status = $('#passwordStatus'), btn = $('button[type="submit"]', form);
+        if (mode !== 'forgot' && fields.get('password') !== fields.get('confirm')) { status.textContent = 'Şifreler eşleşmiyor.'; return; }
+        const body = mode === 'forgot' ? { email: fields.get('email') } : mode === 'change' ? { password: fields.get('current'), newPassword: fields.get('password') } : { token: resetToken, password: fields.get('password') };
+        btn.disabled = true;
+        try {
+          const r = await api(`/api/password/${mode}`, body);
+          if (!r.ok) { status.textContent = r.error || 'İşlem tamamlanamadı.'; return; }
+          if (mode === 'forgot') status.textContent = r.message;
+          else { closeModal(); clearLogin(); toast('Şifren yenilendi. Yeni şifrenle giriş yap.'); }
+        } catch { status.textContent = 'Bağlantı kurulamadı. Tekrar dene.'; }
+        finally { btn.disabled = false; }
+      };
+    });
+  }
+  $('#forgotPasswordBtn').onclick = () => passwordForm('forgot');
+  $('#changePasswordBtn').onclick = () => passwordForm('change');
   $('#logoutBtn').onclick = () => confirmBox('Çıkış yapmak istiyor musun?', 'Çıkış Yap', logout);
 
   function openDaily() {
@@ -610,7 +686,7 @@
   });
   let connFails = 0;
   socket.on('connect_error', (e) => {
-    if (e && e.message === 'auth') return logout();
+    if (e && e.message === 'auth') return clearLogin();
     // sunucu/veritabanı uyanıyor olabilir: bekle ve tekrar dene
     connFails++;
     if (!$('#loading').classList.contains('hidden')) {
@@ -622,6 +698,7 @@
   });
   socket.on('disconnect', (reason) => { if (token && reason !== 'io client disconnect') $('#conn').classList.remove('hidden'); });
   socket.on('me', (u) => setUser(u));
+  socket.on('session:revoked', () => { clearLogin(); toast('Oturumların kapatıldı. Tekrar giriş yap.'); });
   socket.on('rooms:list', renderRooms);
   socket.on('kicked', (msg) => { toast(msg, 'err'); session = null; room = null; showScreen('home'); });
   socket.on('room:state', (s) => {
@@ -693,7 +770,7 @@
     });
   };
   $('#startBtn').onclick = () => socket.emit('lobby:start', handle);
-  $('#leaveLobbyBtn').onclick = () => socket.emit('room:leave', () => clearSession());
+  $('#leaveLobbyBtn').onclick = () => leaveRoom();
   $('#copyLinkBtn').onclick = async () => {
     const url = `${location.origin}${location.pathname}?oda=${room.code}`;
     try { await navigator.clipboard.writeText(url); toast('Davet linki kopyalandı!'); } catch { prompt('Linki kopyala:', url); }
@@ -849,6 +926,8 @@
       d.dataset.idx = i;
       d.innerHTML = squareHTML(s);
       d.title = s.name;
+      d.tabIndex = 0; d.setAttribute('role', 'button'); d.setAttribute('aria-label', `${s.name} tapusunu aç`);
+      d.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDeed(i); } };
       d.onclick = () => openDeed(i);
       b.appendChild(d);
     });
@@ -1658,8 +1737,8 @@
   $('#leaveGameBtn').onclick = () => {
     const g = game(), m = me();
     const playing = g && g.phase !== 'gameover' && m && !m.bankrupt;
-    if (!playing) return socket.emit('room:leave', () => clearSession());
-    confirmBox('Oyundan çıkarsan iflas etmiş sayılırsın. Emin misin?', 'Çık', () => socket.emit('room:leave', () => clearSession()));
+    if (!playing) return leaveRoom();
+    confirmBox('Oyundan çıkarsan iflas etmiş sayılırsın. Emin misin?', 'Çık', () => leaveRoom());
   };
   // oyun sonu istatistikleri: öne çıkanlar + tablo
   function statsHTML(g) {
@@ -1699,9 +1778,9 @@
     ov.classList.remove('hidden');
     if (firstShow) confetti();
     if (d > 0) after(400, () => chipBurst(centerOf($('.chip-result')), { x: innerWidth / 2, y: -40 }, d));
-    $('#homeBtn').onclick = () => socket.emit('room:leave', () => clearSession());
+    $('#homeBtn').onclick = () => leaveRoom();
     const wasBot = room.botGame, lvl = g.botLevel, nBots = g.players.filter((p) => p.isBot).length, rounds = g.roundLimit;
-    $('#againBtn').onclick = () => socket.emit('room:leave', () => {
+    $('#againBtn').onclick = () => leaveRoom(() => {
       clearSession();
       if (wasBot) socket.emit('room:bots', { bots: nBots, roundLimit: rounds, startMoney: 1500 * K, icon: look.icon, color: look.color, level: lvl }, handle);
       else socket.emit('room:quick', {}, handle);
@@ -1739,12 +1818,15 @@
   (function heroArt() {
     const cv = $('#heroGl'); if (!cv) return;
     const vis = () => !$('#home').classList.contains('hidden') && cv.offsetParent !== null && !document.hidden;
-    const start = () => import('/3d/hero.js').then((m) => m.createHero(cv, vis)).catch((e) => console.error(e));
+    const start = () => { if (quality === '2d' || effectiveQuality() === 'low') return; return import('/3d/hero.js').then((m) => { heroView = m.createHero(cv, vis); }).catch((e) => console.error(e)); };
+    window.addEventListener('baron:graphics', start);
     if (matchMedia('(max-width: 920px)').matches) matchMedia('(max-width: 920px)').addEventListener('change', (e) => { if (!e.matches && !start.done) { start.done = true; start(); } });
     else { start.done = true; start(); }
   })();
 
   (async () => {
+    const reset = new URLSearchParams(location.hash.slice(1)).get('reset');
+    if (reset) { history.replaceState(null, '', location.pathname + location.search); showScreen('auth'); passwordForm('reset', reset); return; }
     if (!token) return showScreen('auth');
     let r = null;
     for (let k = 0; k < 6 && !(r && (r.ok || r.status === 401)); k++) {
@@ -1752,7 +1834,7 @@
       r = await api('/api/me').catch(() => null);
     }
     if (!r || !r.ok) {
-      if (r && r.status === 401) return logout();
+      if (r && r.status === 401) return clearLogin();
       $('#loadingText').textContent = 'Sunucuya ulaşılamadı';
       $('#loadingSub').textContent = (r && r.error) || 'Biraz bekleyip yeniden dene.';
       $('#retryBtn').classList.remove('hidden');

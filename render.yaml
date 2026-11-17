@@ -7,6 +7,10 @@ services:
     startCommand: npm start
     healthCheckPath: /health
     envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: PUBLIC_URL
+        value: https://baron-turkiye.onrender.com
       - key: SESSION_SECRET
         generateValue: true   # oturum anahtarlarını imzalar; Render otomatik üretir
       - key: DATABASE_URL
