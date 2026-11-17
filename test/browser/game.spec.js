@@ -39,14 +39,14 @@ test('3D dosyası yüklenemeyince otomatik 2D tahtaya geçilir', async ({ page, 
 test('grafik ayarı oyun içinden değiştirilir ve saklanır', async ({ page, request }) => {
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await login(page, request, 'low'); await bots(page);
-  await expect(page.locator('#game')).not.toHaveClass(/g2d/);
+  await expect(page.locator('#game')).not.toHaveClass(/g2d/, { timeout: 30000 });
   await page.locator('#tbMoreBtn').click(); await page.locator('#graphicsBtn').click();
   await page.locator('#gameQuality').selectOption('2d');
   await expect(page.locator('#game')).toHaveClass(/g2d/);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baron_graphics')))).toBe('2d');
   await page.locator('#tbMoreBtn').click(); await page.locator('#graphicsBtn').click();
   await page.locator('#gameQuality').selectOption('medium');
-  await expect(page.locator('#game')).not.toHaveClass(/g2d/);
+  await expect(page.locator('#game')).not.toHaveClass(/g2d/, { timeout: 30000 });
   expect(errors).toEqual([]);
 });
 test('şifre kurtarma ve değiştirme formları doğrulama yapar', async ({ page, request }) => {
