@@ -34,10 +34,17 @@ export function createHero(canvas, isVisible) {
 
   const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
   camera.position.set(0.05, 2.3, 5.4); camera.lookAt(0.05, 0.45, 0);
+  let width = 0, height = 0;
   function resize() {
-    const w = canvas.clientWidth || 300, h = canvas.clientHeight || 200;
-    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h || (w === width && h === height)) return;
+    width = w; height = h;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.zoom = Math.min(1, camera.aspect / 1.8);
+    camera.updateProjectionMatrix();
   }
+  const observer = new ResizeObserver(resize); observer.observe(canvas);
   addEventListener('resize', resize); resize();
 
   // zar atışı: birkaç saniyede bir havaya atılıp dönerek düşer
@@ -47,6 +54,7 @@ export function createHero(canvas, isVisible) {
   }
   const frame = (now) => {
     if (!isVisible()) return;
+    resize();
     tokens.forEach((t, i) => {
       const ph = now / 520 - i * 0.7;
       t.position.y = Math.max(0, Math.sin(ph)) * 0.32;                 // sırayla zıplasınlar
@@ -67,5 +75,5 @@ export function createHero(canvas, isVisible) {
   };
   const visible = () => renderer.setAnimationLoop(document.hidden ? null : frame);
   document.addEventListener('visibilitychange', visible); visible();
-  return { dispose() { renderer.setAnimationLoop(null); removeEventListener('resize', resize); document.removeEventListener('visibilitychange', visible); scene.traverse((obj) => { obj.geometry?.dispose(); (Array.isArray(obj.material) ? obj.material : [obj.material]).filter(Boolean).forEach((m) => { m.map?.dispose(); m.dispose(); }); }); renderer.dispose(); } };
+  return { dispose() { observer.disconnect(); renderer.setAnimationLoop(null); removeEventListener('resize', resize); document.removeEventListener('visibilitychange', visible); scene.traverse((obj) => { obj.geometry?.dispose(); (Array.isArray(obj.material) ? obj.material : [obj.material]).filter(Boolean).forEach((m) => { m.map?.dispose(); m.dispose(); }); }); renderer.dispose(); } };
 }
