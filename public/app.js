@@ -194,9 +194,9 @@
     const fullW = window.innerWidth, fullH = window.innerHeight;
     root.setProperty('--vh', `${fullH}px`);
     root.setProperty('--sat', `${sa.t}px`); root.setProperty('--sar', `${sa.r}px`); root.setProperty('--sab', `${sa.b}px`); root.setProperty('--sal', `${sa.l}px`);
-    const W = fullW - sa.l - sa.r, H = fullH - sa.t - sa.b;   // çentik dışında kalan alan
-    const voiceSpace = $('#voiceBar').classList.contains('hidden') ? 0 : $('#voiceBar').offsetHeight + 12;
+    const voiceSpace = $('#voiceBar').classList.contains('hidden') ? 0 : $('#voiceBar').offsetHeight;
     root.setProperty('--voice-gap', `${voiceSpace}px`);
+    const W = fullW - sa.l - sa.r, H = fullH - sa.t - sa.b - voiceSpace;
     const portrait = H > W * 1.05, small = Math.min(W, H) < 560;
     // tahta üstü göstergelerin karesi: tahtayla birlikte büyür/küçülür
     const hs = Math.round(portrait ? Math.min(W, H * 0.6) : Math.min(H, W * 0.62));
@@ -216,7 +216,7 @@
       // yatayda üstteki tur/sıra bilgisi tahtanın en üst köşesini (OTOPARK) kapatmasın: tahta biraz aşağı insin
       const topInfo = small ? 50 : Math.min(96, Math.round(H * 0.09));
       const many = gm.classList.contains('many');
-      V3.setMargins(portrait ? { top: sa.t + (many ? (small ? 150 : 170) : (small ? 64 : 80)), bottom: sa.b + Math.max(small ? 64 : 80, voiceSpace ? voiceSpace + 60 : 0), left: sa.l + 4, right: sa.r + 4 } : { top: sa.t + topInfo, bottom: sa.b + Math.max(4, voiceSpace), left: sa.l + side, right: sa.r + side });
+      V3.setMargins(portrait ? { top: sa.t + (many ? (small ? 150 : 170) : (small ? 64 : 80)), bottom: sa.b + (small ? 64 : 80), left: sa.l + 4, right: sa.r + 4 } : { top: sa.t + topInfo, bottom: sa.b + 4, left: sa.l + side, right: sa.r + side });
     }
     if (document.body.classList.contains('ingame') && (window.scrollX || window.scrollY)) window.scrollTo(0, 0);
     fitHome();

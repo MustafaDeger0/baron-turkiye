@@ -65,10 +65,38 @@ test('özel odada iki oyuncu ses bağlar, susturur ve ayrılır', async ({ brows
     await expect(page.locator('#voiceAudio audio')).toHaveAttribute('data-connection', 'connected', { timeout: 30000 });
     await expect(other.locator('#voiceAudio audio')).toHaveAttribute('data-connection', 'connected', { timeout: 30000 });
     expect(await page.locator('#voiceAudio audio').evaluate((el) => el.srcObject?.getAudioTracks().length)).toBe(1);
+    const micOn = () => page.evaluate(() => window.__testVoiceTracks.some((t) => t.enabled));
+    expect(await micOn()).toBe(false);
+    await page.locator('#voiceToggle').click();
+    await expect(page.locator('#voiceToggle')).toHaveAttribute('aria-expanded', 'true');
+    await page.locator('#voiceMode').focus();
+    await page.keyboard.down('KeyV'); expect(await micOn()).toBe(false); await page.keyboard.up('KeyV');
+    await page.locator('#voiceMode').blur();
+    await page.keyboard.down('KeyV'); expect(await micOn()).toBe(true);
+    await page.keyboard.up('KeyV'); expect(await micOn()).toBe(false);
+    const talk = page.locator('#voiceTalk');
+    const point = await talk.evaluate((el) => { const r = el.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    const touch = await page.context().newCDPSession(page);
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] }); expect(await micOn()).toBe(true);
+    await touch.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] }); expect(await micOn()).toBe(false);
+    await touch.detach();
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.down(); expect(await micOn()).toBe(true);
+    await page.evaluate(() => dispatchEvent(new Event('blur'))); expect(await micOn()).toBe(false);
+    await page.mouse.up();
+    await page.locator('#voiceMode').selectOption('open'); expect(await micOn()).toBe(true);
     await page.locator('#voiceMute').click(); await expect(page.locator('#voiceMute')).toHaveAttribute('aria-pressed', 'true');
+    expect(await micOn()).toBe(false);
     await expect(other.locator('#voicePeers')).toContainText('mikrofon kapalı');
     await page.locator('#startBtn').click(); await expect(page.locator('#game')).toBeVisible();
     await expect(page.locator('#voiceBar')).toHaveAttribute('data-state', 'joined');
+    for (const expanded of [true, false]) {
+      if (!expanded) await page.locator('#voiceToggle').click();
+      await expect.poll(() => page.evaluate(() => document.querySelector('#game').getBoundingClientRect().bottom <= document.querySelector('#voiceBar').getBoundingClientRect().top + 1)).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: info.outputPath(`voice-${expanded ? 'settings' : 'compact'}.png`) });
+    }
+    await page.locator('#voiceToggle').click();
     await page.locator('#voiceLeave').click();
     await expect(page.locator('#voiceBar')).toHaveAttribute('data-state', 'idle');
     await expect(other.locator('#voiceAudio audio')).toHaveCount(0);

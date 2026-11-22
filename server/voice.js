@@ -42,7 +42,7 @@ function createVoice(io, rooms, getUser) {
         leave(socket);
         const { room, player } = current;
         if (!calls.has(room.code)) calls.set(room.code, new Map());
-        calls.get(room.code).set(socket.id, { id: player.id, name: player.name, muted: false });
+        calls.get(room.code).set(socket.id, { id: player.id, name: player.name, muted: request.muted === true });
         cb({ ok: true, code: room.code, selfId: player.id, iceServers, peers: [...calls.get(room.code).values()] });
         publish(room.code);
       } catch { cb({ error: 'Sesli sohbet başlatılamadı. Tekrar dene.' }); }

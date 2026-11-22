@@ -3,12 +3,20 @@
 name: Android paketi (Play Store)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
   workflow_dispatch:
     inputs:
       version_name:
         description: 'Sürüm adı (örn. 1.0.0, 1.0.1)'
         required: true
-        default: '1.0.0'
+        default: '1.0.1'
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -40,8 +48,11 @@ jobs:
       - name: Yükleme anahtarını hazırla
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then echo "::error::KEYSTORE_BASE64 gizli değişkeni eksik (Settings → Secrets and variables → Actions)"; exit 1; fi
+          if [ -z "$KEYSTORE_PASSWORD" ]; then echo "::error::KEYSTORE_PASSWORD gizli değişkeni eksik"; exit 1; fi
+          umask 077
           echo "$KEYSTORE_BASE64" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/baron-upload.keystore"
           ls -l "$RUNNER_TEMP/baron-upload.keystore"
 
@@ -54,7 +65,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           APP_HOST: ${{ vars.APP_HOST }}
           VERSION_CODE: ${{ github.run_number }}
-          VERSION_NAME: ${{ github.event.inputs.version_name }}
+          VERSION_NAME: ${{ inputs.version_name || '1.0.1' }}
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --stacktrace bundleRelease assembleRelease
@@ -62,7 +73,7 @@ jobs:
       - name: Dosyaları yükle
         uses: actions/upload-artifact@v4
         with:
-          name: baron-turkiye-${{ github.event.inputs.version_name }}-${{ github.run_number }}
+          name: baron-turkiye-${{ inputs.version_name || '1.0.1' }}-${{ github.run_number }}
           path: |
             android/app/build/outputs/bundle/release/app-release.aab
             android/app/build/outputs/apk/release/app-release.apk

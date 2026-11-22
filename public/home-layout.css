@@ -34,15 +34,20 @@ body.at-home { overflow: hidden; }
 .settings-card { display: flex; flex-direction: column; gap: 10px; }
 .modal-box { max-height: calc(100dvh - 32px); scrollbar-width: none; }
 .modal-box::-webkit-scrollbar { display: none; }
-.voice-bar { position: fixed; z-index: 45; bottom: max(10px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 24px); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; border-radius: 14px; background: #fffdf7; border: 2px solid #e4dcc4; color: var(--ink); }
-.voice-bar > div { display: flex; flex-direction: column; }
-.voice-bar b { font-size: 15px; }
-#voiceStatus, .voice-peers { font-size: 12px; }
-.voice-peers { flex-basis: 100%; text-align: center; }
+.voice-bar { position: fixed; z-index: 45; bottom: 0; left: 0; width: 100%; padding: 6px max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); background: #fffdf7; border-top: 1px solid #e4dcc4; color: var(--ink); }
+.voice-controls { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.voice-bar .btn { margin: 0; min-height: 36px; white-space: nowrap; }
+#voiceStatus { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.voice-details { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 16px; padding-top: 8px; font-size: 12px; }
+.voice-details label { display: flex; align-items: center; gap: 8px; }
+.voice-details select { padding: 5px; }
+.voice-peers { max-height: 48px; overflow: auto; }
 .voice-peers:empty { display: none; }
-body.ingame:has(#voiceBar:not(.hidden)) #game.g-portrait .tb-right,
+#voiceTalk { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#voiceTalk[aria-pressed="true"] { background: #137f4c; color: white; }
+body:has(#voiceBar:not(.hidden)) #game { height: calc(var(--vh) - var(--voice-gap, 0px)); }
+body:has(#voiceBar:not(.hidden)) #lobby { min-height: calc(var(--vh) - var(--voice-gap, 0px)); margin-bottom: var(--voice-gap, 0px); }
 body.ingame:has(#voiceBar:not(.hidden)) #game.g2d .tb { bottom: calc(var(--voice-gap) + 8px); }
-body.ingame:has(#voiceBar:not(.hidden)) #game.g2d { padding-bottom: calc(var(--voice-gap) + 100px); }
 @media (min-width: 921px) and (max-height: 700px) {
   .home2 { padding-top: 12px; padding-bottom: 12px; }
   .h-main { gap: 12px; grid-template-rows: minmax(110px, 1fr) auto minmax(90px, .6fr); }
@@ -77,6 +82,7 @@ body.ingame:has(#voiceBar:not(.hidden)) #game.g2d { padding-bottom: calc(var(--v
   .h-side { height: 100dvh; display: flex; gap: 12px; overflow: auto; scrollbar-width: none; }
   .h-side::-webkit-scrollbar { display: none; }
   .h-side .lb-card { flex: none; }
-  .voice-bar { padding: 8px; gap: 6px; }
-  body.ingame:has(.voice-bar:not(.hidden)) .voice-bar { bottom: 8px; }
+  .voice-controls { gap: 5px; }
+  .voice-bar .btn { padding: 6px 8px; font-size: 12px; }
+  #voiceStatus { flex: 1; }
 }

@@ -305,11 +305,19 @@
 <div id="toasts" class="toasts"></div>
 <div id="conn" class="conn hidden">Bağlantı koptu, yeniden bağlanılıyor…</div>
 <section id="voiceBar" class="voice-bar hidden" aria-label="Özel oda sesli sohbeti">
-  <div><b>Sesli sohbet</b><span id="voiceStatus" role="status" aria-live="polite">Mikrofonun kapalı</span></div>
-  <button id="voiceJoin" class="btn sm" type="button">Sesli sohbete bağlan</button>
-  <button id="voiceMute" class="btn sm hidden" type="button" aria-pressed="false">Mikrofonu kapat</button>
-  <button id="voiceLeave" class="btn sm ghost hidden" type="button">Sesli sohbetten ayrıl</button>
-  <span id="voicePeers" class="voice-peers"></span>
+  <div class="voice-controls">
+    <span id="voiceStatus" role="status" aria-live="polite">Mikrofonun kapalı</span>
+    <button id="voiceJoin" class="btn sm" type="button">Sese bağlan</button>
+    <button id="voiceTalk" class="btn sm hidden" type="button" aria-pressed="false">Bas konuş · V</button>
+    <button id="voiceMute" class="btn sm hidden" type="button" aria-pressed="false">Sustur</button>
+    <button id="voiceToggle" class="btn sm ghost" type="button" aria-expanded="false" aria-controls="voiceDetails">Ses ayarları</button>
+  </div>
+  <div id="voiceDetails" class="voice-details hidden">
+    <label>Konuşma şekli <select id="voiceMode"><option value="ptt">Bas konuş (V)</option><option value="open">Açık mikrofon</option></select></label>
+    <span>Bas konuşta yalnızca düğmeyi veya V tuşunu basılı tutarken sesin gider.</span>
+    <span id="voicePeers" class="voice-peers"></span>
+    <button id="voiceLeave" class="btn sm ghost hidden" type="button">Sesli sohbetten ayrıl</button>
+  </div>
 </section>
 <div id="voiceAudio" hidden></div>
 

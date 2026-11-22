@@ -6,17 +6,32 @@
     const bar = $('voiceBar'), joinButton = $('voiceJoin'), muteButton = $('voiceMute'), leaveButton = $('voiceLeave');
     let room = null, stream = null, joining = false, joined = false, muted = false, epoch = 0;
     let iceServers = [], roster = [];
+    const talkButton = $('voiceTalk'), modeSelect = $('voiceMode');
+    let mode = 'ptt';
+    const held = new Set();
+    const transmitting = () => joined && !muted && (mode === 'open' || held.size > 0);
+    function microphone() {
+      const active = transmitting();
+      stream?.getAudioTracks().forEach((t) => { t.enabled = active; });
+      if (joined) socket.emit('voice:mute', !active);
+      render();
+    }
+    function release() { if (held.size) { held.clear(); microphone(); } }
     const peers = new Map();
     function render(message) {
       bar.classList.toggle('hidden', !room?.eligible);
       joinButton.classList.toggle('hidden', joined);
       joinButton.disabled = joining || !socket.connected;
-      joinButton.textContent = joining ? 'Bağlanılıyor…' : 'Sesli sohbete bağlan';
+      joinButton.textContent = joining ? 'Bağlanılıyor…' : 'Sese bağlan';
       muteButton.classList.toggle('hidden', !joined); leaveButton.classList.toggle('hidden', !joined);
-      muteButton.textContent = muted ? 'Mikrofonu aç' : 'Mikrofonu kapat';
+      muteButton.textContent = muted ? 'Sesi aç' : 'Sustur';
       muteButton.setAttribute('aria-pressed', String(muted));
+      talkButton.classList.toggle('hidden', !joined || mode !== 'ptt');
+      talkButton.disabled = muted;
+      talkButton.setAttribute('aria-pressed', String(transmitting() && mode === 'ptt'));
+      talkButton.textContent = transmitting() ? 'Konuşuyorsun…' : 'Bas konuş · V';
       const connected = [...peers.values()].filter((p) => p.pc.connectionState === 'connected').length;
-      $('voiceStatus').textContent = message || (joined ? muted ? 'Mikrofonun kapalı' : roster.length > 1 ? `${connected} kişiyle bağlı` : 'Bağlandın · diğer oyuncular bekleniyor' : 'Mikrofonun kapalı');
+      $('voiceStatus').textContent = message || (joined ? muted ? 'Susturuldu' : mode === 'ptt' && !transmitting() ? 'Bas konuş hazır' : `${connected} kişiyle bağlı` : 'Ses kapalı');
       $('voicePeers').textContent = joined ? roster.map((p) => `${p.name}${p.id === room?.selfId ? ' (sen)' : ''}${p.muted ? ' · mikrofon kapalı' : ''}`).join(' / ') : '';
       bar.dataset.state = joined ? 'joined' : joining ? 'joining' : 'idle';
     }
@@ -25,7 +40,7 @@
       peers.delete(id); peer.pc.onconnectionstatechange = null; peer.pc.onicecandidate = null; peer.pc.close(); peer.audio.remove();
     }
     function leave(notify = true, message) {
-      const code = room?.code; epoch++; joining = false; joined = false; muted = false; roster = [];
+      const code = room?.code; epoch++; joining = false; joined = false; muted = false; roster = []; held.clear();
       if (stream) stream.getTracks().forEach((track) => track.stop()); stream = null;
       for (const id of [...peers.keys()]) removePeer(id);
       if (notify && code && socket.connected) socket.emit('voice:leave', { code });
@@ -102,12 +117,13 @@
         acquired = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
         if (attempt !== epoch || code !== room?.code) { acquired.getTracks().forEach((t) => t.stop()); return; }
         stream = acquired;
-        const response = await new Promise((resolve, reject) => socket.timeout(10000).emit('voice:join', { code }, (err, result) => err ? reject(err) : resolve(result)));
+        stream.getAudioTracks().forEach((t) => { t.enabled = mode === 'open'; });
+        const response = await new Promise((resolve, reject) => socket.timeout(10000).emit('voice:join', { code, muted: mode !== 'open' }, (err, result) => err ? reject(err) : resolve(result)));
         if (attempt !== epoch || code !== room?.code) { acquired.getTracks().forEach((t) => t.stop()); socket.emit('voice:leave', { code }); return; }
         if (!response?.ok) throw new Error(response?.error || 'Sesli sohbet başlatılamadı.');
         joining = false; joined = true; room.selfId = response.selfId; iceServers = response.iceServers;
         stream.getAudioTracks().forEach((t) => { t.onended = () => { if (joined) leave(true, 'Mikrofon bağlantısı kapandı.'); }; });
-        updateRoster({ code, peers: response.peers }); render();
+        updateRoster({ code, peers: response.peers }); microphone();
       } catch (e) {
         if (acquired) acquired.getTracks().forEach((t) => t.stop());
         if (attempt !== epoch) return;
@@ -116,9 +132,30 @@
     };
     muteButton.onclick = () => {
       if (!joined || !stream) return;
-      muted = !muted; stream.getAudioTracks().forEach((t) => { t.enabled = !muted; });
+      muted = !muted; held.clear();
       for (const peer of peers.values()) peer.audio.play().catch(() => {});
-      socket.emit('voice:mute', muted); render();
+      microphone();
+    };
+    modeSelect.onchange = () => { mode = modeSelect.value === 'open' ? 'open' : 'ptt'; held.clear(); microphone(); };
+    talkButton.addEventListener('pointerdown', (e) => {
+      if (!joined || muted || mode !== 'ptt' || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      e.preventDefault(); talkButton.setPointerCapture(e.pointerId); held.add(`pointer:${e.pointerId}`); microphone();
+    });
+    for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) talkButton.addEventListener(event, (e) => {
+      if (held.delete(`pointer:${e.pointerId}`)) microphone();
+    });
+    const typing = (target) => target instanceof Element && !!target.closest('input, textarea, select, button, [contenteditable]:not([contenteditable="false"])');
+    addEventListener('keydown', (e) => {
+      const key = e.code === 'KeyV' || (e.code === 'Space' && e.target === talkButton);
+      if (!key || e.repeat || e.ctrlKey || e.metaKey || e.altKey || (e.target !== talkButton && typing(e.target)) || !joined || muted || mode !== 'ptt') return;
+      e.preventDefault(); held.add(e.code); microphone();
+    });
+    addEventListener('keyup', (e) => { if (held.delete(e.code)) { e.preventDefault(); microphone(); } });
+    addEventListener('blur', release);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) release(); });
+    $('voiceToggle').onclick = () => {
+      const expanded = $('voiceDetails').classList.toggle('hidden') === false;
+      $('voiceToggle').setAttribute('aria-expanded', String(expanded));
     };
     leaveButton.onclick = () => leave();
     if (window.ResizeObserver) new ResizeObserver(() => window.dispatchEvent(new Event('baron:voice-layout'))).observe(bar);
