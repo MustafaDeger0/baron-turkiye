@@ -146,6 +146,7 @@
   const shownPos = {}, pawnEls = {}, cashShown = {}, cashTweens = {};
 
   const socket = io({ transports: ['websocket', 'polling'], autoConnect: false, auth: (cb) => cb({ token }) });
+  const voice = window.BaronVoice.create({ socket, onError: (message) => toast(message, 'err') });
   if (location.hostname === 'localhost') window.__baronDebug = (d) => socket.emit('debug:dice', d); if (location.hostname === 'localhost') window.__baronEnd = () => socket.emit('debug:end'); // yalnızca yerel test
 
   // ---------- ekrana sığdırma (kaydırma yok) ----------
@@ -194,6 +195,8 @@
     root.setProperty('--vh', `${fullH}px`);
     root.setProperty('--sat', `${sa.t}px`); root.setProperty('--sar', `${sa.r}px`); root.setProperty('--sab', `${sa.b}px`); root.setProperty('--sal', `${sa.l}px`);
     const W = fullW - sa.l - sa.r, H = fullH - sa.t - sa.b;   // çentik dışında kalan alan
+    const voiceSpace = $('#voiceBar').classList.contains('hidden') ? 0 : $('#voiceBar').offsetHeight + 12;
+    root.setProperty('--voice-gap', `${voiceSpace}px`);
     const portrait = H > W * 1.05, small = Math.min(W, H) < 560;
     // tahta üstü göstergelerin karesi: tahtayla birlikte büyür/küçülür
     const hs = Math.round(portrait ? Math.min(W, H * 0.6) : Math.min(H, W * 0.62));
@@ -213,7 +216,7 @@
       // yatayda üstteki tur/sıra bilgisi tahtanın en üst köşesini (OTOPARK) kapatmasın: tahta biraz aşağı insin
       const topInfo = small ? 50 : Math.min(96, Math.round(H * 0.09));
       const many = gm.classList.contains('many');
-      V3.setMargins(portrait ? { top: sa.t + (many ? (small ? 150 : 170) : (small ? 64 : 80)), bottom: sa.b + (small ? 64 : 80), left: sa.l + 4, right: sa.r + 4 } : { top: sa.t + topInfo, bottom: sa.b + 4, left: sa.l + side, right: sa.r + side });
+      V3.setMargins(portrait ? { top: sa.t + (many ? (small ? 150 : 170) : (small ? 64 : 80)), bottom: sa.b + Math.max(small ? 64 : 80, voiceSpace ? voiceSpace + 60 : 0), left: sa.l + 4, right: sa.r + 4 } : { top: sa.t + topInfo, bottom: sa.b + Math.max(4, voiceSpace), left: sa.l + side, right: sa.r + side });
     }
     if (document.body.classList.contains('ingame') && (window.scrollX || window.scrollY)) window.scrollTo(0, 0);
     fitHome();
@@ -221,14 +224,10 @@
   // Bilgisayarda ana sayfa kaydırma gerektirmeden ekrana sığsın
   function fitHome() {
     const h = $('#home2'); if (!h || $('#home').classList.contains('hidden')) return;
-    const desk = window.innerWidth > 920;
-    if (!desk) { h.style.transform = ''; h.style.marginBottom = ''; return; }
-    const natural = h.offsetHeight, avail = window.innerHeight;
-    const k = Math.max(0.6, Math.min(1, avail / natural));
-    h.style.transform = k < 1 ? `scale(${k})` : '';
-    h.style.marginBottom = k < 1 ? `${-(natural * (1 - k))}px` : '';
+    h.style.transform = ''; h.style.marginBottom = '';
   }
   if (window.ResizeObserver) new ResizeObserver(() => fitHome()).observe($('#home2'));
+  window.addEventListener('baron:voice-layout', fitLayout);
   // 3D görünümü yükle ve oyunun o anki hâliyle eşitle
   function load3D() {
     if (!BOARD) return Promise.resolve();
@@ -289,6 +288,7 @@
     setTimeout(() => t.remove(), 3200);
   }
   function showScreen(id) {
+    document.body.classList.toggle('at-home', id === 'home');
     ['loading', 'auth', 'home', 'lobby', 'game'].forEach((s) => $(`#${s}`).classList.toggle('hidden', s !== id));
     if (id === 'home' && token) loadLeaderboard();
     document.body.classList.toggle('ingame', id === 'game');
@@ -300,6 +300,7 @@
     history.replaceState(null, '', `?oda=${res.code}`);
   }
   function clearSession() {
+    voice.setRoom(null);
     session = null; room = null; latest = null; prevGame = null; queue.length = 0; busy = false;
     if (V3) V3.reset(); gameKey = null;
     history.replaceState(null, '', location.pathname);
@@ -355,6 +356,7 @@
 
   // ---------- modal ----------
   function openModal(renderFn) {
+    closeModal();
     modalRender = renderFn;
     $('#modalBody').innerHTML = '';
     renderFn($('#modalBody'));
@@ -362,7 +364,7 @@
   }
   function closeModal() {
     modalRender = null;
-    ['#botsForm', '#createForm'].forEach((f) => { const el = $(f); if (el && !$('#formStash').contains(el)) $('#formStash').appendChild(el); });
+    ['#botsForm', '#createForm', '.settings-card'].forEach((f) => { const el = $(f); if (el && !$('#formStash').contains(el)) $('#formStash').appendChild(el); });
     $('#modal').classList.add('hidden');
   }
   $('#modal').addEventListener('click', (e) => { if (e.target.id === 'modal' || e.target.closest('[data-close]')) closeModal(); });
@@ -470,6 +472,7 @@
     if (!u) return;
     const prev = user;
     user = u;
+    $('#accountId').textContent = u.id;
     $('#ubName').textContent = u.name;
     $('#ubAvatar').textContent = u.name.slice(0, 1).toLocaleUpperCase('tr-TR');
     $('#ubStats').textContent = `${u.games} oyun · ${u.wins} galibiyet${u.games ? ` · %${Math.round((u.wins / u.games) * 100)}` : ''}`;
@@ -507,6 +510,7 @@
     socket.connect();
   }
   function clearLogin() {
+    voice.setRoom(null);
     token = null; user = null; store.set('baron_token', null);
     socket.disconnect();
     session = null; room = null;
@@ -609,6 +613,12 @@
   const home2 = () => $('#home2');
   $('#homeMenuBtn').onclick = () => home2().classList.add('drawer-open');
   $('#homeMenuClose').onclick = () => home2().classList.remove('drawer-open');
+  const settingsPanel = $('.settings-card');
+  $('#formStash').appendChild(settingsPanel);
+  $$('[data-settings]').forEach((button) => { button.onclick = () => {
+    home2().classList.remove('drawer-open');
+    closeModal(); $('#modalBody').appendChild(settingsPanel); $('#modal').classList.remove('hidden');
+  }; });
   $('#homeBackdrop').onclick = () => home2().classList.remove('drawer-open');
   $('#mGiftBtn').onclick = () => $('#dailyBtn').click();
   $('#homeFsBtn').onclick = () => { home2().classList.remove('drawer-open'); toggleFullscreen(); };
@@ -700,8 +710,9 @@
   socket.on('me', (u) => setUser(u));
   socket.on('session:revoked', () => { clearLogin(); toast('Oturumların kapatıldı. Tekrar giriş yap.'); });
   socket.on('rooms:list', renderRooms);
-  socket.on('kicked', (msg) => { toast(msg, 'err'); session = null; room = null; showScreen('home'); });
+  socket.on('kicked', (msg) => { voice.setRoom(null); toast(msg, 'err'); session = null; room = null; showScreen('home'); });
   socket.on('room:state', (s) => {
+    voice.setRoom({ code: s.code, selfId: session && session.pid, eligible: !s.isPublic && !s.quick && !s.botGame && s.status !== 'ended' });
     skew = s.serverNow - Date.now();
     latest = s;
     renderChat(s);

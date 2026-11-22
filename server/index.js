@@ -12,6 +12,7 @@ const { createStore, publicUser } = require('./db');
 const auth = require('./auth');
 const { snapshot, restore } = require('./persistence');
 const { installAccountRoutes } = require('./accounts');
+const { createVoice } = require('./voice');
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -113,6 +114,7 @@ const pushUser = (u) => { if (u) io.to(`u:${u.id}`).emit('me', publicUser(u)); }
 // ---------- odalar ----------
 /** @type {Map<string, any>} */
 const rooms = new Map();
+const voice = createVoice(io, rooms, (uid) => db.byId(uid));
 let worldQueue = Promise.resolve(), unit = null, tickPending = false;
 // Oda işlemleri ve zamanlayıcılar aynı sırada çalışır; kayıt bitmeden yanıt gönderilmez.
 function runWorld(fn) {
@@ -128,6 +130,7 @@ function runWorld(fn) {
       committed = true;
       const completed = unit; unit = null;
       users.forEach(pushUser);
+      voice.sync();
       completed.callbacks.forEach((f) => f());
       completed.broadcasts.forEach((code) => { const r = rooms.get(code); if (r) broadcast(r); });
       completed.after.forEach((f) => f());
@@ -362,6 +365,7 @@ io.use(async (socket, next) => {
 });
 
 io.on('connection', (socket) => {
+  voice.attach(socket);
   const uid = socket.data.uid;
   socket.join(`u:${uid}`);
   let bucket = 0;
@@ -669,7 +673,7 @@ app.post('/api/account/delete', wrap(async (req, res) => {
   console.log(`[HESAP SİLİNDİ] #${u.id} ${u.username}`);
   res.json({ ok: true });
 }));
-app.get('/api/site-info', (_req, res) => res.json({ contact: process.env.CONTACT_EMAIL || 'mustafaddeger@gmail.com', developer: process.env.DEVELOPER_NAME || 'DGR Studio', updated: '4 Kasım 2026' }));
+app.get('/api/site-info', (_req, res) => res.json({ contact: process.env.CONTACT_EMAIL || 'mustafaddeger@gmail.com', developer: process.env.DEVELOPER_NAME || 'DGR Studio', updated: '22 Kasım 2026' }));
 // Android uygulaması ile site arasındaki bağ (adres çubuğu gizlensin diye). Parmak izleri Render'da ANDROID_SHA256 ile verilir.
 app.get('/.well-known/assetlinks.json', (_req, res) => {
   // Yükleme anahtarının parmak izi her zaman eklenir; Play Console'daki "uygulama imzalama anahtarı" parmak izi ANDROID_SHA256 ile eklenir

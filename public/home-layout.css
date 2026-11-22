@@ -1,0 +1,82 @@
+/* Ana ekran boyutu içerik uzunluğuna göre ölçeklenmez. */
+body.at-home { overflow: hidden; }
+#home { height: 100dvh; min-height: 0; overflow: hidden; }
+.home2 { width: min(1600px, 100%); max-width: none; height: 100%; min-height: 0; padding: clamp(16px, 2.4vh, 32px) clamp(20px, 3vw, 56px); gap: clamp(20px, 2.5vw, 40px); grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 390px); transform: none; }
+.h-main { display: grid; grid-template-rows: minmax(145px, 1fr) auto minmax(110px, .7fr); gap: clamp(14px, 2.3vh, 28px); min-height: 0; height: 100%; }
+.h-side { min-height: 0; height: 100%; display: grid; grid-template-rows: auto auto minmax(130px, 1fr) auto auto; gap: clamp(10px, 1.6vh, 18px); }
+.hero { min-height: 0; margin: 0; padding: 0; gap: clamp(12px, 2vw, 30px); }
+.hero-art { width: clamp(180px, 26vw, 410px); height: clamp(140px, 23vh, 260px); margin: 0; flex: 1 1 40%; }
+.hero-text { flex: 1 1 55%; min-width: 0; }
+.hero-text h1 { font-size: clamp(54px, 5.2vw, 98px); line-height: 1; }
+.hero-text h1 small { font-size: clamp(16px, 1.3vw, 24px); letter-spacing: .38em; }
+.hero-text p { font-size: clamp(16px, 1.2vw, 20px); margin-top: 14px; max-width: 470px; }
+.hero .rules-btn { margin-top: 14px; font-size: 15px; }
+.modes { gap: clamp(12px, 1.5vw, 22px); }
+.mode { min-height: clamp(90px, 13vh, 140px); padding: clamp(14px, 2vh, 24px); }
+.m-t { font-size: clamp(21px, 1.65vw, 30px); }
+.m-d { font-size: clamp(14px, 1vw, 18px); }
+.m-ic { width: clamp(46px, 4vw, 68px); height: clamp(46px, 4vw, 68px); }
+.m-join .join-box input { width: 100%; }
+.rooms-card { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.rooms-card h3, .h-side h3 { font-size: 19px; }
+.room-list { flex: 1; min-height: 0; overflow: auto; scrollbar-width: none; }
+.room-list::-webkit-scrollbar { display: none; }
+.room-list .muted { font-size: 16px; }
+.h-side .card { padding: clamp(12px, 1.7vh, 20px); }
+.profile .p-btns .snd { display: none; }
+.profile .p-btns { flex-wrap: wrap; justify-content: flex-end; }
+.p-name b { font-size: 20px; }
+.p-name small { font-size: 13px; }
+.lb-card { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.lb.mini { overflow: hidden; gap: clamp(3px, .8vh, 9px); }
+.lb.mini li { font-size: 15px; padding: clamp(5px, 1vh, 10px) 8px; flex: none; }
+.h-side .foot { display: block; margin: 0; font-size: 12px; color: #c3d6df; }
+.settings-card { display: flex; flex-direction: column; gap: 10px; }
+.modal-box { max-height: calc(100dvh - 32px); scrollbar-width: none; }
+.modal-box::-webkit-scrollbar { display: none; }
+.voice-bar { position: fixed; z-index: 45; bottom: max(10px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 24px); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; border-radius: 14px; background: #fffdf7; border: 2px solid #e4dcc4; color: var(--ink); }
+.voice-bar > div { display: flex; flex-direction: column; }
+.voice-bar b { font-size: 15px; }
+#voiceStatus, .voice-peers { font-size: 12px; }
+.voice-peers { flex-basis: 100%; text-align: center; }
+.voice-peers:empty { display: none; }
+body.ingame:has(#voiceBar:not(.hidden)) #game.g-portrait .tb-right,
+body.ingame:has(#voiceBar:not(.hidden)) #game.g2d .tb { bottom: calc(var(--voice-gap) + 8px); }
+body.ingame:has(#voiceBar:not(.hidden)) #game.g2d { padding-bottom: calc(var(--voice-gap) + 100px); }
+@media (min-width: 921px) and (max-height: 700px) {
+  .home2 { padding-top: 12px; padding-bottom: 12px; }
+  .h-main { gap: 12px; grid-template-rows: minmax(110px, 1fr) auto minmax(90px, .6fr); }
+  .hero-art { height: 130px; }
+  .hero-text h1 { font-size: 58px; }
+  .hero-text p { margin-top: 8px; font-size: 15px; }
+  .hero .rules-btn { margin-top: 8px; }
+  .mode { min-height: 82px; padding: 12px 14px; }
+  .h-side { gap: 8px; }
+  .h-side .card { padding: 10px 12px; }
+  .h-side .card-head { margin-bottom: 8px; }
+  .daily-strip { margin-bottom: 8px; }
+  .daily-go { padding: 7px; }
+  .lb.mini li { font-size: 14px; padding: 4px 6px; }
+}
+@media (max-width: 920px) {
+  .home2 { display: block; width: 100%; height: 100%; padding: 8px 14px 16px; }
+  .h-main { height: calc(100% - 52px); gap: 12px; grid-template-rows: minmax(100px, 1fr) auto minmax(90px, .55fr); }
+  .m-topbar { height: 44px; margin-bottom: 8px; }
+  .hero { justify-content: center; text-align: center; }
+  .hero-art { display: none; }
+  .hero-text { flex: 0 1 auto; }
+  .hero-text h1 { font-size: clamp(38px, 10vw, 64px); }
+  .hero-text h1 small { font-size: 15px; }
+  .hero-text p { margin-top: 8px; font-size: 14px; max-width: 460px; }
+  .hero .rules-btn { margin-top: 8px; }
+  .modes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .mode { min-height: 92px; padding: 12px 10px; gap: 5px; }
+  .m-t { font-size: 18px; }
+  .m-d { font-size: 12px; }
+  .m-ic { width: 36px; height: 36px; }
+  .h-side { height: 100dvh; display: flex; gap: 12px; overflow: auto; scrollbar-width: none; }
+  .h-side::-webkit-scrollbar { display: none; }
+  .h-side .lb-card { flex: none; }
+  .voice-bar { padding: 8px; gap: 6px; }
+  body.ingame:has(.voice-bar:not(.hidden)) .voice-bar { bottom: 8px; }
+}

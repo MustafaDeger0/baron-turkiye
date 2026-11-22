@@ -36,7 +36,19 @@ Profil ayarlarından veya oyun içi Grafik düğmesinden Otomatik, Düşük, Ort
 
 WebGL açılamaz veya bağlam kaybolursa aynı maç 2D tahtayla sürer. Tapu, satın alma, açık artırma, bina, takas ve sohbet aynı sunucu kurallarını kullanır. 2D kareler klavyeyle de açılır.
 
-## Doğrulama
+## Özel odalarda sesli sohbet
+
+Sesli sohbet yalnızca özel insan oyuncu odalarında, oyuncu düğmeye basıp mikrofon izni verdiğinde açılır. Lobi ve oyun arasında bağlantı korunur. Mikrofon kapatma, ayrılma, oda değişimi, sekme değiştirerek aynı koltuğu devralma ve internet kesilmesinde bağlantı temizliği bulunur. Ses kaydı tutulmaz; Socket.IO yalnızca aynı özel odada sese katılmış oyuncular arasında WebRTC bağlantı bilgilerini iletir.
+
+Varsayılan bağlantı STUN kullanır. Bazı mobil, kurumsal veya kısıtlı ağlarda doğrudan bağlantı engellenir; bunlar için bir TURN hizmeti gerekir. Render yalnızca sinyalleşme sunucusudur; ses aktarma sunucusu değildir. Kendi TURN sağlayıcınızın bilgilerini Render'daki `VOICE_ICE_SERVERS` değişkenine bir JSON dizisi olarak ekleyebilirsiniz:
+
+```json
+[{"urls":"stun:stun.l.google.com:19302"},{"urls":["turn:turn.example.com:3478","turns:turn.example.com:5349"],"username":"TURN_KULLANICI_ADI","credential":"TURN_PAROLASI"}]
+```
+
+Bu örneği gerçek hizmet bilgileriyle değiştirin; örnekteki alan adı çalışır bir servis değildir. TURN bilgilerini GitHub'a yazmayın. Bu bilgiler sesli sohbete katılan doğrulanmış oda üyelerine iletilir; sınırlı yetkili ve tercihen kısa ömürlü TURN kimlik bilgileri kullanın. Testler gerçek mikrofon yerine Chromium'un sahte ses aygıtını ve yalnızca yerel ICE adaylarını kullanır.
+
+## Test komutları
 
 ```
 npm ci

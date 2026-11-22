@@ -221,7 +221,17 @@
       $('#who').textContent = `Yönetici: ${me.name}`;
       $('#app').classList.remove('hidden');
       loadUsers(); loadReports().catch(() => {});
-    } catch (e) { $('#gateMsg').textContent = e.message; $('#gate').classList.remove('hidden'); }
+    } catch (e) {
+      $('#gateMsg').textContent = e.message;
+      try {
+        const account = await api('/api/me');
+        if (account.user) {
+          $('#gate h2').textContent = 'Yönetici yetkisi gerekli';
+          $('#gateMsg').textContent = `${account.user.name} hesabının yönetici yetkisi bulunmuyor. Hesap kimliğin: ${account.user.id}. Site sahibi Render'da ADMIN_USER_IDS ayarına bu kimliği ekleyip yeniden dağıtım yapmalı. Ardından bu sayfayı yenile.`;
+        }
+      } catch { /* geçersiz oturumda ilk hata gösterilir */ }
+      $('#gate').classList.remove('hidden');
+    }
   })();
 })();
 </script>

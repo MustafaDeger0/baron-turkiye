@@ -57,7 +57,7 @@ test('şifre kurtarma ve değiştirme formları doğrulama yapar', async ({ page
   await expect(page.locator('#passwordStatus')).toContainText('E-posta hizmeti');
   await page.locator('[data-close]').click();
   await login(page, request);
-  if (await page.locator('#homeMenuBtn').isVisible()) await page.locator('#homeMenuBtn').click();
+  await page.locator('[data-settings]:visible').first().click();
   await page.locator('#changePasswordBtn').click();
   await page.locator('input[name=current]').fill('secret123'); await page.locator('input[name=password]').fill('newsecret123'); await page.locator('input[name=confirm]').fill('different123');
   await page.locator('#passwordForm button').click(); await expect(page.locator('#passwordStatus')).toHaveText('Şifreler eşleşmiyor.');
